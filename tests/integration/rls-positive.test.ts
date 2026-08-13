@@ -26,16 +26,27 @@ beforeAll(async () => {
   studentA = createClient(SUPABASE_URL, PUBLISHABLE_KEY);
   admin = createClient(SUPABASE_URL, PUBLISHABLE_KEY);
 
-  const { data: dataA } = await studentA.auth.signInWithPassword({
+  const { data: dataA, error: errorA } = await studentA.auth.signInWithPassword({
     email: STUDENT_A_EMAIL,
     password: STUDENT_A_PASSWORD,
   });
-  await admin.auth.signInWithPassword({
+  if (errorA || !dataA.user) {
+    throw new Error(
+      `Setup failed: could not authenticate ${STUDENT_A_EMAIL}: ${errorA?.message ?? "no user returned"}`
+    );
+  }
+
+  const { data: dataAdmin, error: errorAdmin } = await admin.auth.signInWithPassword({
     email: ADMIN_EMAIL,
     password: ADMIN_PASSWORD,
   });
+  if (errorAdmin || !dataAdmin.user) {
+    throw new Error(
+      `Setup failed: could not authenticate ${ADMIN_EMAIL}: ${errorAdmin?.message ?? "no user returned"}`
+    );
+  }
 
-  studentAId = dataA.user!.id;
+  studentAId = dataA.user.id;
 });
 
 afterAll(async () => {
@@ -86,15 +97,20 @@ describe("Positive Authorization Tests — Student Permitted Operations", () => 
   });
 
   it("Student can create an application for themselves", async () => {
-    // Requires a seeded open internship
+    // Student A already has a seeded pending application against the primary
+    // seeded internship (see supabase/seed.sql), so re-using it here would
+    // collide with the unique_student_internship constraint. This test targets
+    // the separately seeded "unclaimed" internship instead — isolated fixture
+    // data with no pre-existing application for Student A.
     const { data: internship } = await studentA
       .from("internships")
       .select("id")
-      .eq("status", "open")
-      .limit(1)
+      .eq("title", "Test Data Internship — Unclaimed")
       .single();
 
-    if (!internship) return; // Skip if no open internship seeded
+    if (!internship) {
+      throw new Error("Setup failure: expected the seeded 'unclaimed' open internship but found none.");
+    }
 
     const { error } = await studentA.from("applications").insert({
       student_id: studentAId,
@@ -130,7 +146,11 @@ describe("Positive Authorization Tests — Student Permitted Operations", () => 
       .eq("user_id", studentAId)
       .limit(1);
 
-    if (!notifs || notifs.length === 0) return; // No notification yet
+    if (!notifs || notifs.length === 0) {
+      throw new Error(
+        "Setup failure: expected Student A to have at least one notification but found none."
+      );
+    }
 
     const { error } = await studentA
       .from("notifications")
@@ -178,7 +198,9 @@ describe("Positive Authorization Tests — Admin Permitted Operations", () => {
       .limit(1)
       .single();
 
-    if (!internship) return;
+    if (!internship) {
+      throw new Error("Setup failure: expected the internship created in the prior test but found none.");
+    }
 
     const { error } = await admin
       .from("internships")
@@ -196,7 +218,9 @@ describe("Positive Authorization Tests — Admin Permitted Operations", () => {
       .limit(1)
       .single();
 
-    if (!app) return; // No pending application to test
+    if (!app) {
+      throw new Error("Setup failure: expected a seeded pending application but found none.");
+    }
 
     const { data, error } = await admin.rpc("review_application", {
       app_uuid: app.id,
@@ -208,9 +232,12 @@ describe("Positive Authorization Tests — Admin Permitted Operations", () => {
     expect(data).toBe(true);
   });
 
-  it("Admin can review under_review applications", async () => {
-    // First set one to under_review via direct update as admin (admin has no explicit update policy)
-    // In production this would be done via another RPC; for now assert the function handles it
+  // Skipped, not run: no seed data or application code path in the current
+  // first-slice workflow ever transitions a row to 'under_review' (the only
+  // transitions review_application() supports are pending -> accepted/rejected).
+  // Marking this pending rather than inventing a fake transition just to
+  // exercise it, and rather than silently passing it via an early return.
+  it.skip("Admin can review under_review applications (pending: no code path currently produces 'under_review')", async () => {
     const { data: app } = await admin
       .from("applications")
       .select("id")
@@ -218,7 +245,9 @@ describe("Positive Authorization Tests — Admin Permitted Operations", () => {
       .limit(1)
       .single();
 
-    if (!app) return;
+    if (!app) {
+      throw new Error("Setup failure: expected an under_review application but found none.");
+    }
 
     const { data, error } = await admin.rpc("review_application", {
       app_uuid: app.id,

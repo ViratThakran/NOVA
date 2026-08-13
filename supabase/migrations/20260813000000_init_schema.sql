@@ -1,3 +1,9 @@
+-- Required extension: pgcrypto provides crypt()/gen_salt() used for password hashing
+-- (e.g. local auth.users seeding) and other cryptographic helpers relied on by this schema.
+-- Installed into the `extensions` schema per Supabase convention (not on default search_path,
+-- so callers must schema-qualify: extensions.crypt(...), extensions.gen_salt(...)).
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
 -- Disable default public execution privileges on new functions
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 
@@ -370,3 +376,107 @@ CREATE POLICY "Users can update own notification read flag" ON public.notificati
 CREATE POLICY "Admins can read audit logs" ON public.audit_logs
     FOR SELECT TO authenticated
     USING (public.is_current_user_admin());
+
+-- =========================================================================
+-- TABLE-LEVEL PRIVILEGES (authenticated role)
+-- =========================================================================
+-- RLS policies alone grant nothing: Postgres checks the base table GRANT
+-- before RLS is even evaluated, so without these the policies above are
+-- unreachable and every query fails with 42501 (permission denied), not
+-- with an RLS-driven access decision.
+--
+-- Each grant below covers exactly the commands that have a matching RLS
+-- policy for `authenticated` on that table, no more:
+--   - profiles:          SELECT, UPDATE   (own row; INSERT is trigger-only via handle_new_user)
+--   - user_roles:        SELECT           (own rows; no INSERT/UPDATE/DELETE policy exists —
+--                                          role assignment is trigger-only, so authenticated
+--                                          can never modify roles, matching the no-escalation rule)
+--   - student_profiles:  SELECT, INSERT, UPDATE   (own row)
+--   - internships:       SELECT, INSERT, UPDATE   (open listing / admin-only write, enforced by RLS)
+--   - applications:      SELECT, INSERT   (own rows; no UPDATE policy exists anywhere — status
+--                                          changes only happen inside review_application(), so
+--                                          authenticated never gets a direct UPDATE path)
+--   - enrollments:       SELECT, UPDATE   (no INSERT policy — enrollments are only ever created
+--                                          inside review_application(), never directly by a client)
+--   - notifications:     SELECT, UPDATE   (own rows, read-flag only; INSERT is RPC-only)
+--   - audit_logs:        SELECT           (admin-only read; INSERT is RPC-only via write_audit_log(),
+--                                          and no UPDATE/DELETE policy exists anywhere — immutable)
+--
+-- SECURITY DEFINER functions (handle_new_user, write_audit_log, review_application)
+-- execute with their owner's privileges, so they are unaffected by — and do not
+-- require — any of the grants below.
+--
+-- No grants are given to `anon`: every RLS policy in this schema is `TO authenticated`
+-- only, so anonymous access has no legitimate path and needs no base privilege either.
+--
+-- Explicit per-table grants are used instead of `GRANT ... ON ALL TABLES IN SCHEMA
+-- public` so each table's privilege set stays a deliberate, auditable decision tied
+-- to its actual RLS policies rather than a blanket default. For the same reason, no
+-- ALTER DEFAULT PRIVILEGES rule is added for future tables — each new table should
+-- have its own minimal grant chosen alongside its own RLS policies when it's created.
+
+GRANT SELECT, UPDATE ON public.profiles TO authenticated;
+GRANT SELECT ON public.user_roles TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.student_profiles TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.internships TO authenticated;
+GRANT SELECT, INSERT ON public.applications TO authenticated;
+GRANT SELECT, UPDATE ON public.enrollments TO authenticated;
+GRANT SELECT, UPDATE ON public.notifications TO authenticated;
+GRANT SELECT ON public.audit_logs TO authenticated;
+
+-- =========================================================================
+-- STORAGE: RESUME BUCKET
+-- =========================================================================
+-- Private bucket for student resumes. `file_size_limit` and `allowed_mime_types`
+-- are enforced by the Storage API itself before any object row is written, so a
+-- >5MB or non-PDF upload is rejected up front regardless of RLS. Objects are keyed
+-- as "<student_id>/<filename>.pdf" (owner-folder structure); storage.objects
+-- already has RLS enabled by default with no policies, so nothing is accessible
+-- until the policies below exist. `authenticated` already holds full base table
+-- grants on storage.objects/storage.buckets from Supabase's own platform setup —
+-- only the missing RLS policies need to be added here.
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('resumes', 'resumes', false, 5242880, ARRAY['application/pdf'])
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "Students can read own resume" ON storage.objects
+    FOR SELECT TO authenticated
+    USING (
+        bucket_id = 'resumes'
+        AND (storage.foldername(name))[1] = auth.uid()::text
+    );
+
+CREATE POLICY "Admins can read any resume" ON storage.objects
+    FOR SELECT TO authenticated
+    USING (
+        bucket_id = 'resumes'
+        AND public.is_current_user_admin()
+    );
+
+CREATE POLICY "Students can upload own resume as PDF" ON storage.objects
+    FOR INSERT TO authenticated
+    WITH CHECK (
+        bucket_id = 'resumes'
+        AND (storage.foldername(name))[1] = auth.uid()::text
+        AND storage.extension(name) = 'pdf'
+    );
+
+CREATE POLICY "Students can replace own resume as PDF" ON storage.objects
+    FOR UPDATE TO authenticated
+    USING (
+        bucket_id = 'resumes'
+        AND (storage.foldername(name))[1] = auth.uid()::text
+    )
+    WITH CHECK (
+        bucket_id = 'resumes'
+        AND (storage.foldername(name))[1] = auth.uid()::text
+        AND storage.extension(name) = 'pdf'
+    );
+
+CREATE POLICY "Students can delete own resume" ON storage.objects
+    FOR DELETE TO authenticated
+    USING (
+        bucket_id = 'resumes'
+        AND (storage.foldername(name))[1] = auth.uid()::text
+    );

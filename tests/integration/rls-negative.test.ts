@@ -30,17 +30,28 @@ beforeAll(async () => {
   studentA = createClient(SUPABASE_URL, PUBLISHABLE_KEY);
   studentB = createClient(SUPABASE_URL, PUBLISHABLE_KEY);
 
-  const { data: dataA } = await studentA.auth.signInWithPassword({
+  const { data: dataA, error: errorA } = await studentA.auth.signInWithPassword({
     email: STUDENT_A_EMAIL,
     password: STUDENT_A_PASSWORD,
   });
-  const { data: dataB } = await studentB.auth.signInWithPassword({
+  if (errorA || !dataA.user) {
+    throw new Error(
+      `Setup failed: could not authenticate ${STUDENT_A_EMAIL}: ${errorA?.message ?? "no user returned"}`
+    );
+  }
+
+  const { data: dataB, error: errorB } = await studentB.auth.signInWithPassword({
     email: STUDENT_B_EMAIL,
     password: STUDENT_B_PASSWORD,
   });
+  if (errorB || !dataB.user) {
+    throw new Error(
+      `Setup failed: could not authenticate ${STUDENT_B_EMAIL}: ${errorB?.message ?? "no user returned"}`
+    );
+  }
 
-  studentAId = dataA.user!.id;
-  studentBId = dataB.user!.id;
+  studentAId = dataA.user.id;
+  studentBId = dataB.user.id;
 });
 
 afterAll(async () => {
@@ -52,13 +63,17 @@ describe("RLS Negative Tests — Student Unauthorized Operations", () => {
   // ---- PROFILE ISOLATION ----
 
   it("1. Student A cannot UPDATE Student B's profile", async () => {
-    const { error } = await studentA
+    // RLS filters Student B's row out of the update target entirely, so
+    // PostgREST returns 200 with zero affected rows rather than an error —
+    // the real security invariant is "no row was changed", not "error is set".
+    const { data, error } = await studentA
       .from("profiles")
       .update({ first_name: "Hacked" })
-      .eq("id", studentBId);
+      .eq("id", studentBId)
+      .select();
 
-    expect(error).not.toBeNull();
-    // Should return 0 rows updated (RLS blocks silently) or an explicit error
+    expect(error).toBeNull();
+    expect(data).toEqual([]);
   });
 
   it("2. Student A cannot SELECT Student B's private student_profile", async () => {
@@ -108,7 +123,9 @@ describe("RLS Negative Tests — Student Unauthorized Operations", () => {
       .select("id")
       .limit(1);
 
-    if (!apps || apps.length === 0) return; // No app exists yet — test N/A
+    if (!apps || apps.length === 0) {
+      throw new Error("Setup failure: expected Student A to have at least one seeded application but found none.");
+    }
 
     const { error } = await studentA
       .from("applications")
@@ -124,7 +141,9 @@ describe("RLS Negative Tests — Student Unauthorized Operations", () => {
       .select("id")
       .limit(1);
 
-    if (!apps || apps.length === 0) return;
+    if (!apps || apps.length === 0) {
+      throw new Error("Setup failure: expected Student A to have at least one seeded application but found none.");
+    }
 
     const { error } = await studentA
       .from("applications")
@@ -217,12 +236,15 @@ describe("RLS Negative Tests — Student Unauthorized Operations", () => {
   // ---- NOTIFICATION SECURITY ----
 
   it("15. Student A cannot UPDATE Student B's notification", async () => {
-    const { error } = await studentA
+    // Same RLS-silent-filter behavior as test 1: zero rows affected, no error.
+    const { data, error } = await studentA
       .from("notifications")
       .update({ read: true })
-      .eq("user_id", studentBId);
+      .eq("user_id", studentBId)
+      .select();
 
-    expect(error).not.toBeNull();
+    expect(error).toBeNull();
+    expect(data).toEqual([]);
   });
 
   // ---- PRIVILEGED USER CREATION ----

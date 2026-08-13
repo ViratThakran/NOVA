@@ -17,19 +17,39 @@ const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 
 const ADMIN_EMAIL = "admin@test.nova";
 const ADMIN_PASSWORD = "TestPassword123!";
+// The seeded pending application belongs to Student A (see supabase/seed.sql).
+// Unlike every other table's SELECT policy, notifications has no admin-bypass
+// clause (`USING (auth.uid() = user_id)` only), so verifying a notification
+// was created requires reading it as its owning student, not as admin.
+const STUDENT_A_EMAIL = "student-a@test.nova";
+const STUDENT_A_PASSWORD = "TestPassword123!";
 
 let admin: SupabaseClient;
+let studentA: SupabaseClient;
 
 beforeAll(async () => {
   admin = createClient(SUPABASE_URL, PUBLISHABLE_KEY);
-  await admin.auth.signInWithPassword({
+  const { error } = await admin.auth.signInWithPassword({
     email: ADMIN_EMAIL,
     password: ADMIN_PASSWORD,
   });
+  if (error) {
+    throw new Error(`Setup failed: could not authenticate ${ADMIN_EMAIL}: ${error.message}`);
+  }
+
+  studentA = createClient(SUPABASE_URL, PUBLISHABLE_KEY);
+  const { error: studentError } = await studentA.auth.signInWithPassword({
+    email: STUDENT_A_EMAIL,
+    password: STUDENT_A_PASSWORD,
+  });
+  if (studentError) {
+    throw new Error(`Setup failed: could not authenticate ${STUDENT_A_EMAIL}: ${studentError.message}`);
+  }
 });
 
 afterAll(async () => {
   await admin.auth.signOut();
+  await studentA.auth.signOut();
 });
 
 describe("Application Transaction Tests", () => {
@@ -43,8 +63,7 @@ describe("Application Transaction Tests", () => {
       .single();
 
     if (!app) {
-      console.warn("No pending application available to test transaction.");
-      return;
+      throw new Error("Setup failure: expected a seeded pending application but found none.");
     }
 
     // Execute the review
@@ -75,8 +94,8 @@ describe("Application Transaction Tests", () => {
     expect(enrollment).not.toBeNull();
     expect(enrollment?.status).toBe("active");
 
-    // Verify notification created
-    const { data: notification } = await admin
+    // Verify notification created (read as the owning student — see comment above)
+    const { data: notification } = await studentA
       .from("notifications")
       .select("id, title")
       .eq("user_id", app.student_id)
@@ -106,7 +125,9 @@ describe("Application Transaction Tests", () => {
       .limit(1)
       .single();
 
-    if (!app) return;
+    if (!app) {
+      throw new Error("Setup failure: expected the application accepted in the prior test but found none.");
+    }
 
     const countBefore = await admin
       .from("enrollments")

@@ -47,21 +47,36 @@ beforeAll(async () => {
   studentB = createClient(SUPABASE_URL, PUBLISHABLE_KEY);
   admin = createClient(SUPABASE_URL, PUBLISHABLE_KEY);
 
-  const { data: dataA } = await studentA.auth.signInWithPassword({
+  const { data: dataA, error: errorA } = await studentA.auth.signInWithPassword({
     email: STUDENT_A_EMAIL,
     password: STUDENT_A_PASSWORD,
   });
-  const { data: dataB } = await studentB.auth.signInWithPassword({
+  if (errorA || !dataA.user) {
+    throw new Error(
+      `Setup failed: could not authenticate ${STUDENT_A_EMAIL}: ${errorA?.message ?? "no user returned"}`
+    );
+  }
+
+  const { data: dataB, error: errorB } = await studentB.auth.signInWithPassword({
     email: STUDENT_B_EMAIL,
     password: STUDENT_B_PASSWORD,
   });
-  await admin.auth.signInWithPassword({
+  if (errorB || !dataB.user) {
+    throw new Error(
+      `Setup failed: could not authenticate ${STUDENT_B_EMAIL}: ${errorB?.message ?? "no user returned"}`
+    );
+  }
+
+  const { error: errorAdmin } = await admin.auth.signInWithPassword({
     email: ADMIN_EMAIL,
     password: ADMIN_PASSWORD,
   });
+  if (errorAdmin) {
+    throw new Error(`Setup failed: could not authenticate ${ADMIN_EMAIL}: ${errorAdmin.message}`);
+  }
 
-  studentAId = dataA.user!.id;
-  studentBId = dataB.user!.id;
+  studentAId = dataA.user.id;
+  studentBId = dataB.user.id;
 });
 
 afterAll(async () => {
