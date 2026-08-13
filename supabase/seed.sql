@@ -27,7 +27,7 @@ BEGIN
     crypt('TestPassword123!', gen_salt('bf')),
     now(), now(), now(),
     '{"first_name": "Alice", "last_name": "Student"}'::jsonb
-  ) ON CONFLICT (email) DO NOTHING;
+  ) ON CONFLICT (email) WHERE is_sso_user = false DO NOTHING;
 
   -- Create Student B in auth.users
   INSERT INTO auth.users (
@@ -39,7 +39,7 @@ BEGIN
     crypt('TestPassword123!', gen_salt('bf')),
     now(), now(), now(),
     '{"first_name": "Bob", "last_name": "Student"}'::jsonb
-  ) ON CONFLICT (email) DO NOTHING;
+  ) ON CONFLICT (email) WHERE is_sso_user = false DO NOTHING;
 
   -- Create Admin user in auth.users
   INSERT INTO auth.users (
@@ -51,7 +51,7 @@ BEGIN
     crypt('TestPassword123!', gen_salt('bf')),
     now(), now(), now(),
     '{"first_name": "Test", "last_name": "Admin"}'::jsonb
-  ) ON CONFLICT (email) DO NOTHING;
+  ) ON CONFLICT (email) WHERE is_sso_user = false DO NOTHING;
 
   -- Escalate admin user's role (trigger sets 'student', override here for test admin)
   UPDATE public.user_roles
