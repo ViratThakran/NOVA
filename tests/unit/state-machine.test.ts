@@ -30,6 +30,20 @@ function canTransition(from: ApplicationStatus, to: string): { allowed: boolean;
 }
 
 // ---------------------------------------------------------------------------
+// Mark-under-review transition (mirrors mark_application_under_review() in
+// the DB — a separate, narrower transition than canTransition() above: it
+// only ever moves pending -> under_review, and creates no enrollment/
+// notification since no decision has been made yet)
+// ---------------------------------------------------------------------------
+
+function canMarkUnderReview(from: ApplicationStatus): { allowed: boolean; reason?: string } {
+  if (from !== "pending") {
+    return { allowed: false, reason: `Only pending applications can be marked under review (was '${from}')` };
+  }
+  return { allowed: true };
+}
+
+// ---------------------------------------------------------------------------
 // Duplicate enrollment guard (mirrors the DB UNIQUE constraint logic)
 // ---------------------------------------------------------------------------
 
@@ -102,6 +116,29 @@ describe("Application State Machine", () => {
 
     it("Transition to 'under_review' directly by admin is BLOCKED", () => {
       const result = canTransition("pending", "under_review");
+      expect(result.allowed).toBe(false);
+    });
+  });
+
+  describe("Mark-under-review transition", () => {
+    it("pending → under_review is allowed", () => {
+      const result = canMarkUnderReview("pending");
+      expect(result.allowed).toBe(true);
+    });
+
+    it("under_review → under_review is BLOCKED", () => {
+      const result = canMarkUnderReview("under_review");
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toMatch(/Only pending applications/);
+    });
+
+    it("accepted → under_review is BLOCKED", () => {
+      const result = canMarkUnderReview("accepted");
+      expect(result.allowed).toBe(false);
+    });
+
+    it("rejected → under_review is BLOCKED", () => {
+      const result = canMarkUnderReview("rejected");
       expect(result.allowed).toBe(false);
     });
   });

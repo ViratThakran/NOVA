@@ -4,6 +4,7 @@ import {
   onboardingSchema,
   applicationSchema,
   reviewSchema,
+  markUnderReviewSchema,
   registerSchema,
   loginSchema,
   forgotPasswordSchema,
@@ -133,10 +134,41 @@ describe("Security Validation Schemas", () => {
   });
 
   describe("Application Submission Schema", () => {
+    it("should accept a valid application", () => {
+      const result = applicationSchema.safeParse({
+        internship_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
+        cover_letter: "I'm excited to apply for this internship and believe my skills are a strong fit.",
+      });
+      expect(result.success).toBe(true);
+    });
+
     it("should reject short cover letters", () => {
       const result = applicationSchema.safeParse({
         internship_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
         cover_letter: "Too short",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a cover letter over 5000 characters", () => {
+      const result = applicationSchema.safeParse({
+        internship_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
+        cover_letter: "a".repeat(5001),
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a non-UUID internship_id", () => {
+      const result = applicationSchema.safeParse({
+        internship_id: "not-a-uuid",
+        cover_letter: "I'm excited to apply for this internship and believe my skills are a strong fit.",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a missing internship_id", () => {
+      const result = applicationSchema.safeParse({
+        cover_letter: "I'm excited to apply for this internship and believe my skills are a strong fit.",
       });
       expect(result.success).toBe(false);
     });
@@ -152,11 +184,55 @@ describe("Security Validation Schemas", () => {
       expect(result.success).toBe(true);
     });
 
+    it("should accept a review with no feedback (optional field)", () => {
+      const result = reviewSchema.safeParse({
+        application_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
+        status: "rejected",
+      });
+      expect(result.success).toBe(true);
+    });
+
     it("should reject invalid status actions", () => {
       const result = reviewSchema.safeParse({
         application_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
         status: "pending_review", // invalid enum value
       });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a non-UUID application_id", () => {
+      const result = reviewSchema.safeParse({
+        application_id: "not-a-uuid",
+        status: "accepted",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject feedback over 1000 characters", () => {
+      const result = reviewSchema.safeParse({
+        application_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
+        status: "accepted",
+        feedback: "a".repeat(1001),
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Mark Under Review Schema", () => {
+    it("should accept a valid application_id", () => {
+      const result = markUnderReviewSchema.safeParse({
+        application_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("should reject a non-UUID application_id", () => {
+      const result = markUnderReviewSchema.safeParse({ application_id: "not-a-uuid" });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a missing application_id", () => {
+      const result = markUnderReviewSchema.safeParse({});
       expect(result.success).toBe(false);
     });
   });

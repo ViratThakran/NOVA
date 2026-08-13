@@ -7,3 +7,10 @@ export interface OnboardingActionState {
 }
 
 export const initialOnboardingActionState: OnboardingActionState = { status: "idle" };
+
+export interface ApplicationActionState {
+  status: "idle" | "error" | "success";
+  message?: string;
+}
+
+export const initialApplicationActionState: ApplicationActionState = { status: "idle" };

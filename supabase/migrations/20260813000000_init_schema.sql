@@ -246,6 +246,57 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
 REVOKE EXECUTE ON FUNCTION public.review_application(uuid, text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.review_application(uuid, text, text) TO authenticated;
 
+-- 4b. Transactional Function: Mark Application Under Review (invoked by admins)
+-- Companion to review_application() above: transitions pending -> under_review
+-- only. No decision has been made yet, so it deliberately creates no
+-- enrollment/notification — it only records that an admin has started
+-- looking at the application. Follows the exact same conventions as
+-- review_application(): SECURITY DEFINER with a function-level search_path
+-- SET clause, an explicit admin check, a row lock, and a write_audit_log() call.
+CREATE OR REPLACE FUNCTION public.mark_application_under_review(
+    app_uuid uuid
+)
+RETURNS boolean AS $$
+DECLARE
+    app_record public.applications%ROWTYPE;
+BEGIN
+    -- Verify actor is admin
+    IF NOT public.is_current_user_admin() THEN
+        RAISE EXCEPTION 'Unauthorized: User is not an administrator.';
+    END IF;
+
+    -- Fetch and lock the application record to prevent race conditions
+    SELECT * INTO app_record FROM public.applications
+    WHERE id = app_uuid FOR UPDATE;
+
+    IF app_record.id IS NULL THEN
+        RAISE EXCEPTION 'Application not found.';
+    END IF;
+
+    -- Only a freshly submitted application can be marked under review
+    IF app_record.status != 'pending' THEN
+        RAISE EXCEPTION 'Invalid State: Only pending applications can be marked under review.';
+    END IF;
+
+    UPDATE public.applications
+    SET status = 'under_review', updated_at = timezone('utc'::text, now())
+    WHERE id = app_uuid;
+
+    -- Generate Audit Log Record (Runs safely internally under owner permissions)
+    PERFORM public.write_audit_log(
+        'application_marked_under_review',
+        'application',
+        app_uuid,
+        jsonb_build_object('previous_status', app_record.status, 'new_status', 'under_review')
+    );
+
+    RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.mark_application_under_review(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.mark_application_under_review(uuid) TO authenticated;
+
 -- 5. Trigger for modified column timestamp helper
 CREATE OR REPLACE FUNCTION public.update_modified_column()
 RETURNS trigger AS $$

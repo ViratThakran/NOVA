@@ -32,6 +32,11 @@ export const reviewSchema = z.object({
   feedback: z.string().max(1000).optional(),
 });
 
+// Schema for marking an application under review
+export const markUnderReviewSchema = z.object({
+  application_id: z.string().uuid("Invalid application ID"),
+});
+
 // -----------------------------------------------------------------------
 // Authentication schemas (Phase 3C)
 // -----------------------------------------------------------------------

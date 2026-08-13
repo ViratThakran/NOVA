@@ -2,8 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { createServerSideClient } from "@/lib/supabase";
-import { onboardingSchema } from "@/lib/validation";
-import type { OnboardingActionState } from "./action-state";
+import { getAuthenticatedUser } from "@/lib/auth";
+import { onboardingSchema, applicationSchema } from "@/lib/validation";
+import type { OnboardingActionState, ApplicationActionState } from "./action-state";
 
 // Mirrors the "resumes" bucket's own file_size_limit (see
 // supabase/migrations: STORAGE: RESUME BUCKET) so an oversized file is
@@ -96,4 +97,68 @@ export async function completeOnboardingAction(
   }
 
   redirect("/student/dashboard");
+}
+
+export async function submitApplicationAction(
+  _prevState: ApplicationActionState,
+  formData: FormData
+): Promise<ApplicationActionState> {
+  const auth = await getAuthenticatedUser();
+
+  if (!auth) {
+    return { status: "error", message: "Your session has expired. Please log in again." };
+  }
+
+  const { supabase, user, roles } = auth;
+
+  if (!roles.includes("student")) {
+    return { status: "error", message: "Only students can submit internship applications." };
+  }
+
+  const parsed = applicationSchema.safeParse({
+    internship_id: formData.get("internship_id"),
+    cover_letter: formData.get("cover_letter"),
+  });
+
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
+  }
+
+  // Confirm the internship is actually open before attempting the insert.
+  // The internships SELECT policy already hides non-open rows from students,
+  // so a draft/closed/archived id simply won't be found here.
+  const { data: internship, error: internshipError } = await supabase
+    .from("internships")
+    .select("id")
+    .eq("id", parsed.data.internship_id)
+    .eq("status", "open")
+    .maybeSingle();
+
+  if (internshipError) {
+    console.error("submitApplicationAction internship lookup:", internshipError);
+    return { status: "error", message: "Something went wrong. Please try again." };
+  }
+  if (!internship) {
+    return { status: "error", message: "This internship is not currently accepting applications." };
+  }
+
+  // student_id is the authenticated user's own id, derived from the session
+  // — never read from formData, so there is no field for a client to spoof.
+  // applications' RLS (INSERT WITH CHECK auth.uid() = student_id AND
+  // has_current_user_role('student')) would reject anything else regardless.
+  const { error: insertError } = await supabase.from("applications").insert({
+    student_id: user.id,
+    internship_id: parsed.data.internship_id,
+    cover_letter: parsed.data.cover_letter,
+  });
+
+  if (insertError) {
+    console.error("submitApplicationAction insert:", insertError);
+    if (insertError.code === "23505") {
+      return { status: "error", message: "You've already applied to this internship." };
+    }
+    return { status: "error", message: "We couldn't submit your application. Please try again." };
+  }
+
+  return { status: "success", message: "Your application has been submitted." };
 }
