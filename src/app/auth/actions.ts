@@ -136,7 +136,17 @@ export async function loginAction(
 
   const { data: roleRows } = await supabase.from("user_roles").select("role").eq("user_id", data.user.id);
   const roles = (roleRows ?? []).map((row) => row.role);
-  redirect(getDashboardPathForRoles(roles));
+  const dashboardPath = getDashboardPathForRoles(roles);
+
+  // A student who hasn't finished onboarding lands there directly instead
+  // of bouncing through /student/dashboard first (which would redirect them
+  // to /student/onboarding anyway — see src/app/student/dashboard/page.tsx).
+  if (dashboardPath === "/student/dashboard") {
+    const { data: profile } = await supabase.from("profiles").select("onboarded").eq("id", data.user.id).single();
+    redirect(profile?.onboarded ? "/student/dashboard" : "/student/onboarding");
+  }
+
+  redirect(dashboardPath);
 }
 
 export async function logoutAction() {

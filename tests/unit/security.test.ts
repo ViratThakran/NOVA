@@ -70,6 +70,66 @@ describe("Security Validation Schemas", () => {
       });
       expect(result.success).toBe(false);
     });
+
+    it("should reject a missing school", () => {
+      const result = onboardingSchema.safeParse({
+        education_info: { school: "", degree: "Computer Science", grad_year: 2027 },
+        skills: ["TypeScript"],
+        resume_path: "user-uuid/resume.pdf",
+        resume_size: 1024,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a missing degree", () => {
+      const result = onboardingSchema.safeParse({
+        education_info: { school: "Tech University", degree: "", grad_year: 2027 },
+        skills: ["TypeScript"],
+        resume_path: "user-uuid/resume.pdf",
+        resume_size: 1024,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a graduation year outside the allowed range", () => {
+      const result = onboardingSchema.safeParse({
+        education_info: { school: "Tech University", degree: "Computer Science", grad_year: 1999 },
+        skills: ["TypeScript"],
+        resume_path: "user-uuid/resume.pdf",
+        resume_size: 1024,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a non-numeric graduation year (e.g. NaN from an empty form field)", () => {
+      const result = onboardingSchema.safeParse({
+        education_info: { school: "Tech University", degree: "Computer Science", grad_year: Number("") },
+        skills: ["TypeScript"],
+        resume_path: "user-uuid/resume.pdf",
+        resume_size: 1024,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject an empty skills array", () => {
+      const result = onboardingSchema.safeParse({
+        education_info: { school: "Tech University", degree: "Computer Science", grad_year: 2027 },
+        skills: [],
+        resume_path: "user-uuid/resume.pdf",
+        resume_size: 1024,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a missing resume_path", () => {
+      const result = onboardingSchema.safeParse({
+        education_info: { school: "Tech University", degree: "Computer Science", grad_year: 2027 },
+        skills: ["TypeScript"],
+        resume_path: "",
+        resume_size: 1024,
+      });
+      expect(result.success).toBe(false);
+    });
   });
 
   describe("Application Submission Schema", () => {

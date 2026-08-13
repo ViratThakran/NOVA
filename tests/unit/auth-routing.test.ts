@@ -35,4 +35,9 @@ describe("getDashboardPathForRoles", () => {
   it("falls back to home for a role with no recognized dashboard (e.g. company_admin)", () => {
     expect(getDashboardPathForRoles(["company_admin"])).toBe("/");
   });
+
+  it("an admin-only role set never resolves to the student area (Phase 3D: admin cannot land in student onboarding)", () => {
+    const path = getDashboardPathForRoles(["admin"]);
+    expect(path).not.toMatch(/^\/student/);
+  });
 });
