@@ -459,7 +459,12 @@ CREATE POLICY "Admins can read audit logs" ON public.audit_logs
 --                                          authenticated never gets a direct UPDATE path)
 --   - enrollments:       SELECT, UPDATE   (no INSERT policy — enrollments are only ever created
 --                                          inside review_application(), never directly by a client)
---   - notifications:     SELECT, UPDATE   (own rows, read-flag only; INSERT is RPC-only)
+--   - notifications:     SELECT, UPDATE (read) only   (own rows; UPDATE is column-restricted to
+--                                          `read` — see the column-level GRANT below — so an
+--                                          owner can flip their own read flag but cannot change
+--                                          title/message/user_id/created_at even via a raw direct
+--                                          client update, not just through the Server Action.
+--                                          INSERT is RPC-only)
 --   - audit_logs:        SELECT           (admin-only read; INSERT is RPC-only via write_audit_log(),
 --                                          and no UPDATE/DELETE policy exists anywhere — immutable)
 --
@@ -482,7 +487,14 @@ GRANT SELECT, INSERT, UPDATE ON public.student_profiles TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.internships TO authenticated;
 GRANT SELECT, INSERT ON public.applications TO authenticated;
 GRANT SELECT, UPDATE ON public.enrollments TO authenticated;
-GRANT SELECT, UPDATE ON public.notifications TO authenticated;
+GRANT SELECT ON public.notifications TO authenticated;
+-- Column-restricted on purpose (Phase 4E security hardening): the RLS policy
+-- below only checks row ownership, not which columns changed, so without
+-- this an owner could update title/message/user_id/created_at on their own
+-- notification via a raw direct client call. Postgres enforces column-level
+-- UPDATE privileges independently of RLS — any UPDATE naming a column other
+-- than `read` in its SET clause is rejected with 42501 before RLS even runs.
+GRANT UPDATE (read) ON public.notifications TO authenticated;
 GRANT SELECT ON public.audit_logs TO authenticated;
 
 -- =========================================================================

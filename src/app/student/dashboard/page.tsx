@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createServerSideClient } from "@/lib/supabase";
 import { PageHeader } from "@/components/app/page-header";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { getEnrollmentStatusMeta } from "@/lib/enrollment-view-state";
+import { countUnread } from "@/lib/notification-view-state";
 
 export const metadata: Metadata = { title: "Dashboard — NOVA" };
 
@@ -36,6 +40,23 @@ export default async function StudentDashboardPage() {
 
   const educationInfo = (studentProfile?.education_info as EducationInfo | null) ?? null;
 
+  const [{ data: enrollments }, { data: notifications }] = await Promise.all([
+    supabase
+      .from("enrollments")
+      .select("id, status, created_at, internship:internships(title)")
+      .eq("student_id", user.id)
+      .order("created_at", { ascending: false }),
+    supabase.from("notifications").select("id, title, read, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
+  ]);
+
+  const activeEnrollmentCount = (enrollments ?? []).filter((e) => e.status === "active").length;
+  const latestEnrollment = enrollments?.[0] as
+    | { id: string; status: string; internship: { title: string } | null }
+    | undefined;
+
+  const unreadCount = countUnread(notifications ?? []);
+  const latestNotification = notifications?.[0] as { id: string; title: string } | undefined;
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
@@ -54,6 +75,43 @@ export default async function StudentDashboardPage() {
           <Row label="Resume" value={studentProfile?.resume_path ? "Uploaded" : "—"} />
         </CardContent>
       </Card>
+
+      <div className="grid gap-6 sm:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">Enrollments</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 pt-0">
+            <Row label="Active enrollments" value={activeEnrollmentCount.toString()} />
+            {latestEnrollment ? (
+              <Row
+                label="Latest"
+                value={`${latestEnrollment.internship?.title ?? "Internship no longer available"} — ${
+                  getEnrollmentStatusMeta(latestEnrollment.status).label
+                }`}
+              />
+            ) : (
+              <Row label="Latest" value="—" />
+            )}
+            <Link href="/student/enrollments" className={buttonVariants({ variant: "outline", size: "sm" })}>
+              View enrollments
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">Notifications</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 pt-0">
+            <Row label="Unread" value={unreadCount.toString()} />
+            <Row label="Latest" value={latestNotification?.title ?? "—"} />
+            <Link href="/student/notifications" className={buttonVariants({ variant: "outline", size: "sm" })}>
+              View notifications
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

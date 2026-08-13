@@ -5,6 +5,7 @@ import {
   applicationSchema,
   reviewSchema,
   markUnderReviewSchema,
+  markNotificationReadSchema,
   registerSchema,
   loginSchema,
   forgotPasswordSchema,
@@ -233,6 +234,25 @@ describe("Security Validation Schemas", () => {
 
     it("should reject a missing application_id", () => {
       const result = markUnderReviewSchema.safeParse({});
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Mark Notification Read Schema", () => {
+    it("should accept a valid notification_id", () => {
+      const result = markNotificationReadSchema.safeParse({
+        notification_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("should reject a non-UUID notification_id", () => {
+      const result = markNotificationReadSchema.safeParse({ notification_id: "not-a-uuid" });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a missing notification_id", () => {
+      const result = markNotificationReadSchema.safeParse({});
       expect(result.success).toBe(false);
     });
   });

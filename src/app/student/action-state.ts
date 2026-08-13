@@ -14,3 +14,10 @@ export interface ApplicationActionState {
 }
 
 export const initialApplicationActionState: ApplicationActionState = { status: "idle" };
+
+export interface NotificationActionState {
+  status: "idle" | "error" | "success";
+  message?: string;
+}
+
+export const initialNotificationActionState: NotificationActionState = { status: "idle" };

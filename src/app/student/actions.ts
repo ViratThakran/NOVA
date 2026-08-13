@@ -1,10 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createServerSideClient } from "@/lib/supabase";
 import { getAuthenticatedUser } from "@/lib/auth";
-import { onboardingSchema, applicationSchema } from "@/lib/validation";
-import type { OnboardingActionState, ApplicationActionState } from "./action-state";
+import { onboardingSchema, applicationSchema, markNotificationReadSchema } from "@/lib/validation";
+import type { OnboardingActionState, ApplicationActionState, NotificationActionState } from "./action-state";
 
 // Mirrors the "resumes" bucket's own file_size_limit (see
 // supabase/migrations: STORAGE: RESUME BUCKET) so an oversized file is
@@ -161,4 +162,78 @@ export async function submitApplicationAction(
   }
 
   return { status: "success", message: "Your application has been submitted." };
+}
+
+export async function markNotificationReadAction(
+  _prevState: NotificationActionState,
+  formData: FormData
+): Promise<NotificationActionState> {
+  const auth = await getAuthenticatedUser();
+
+  if (!auth) {
+    return { status: "error", message: "Your session has expired. Please log in again." };
+  }
+
+  const { supabase, user } = auth;
+
+  const parsed = markNotificationReadSchema.safeParse({
+    notification_id: formData.get("notification_id"),
+  });
+
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
+  }
+
+  // Only ever sets `read` — never title/message/user_id — and is scoped to
+  // the caller's own id in addition to RLS (the notifications UPDATE policy
+  // and GRANT don't themselves restrict which columns can change, so this
+  // handler being disciplined about the update payload is what keeps this
+  // safe; see the Phase 4E report's "existing issues" section).
+  const { error } = await supabase
+    .from("notifications")
+    .update({ read: true })
+    .eq("id", parsed.data.notification_id)
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("markNotificationReadAction:", error);
+    return { status: "error", message: "We couldn't update this notification. Please try again." };
+  }
+
+  revalidatePath("/student/notifications");
+  revalidatePath("/student/dashboard");
+
+  return { status: "success" };
+}
+
+export async function markAllNotificationsReadAction(
+  _prevState: NotificationActionState,
+  _formData: FormData
+): Promise<NotificationActionState> {
+  const auth = await getAuthenticatedUser();
+
+  if (!auth) {
+    return { status: "error", message: "Your session has expired. Please log in again." };
+  }
+
+  const { supabase, user } = auth;
+
+  // Scoped to the caller's own unread notifications only — RLS enforces
+  // ownership regardless, this filter just keeps the affected row set tight
+  // and avoids re-writing rows that are already read.
+  const { error } = await supabase
+    .from("notifications")
+    .update({ read: true })
+    .eq("user_id", user.id)
+    .eq("read", false);
+
+  if (error) {
+    console.error("markAllNotificationsReadAction:", error);
+    return { status: "error", message: "We couldn't update your notifications. Please try again." };
+  }
+
+  revalidatePath("/student/notifications");
+  revalidatePath("/student/dashboard");
+
+  return { status: "success" };
 }

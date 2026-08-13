@@ -37,6 +37,11 @@ export const markUnderReviewSchema = z.object({
   application_id: z.string().uuid("Invalid application ID"),
 });
 
+// Schema for marking a single notification read
+export const markNotificationReadSchema = z.object({
+  notification_id: z.string().uuid("Invalid notification ID"),
+});
+
 // -----------------------------------------------------------------------
 // Authentication schemas (Phase 3C)
 // -----------------------------------------------------------------------
