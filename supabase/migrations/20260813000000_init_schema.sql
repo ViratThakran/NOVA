@@ -111,16 +111,23 @@ CREATE TABLE public.audit_logs (
 -- =========================================================================
 
 -- 1. Helper: Check if current authenticated user is Admin/Super Admin
+--
+-- search_path is pinned via the function's own SET clause (not a runtime
+-- `SET search_path = ...;` statement inside the body). A runtime SET
+-- changes it for the rest of the session/connection, not just this call —
+-- on a pooled connection (e.g. GoTrue's), that leaks into whatever query
+-- runs next on the same connection. The SET-clause form is scoped to this
+-- function's execution only and is Postgres's documented safe pattern for
+-- SECURITY DEFINER functions.
 CREATE OR REPLACE FUNCTION public.is_current_user_admin()
 RETURNS boolean AS $$
 BEGIN
-  SET search_path = public, pg_catalog;
   RETURN EXISTS (
-    SELECT 1 FROM public.user_roles 
+    SELECT 1 FROM public.user_roles
     WHERE user_id = auth.uid() AND role IN ('admin', 'super_admin')
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
 
 REVOKE EXECUTE ON FUNCTION public.is_current_user_admin() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.is_current_user_admin() TO authenticated;
@@ -129,13 +136,12 @@ GRANT EXECUTE ON FUNCTION public.is_current_user_admin() TO authenticated;
 CREATE OR REPLACE FUNCTION public.has_current_user_role(required_role text)
 RETURNS boolean AS $$
 BEGIN
-  SET search_path = public, pg_catalog;
   RETURN EXISTS (
-    SELECT 1 FROM public.user_roles 
+    SELECT 1 FROM public.user_roles
     WHERE user_id = auth.uid() AND role = required_role
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
 
 REVOKE EXECUTE ON FUNCTION public.has_current_user_role(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.has_current_user_role(text) TO authenticated;
@@ -152,16 +158,15 @@ DECLARE
     log_id uuid;
     actor_uuid uuid;
 BEGIN
-    SET search_path = public, pg_catalog;
     actor_uuid := auth.uid();
-    
+
     INSERT INTO public.audit_logs (actor_id, action, resource_type, resource_id, changes)
     VALUES (actor_uuid, action_name, res_type, res_uuid, payload)
     RETURNING id INTO log_id;
-    
+
     RETURN log_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
 
 REVOKE EXECUTE ON FUNCTION public.write_audit_log(text, text, uuid, jsonb) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.write_audit_log(text, text, uuid, jsonb) FROM authenticated;
@@ -176,8 +181,6 @@ RETURNS boolean AS $$
 DECLARE
     app_record public.applications%ROWTYPE;
 BEGIN
-    SET search_path = public, pg_catalog;
-    
     -- Verify actor is admin
     IF NOT public.is_current_user_admin() THEN
         RAISE EXCEPTION 'Unauthorized: User is not an administrator.';
@@ -238,7 +241,7 @@ BEGIN
 
     RETURN true;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
 
 REVOKE EXECUTE ON FUNCTION public.review_application(uuid, text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.review_application(uuid, text, text) TO authenticated;
@@ -259,11 +262,18 @@ CREATE TRIGGER update_applications_modtime BEFORE UPDATE ON public.applications 
 CREATE TRIGGER update_enrollments_modtime BEFORE UPDATE ON public.enrollments FOR EACH ROW EXECUTE FUNCTION public.update_modified_column();
 
 -- 6. Trigger: Handle auth user creation
+--
+-- This one matters most of all five: it's an AFTER INSERT trigger that
+-- fires *inside* GoTrue's own signup transaction, on GoTrue's own pooled
+-- connection. A runtime `SET search_path = ...;` here doesn't just affect
+-- this function — it silently changes search_path for the rest of that
+-- connection, breaking GoTrue's own next query on it (observed directly:
+-- signup failed with `relation "users" does not exist`, because `auth` had
+-- been dropped from search_path). The function-level SET clause is scoped
+-- to just this call and is restored automatically on exit.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
-  SET search_path = public, pg_catalog;
-  
   -- Create profile
   INSERT INTO public.profiles (id, email, first_name, last_name, onboarded)
   VALUES (
@@ -280,7 +290,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
 
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users

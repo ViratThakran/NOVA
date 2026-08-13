@@ -1,8 +1,23 @@
+import { SiteHeader } from "@/components/marketing/site-header";
+import { HeroSection } from "@/components/marketing/hero-section";
+import { WhatIsNovaSection } from "@/components/marketing/what-is-nova-section";
+import { EcosystemSection } from "@/components/marketing/ecosystem-section";
+import { HowItWorksSection } from "@/components/marketing/how-it-works-section";
+import { CtaSection } from "@/components/marketing/cta-section";
+import { SiteFooter } from "@/components/marketing/site-footer";
+
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <h1 className="text-4xl font-bold">Welcome to NOVA</h1>
-      <p className="mt-4 text-xl">The operating platform is ready for configuration.</p>
-    </main>
+    <>
+      <SiteHeader />
+      <main>
+        <HeroSection />
+        <WhatIsNovaSection />
+        <EcosystemSection />
+        <HowItWorksSection />
+        <CtaSection />
+      </main>
+      <SiteFooter />
+    </>
   );
 }

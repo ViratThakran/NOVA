@@ -38,11 +38,29 @@ export async function proxy(request: NextRequest) {
   // Passive session refresh for cookies
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Route protection UX checks (Optimistic redirect, full safety remains in RLS/Server Actions)
+  // Route protection UX checks only — an optimistic redirect, not the
+  // security boundary. Every table's real access control is enforced by
+  // RLS (see supabase/migrations) regardless of what happens here; the
+  // per-role check (student vs admin) also can't happen here at all, since
+  // role isn't part of the JWT — that's done server-side in the matching
+  // layout via requireRole() (see src/lib/auth.ts).
   const path = request.nextUrl.pathname;
-  if (!user && (path.startsWith("/dashboard") || path.startsWith("/onboarding"))) {
+  const isProtectedArea = path.startsWith("/student") || path.startsWith("/admin");
+  const isAuthEntryPoint = path === "/login" || path.startsWith("/auth/register");
+
+  if (!user && isProtectedArea) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    url.searchParams.set("next", path);
+    return NextResponse.redirect(url);
+  }
+
+  if (user && isAuthEntryPoint) {
+    const url = request.nextUrl.clone();
+    // Role-specific placement (student vs admin) happens server-side in the
+    // destination layout, which redirects again if this guess is wrong.
+    url.pathname = "/student/dashboard";
+    url.search = "";
     return NextResponse.redirect(url);
   }
 

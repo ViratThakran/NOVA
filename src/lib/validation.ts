@@ -31,3 +31,45 @@ export const reviewSchema = z.object({
   status: z.enum(["accepted", "rejected"]),
   feedback: z.string().max(1000).optional(),
 });
+
+// -----------------------------------------------------------------------
+// Authentication schemas (Phase 3C)
+// -----------------------------------------------------------------------
+
+// Supabase/GoTrue hashes with bcrypt, which silently truncates at 72 bytes —
+// rejecting longer passwords here avoids a password that "works" at signup
+// but effectively loses its trailing characters.
+const passwordSchema = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .max(72, "Password must be no more than 72 characters")
+  .regex(/[A-Za-z]/, "Password must include at least one letter")
+  .regex(/[0-9]/, "Password must include at least one number");
+
+// Public registration only ever creates a 'student' — there is no role field
+// here at all, so there is nothing for a client to escalate.
+export const registerSchema = z.object({
+  first_name: z.string().min(1, "First name is required").max(100),
+  last_name: z.string().min(1, "Last name is required").max(100),
+  email: z.string().trim().toLowerCase().email("Enter a valid email address"),
+  password: passwordSchema,
+});
+
+export const loginSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Enter a valid email address"),
+});
+
+export const resetPasswordSchema = z
+  .object({
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });

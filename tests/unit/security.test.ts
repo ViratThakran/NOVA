@@ -1,5 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { profileUpdateSchema, onboardingSchema, applicationSchema, reviewSchema } from "../../src/lib/validation";
+import {
+  profileUpdateSchema,
+  onboardingSchema,
+  applicationSchema,
+  reviewSchema,
+  registerSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} from "../../src/lib/validation";
 
 describe("Security Validation Schemas", () => {
   describe("Profile Update Schema", () => {
@@ -87,6 +96,152 @@ describe("Security Validation Schemas", () => {
       const result = reviewSchema.safeParse({
         application_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
         status: "pending_review", // invalid enum value
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Register Schema", () => {
+    it("should accept a valid registration", () => {
+      const result = registerSchema.safeParse({
+        first_name: "Alice",
+        last_name: "Student",
+        email: "alice@example.com",
+        password: "correcthorse1",
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("should lowercase and trim the email", () => {
+      const parsed = registerSchema.parse({
+        first_name: "Alice",
+        last_name: "Student",
+        email: "  Alice@Example.com  ",
+        password: "correcthorse1",
+      });
+      expect(parsed.email).toBe("alice@example.com");
+    });
+
+    it("should reject an invalid email", () => {
+      const result = registerSchema.safeParse({
+        first_name: "Alice",
+        last_name: "Student",
+        email: "not-an-email",
+        password: "correcthorse1",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a password under 8 characters", () => {
+      const result = registerSchema.safeParse({
+        first_name: "Alice",
+        last_name: "Student",
+        email: "alice@example.com",
+        password: "sh0rt",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a password over 72 characters (bcrypt truncation limit)", () => {
+      const result = registerSchema.safeParse({
+        first_name: "Alice",
+        last_name: "Student",
+        email: "alice@example.com",
+        password: "a1".repeat(37), // 74 chars
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a password with no number", () => {
+      const result = registerSchema.safeParse({
+        first_name: "Alice",
+        last_name: "Student",
+        email: "alice@example.com",
+        password: "noNumbersHere",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a password with no letter", () => {
+      const result = registerSchema.safeParse({
+        first_name: "Alice",
+        last_name: "Student",
+        email: "alice@example.com",
+        password: "12345678",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("has no role field at all — public registration cannot choose a role", () => {
+      const parsed = registerSchema.parse({
+        first_name: "Alice",
+        last_name: "Student",
+        email: "alice@example.com",
+        password: "correcthorse1",
+        role: "admin", // extra field, must be stripped
+      });
+      expect(parsed).not.toHaveProperty("role");
+    });
+  });
+
+  describe("Login Schema", () => {
+    it("should accept a valid login", () => {
+      const result = loginSchema.safeParse({ email: "alice@example.com", password: "anything" });
+      expect(result.success).toBe(true);
+    });
+
+    it("should reject an invalid email", () => {
+      const result = loginSchema.safeParse({ email: "not-an-email", password: "anything" });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject an empty password", () => {
+      const result = loginSchema.safeParse({ email: "alice@example.com", password: "" });
+      expect(result.success).toBe(false);
+    });
+
+    it("does not enforce password strength at login (only at registration)", () => {
+      // A login attempt should never fail validation just because the
+      // stored password happens to be short/simple — that's a signup-time
+      // policy, not a login-time one.
+      const result = loginSchema.safeParse({ email: "alice@example.com", password: "x" });
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe("Forgot Password Schema", () => {
+    it("should accept a valid email", () => {
+      const result = forgotPasswordSchema.safeParse({ email: "alice@example.com" });
+      expect(result.success).toBe(true);
+    });
+
+    it("should reject an invalid email", () => {
+      const result = forgotPasswordSchema.safeParse({ email: "not-an-email" });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Reset Password Schema", () => {
+    it("should accept matching valid passwords", () => {
+      const result = resetPasswordSchema.safeParse({
+        password: "correcthorse1",
+        confirmPassword: "correcthorse1",
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("should reject mismatched passwords", () => {
+      const result = resetPasswordSchema.safeParse({
+        password: "correcthorse1",
+        confirmPassword: "different1",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a weak new password even if confirmed correctly", () => {
+      const result = resetPasswordSchema.safeParse({
+        password: "weak",
+        confirmPassword: "weak",
       });
       expect(result.success).toBe(false);
     });
