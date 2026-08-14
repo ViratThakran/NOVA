@@ -140,6 +140,47 @@ describe("Positive Authorization Tests — Student Permitted Operations", () => 
   });
 
   it("Student can mark own notification as read", async () => {
+    // notifications has no client INSERT path at all (only
+    // review_application()'s own internal INSERT creates rows) — this test
+    // used to assume a notification already existed for Student A as a side
+    // effect of transaction.test.ts running first, which is an unsafe
+    // cross-file ordering dependency now that more integration test files
+    // run in parallel. Creating a fresh fixture here matches the "own
+    // fixture per test" convention every other integration test file
+    // already follows.
+    const { data: internship, error: internshipError } = await admin
+      .from("internships")
+      .insert({
+        title: `RLS Positive Notification Fixture ${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+        description: "Integration test fixture internship.",
+        requirements: "None.",
+        eligibility: "Any enrolled student.",
+        status: "open",
+      })
+      .select("id")
+      .single();
+    if (internshipError || !internship) {
+      throw new Error(`Setup failure: could not create fixture internship: ${internshipError?.message}`);
+    }
+
+    const { data: app, error: appError } = await studentA
+      .from("applications")
+      .insert({ student_id: studentAId, internship_id: internship.id, cover_letter: "RLS positive test fixture application." })
+      .select("id")
+      .single();
+    if (appError || !app) {
+      throw new Error(`Setup failure: could not create fixture application: ${appError?.message}`);
+    }
+
+    const { error: reviewError } = await admin.rpc("review_application", {
+      app_uuid: app.id,
+      review_status: "accepted",
+      feedback: null,
+    });
+    if (reviewError) {
+      throw new Error(`Setup failure: could not accept fixture application: ${reviewError.message}`);
+    }
+
     const { data: notifs } = await studentA
       .from("notifications")
       .select("id")

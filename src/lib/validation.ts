@@ -19,6 +19,20 @@ export const onboardingSchema = z.object({
   resume_size: z.number().int().max(5242880, "File size must not exceed 5MB"),
 });
 
+// Schema for editing a student's profile after onboarding — same academic
+// shape as onboardingSchema minus the resume fields (replacing the resume
+// is a separate action with its own file validation, not a form field here).
+export const studentProfileSchema = z.object({
+  first_name: z.string().min(1, "First name is required").max(100),
+  last_name: z.string().min(1, "Last name is required").max(100),
+  education_info: z.object({
+    school: z.string().min(1, "School name is required"),
+    degree: z.string().min(1, "Degree is required"),
+    grad_year: z.number().int().min(2000).max(2100),
+  }),
+  skills: z.array(z.string().min(1)).min(1, "At least one skill is required"),
+});
+
 // Schema for submitting an application
 export const applicationSchema = z.object({
   internship_id: z.string().uuid("Invalid internship ID"),

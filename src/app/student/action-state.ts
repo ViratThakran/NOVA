@@ -21,3 +21,10 @@ export interface NotificationActionState {
 }
 
 export const initialNotificationActionState: NotificationActionState = { status: "idle" };
+
+export interface ProfileActionState {
+  status: "idle" | "error" | "success";
+  message?: string;
+}
+
+export const initialProfileActionState: ProfileActionState = { status: "idle" };

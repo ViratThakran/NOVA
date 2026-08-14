@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createServerSideClient } from "@/lib/supabase";
 import { getAuthenticatedUser } from "@/lib/auth";
-import { onboardingSchema, applicationSchema, markNotificationReadSchema } from "@/lib/validation";
-import type { OnboardingActionState, ApplicationActionState, NotificationActionState } from "./action-state";
+import { onboardingSchema, studentProfileSchema, applicationSchema, markNotificationReadSchema } from "@/lib/validation";
+import type { OnboardingActionState, ApplicationActionState, NotificationActionState, ProfileActionState } from "./action-state";
 
 // Mirrors the "resumes" bucket's own file_size_limit (see
 // supabase/migrations: STORAGE: RESUME BUCKET) so an oversized file is
@@ -236,4 +236,104 @@ export async function markAllNotificationsReadAction(
   revalidatePath("/student/dashboard");
 
   return { status: "success" };
+}
+
+export async function updateStudentProfileAction(
+  _prevState: ProfileActionState,
+  formData: FormData
+): Promise<ProfileActionState> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase, user } = auth;
+
+  const gradYearRaw = formData.get("grad_year");
+  const skillsRaw = formData.get("skills");
+  const skills =
+    typeof skillsRaw === "string"
+      ? skillsRaw.split(",").map((skill) => skill.trim()).filter(Boolean)
+      : [];
+
+  const parsed = studentProfileSchema.safeParse({
+    first_name: formData.get("first_name"),
+    last_name: formData.get("last_name"),
+    education_info: {
+      school: formData.get("school"),
+      degree: formData.get("degree"),
+      grad_year: typeof gradYearRaw === "string" ? Number(gradYearRaw) : NaN,
+    },
+    skills,
+  });
+  if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
+
+  // Both writes are scoped to the authenticated user's own id — never a
+  // client-supplied id — matching profiles/student_profiles' own RLS
+  // (auth.uid() = id) regardless.
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({ first_name: parsed.data.first_name, last_name: parsed.data.last_name })
+    .eq("id", user.id);
+  if (profileError) {
+    console.error("updateStudentProfileAction profiles:", profileError);
+    return { status: "error", message: "We couldn't save these changes. Please try again." };
+  }
+
+  const { error: studentProfileError } = await supabase
+    .from("student_profiles")
+    .update({ education_info: parsed.data.education_info, skills: parsed.data.skills })
+    .eq("id", user.id);
+  if (studentProfileError) {
+    console.error("updateStudentProfileAction student_profiles:", studentProfileError);
+    return { status: "error", message: "We couldn't save these changes. Please try again." };
+  }
+
+  revalidatePath("/student/profile");
+  revalidatePath("/student/dashboard");
+  return { status: "success", message: "Profile updated." };
+}
+
+export async function replaceResumeAction(
+  _prevState: ProfileActionState,
+  formData: FormData
+): Promise<ProfileActionState> {
+  const supabase = await createServerSideClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Your session has expired. Please log in again." };
+
+  const resumeFile = formData.get("resume");
+  if (!(resumeFile instanceof File) || resumeFile.size === 0) {
+    return { status: "error", message: "Please attach your resume as a PDF." };
+  }
+  if (resumeFile.type !== "application/pdf") {
+    return { status: "error", message: "Resume must be a PDF file." };
+  }
+  if (resumeFile.size > MAX_RESUME_BYTES) {
+    return { status: "error", message: "Resume must be 5MB or smaller." };
+  }
+
+  // Same fixed path pattern as onboarding — the storage RLS policies
+  // require the path's first segment to be the caller's own auth.uid(),
+  // and `upsert: true` is what makes this a "replace" rather than a
+  // second file.
+  const resumePath = `${user.id}/resume.pdf`;
+  const { error: uploadError } = await supabase.storage
+    .from("resumes")
+    .upload(resumePath, resumeFile, { contentType: "application/pdf", upsert: true });
+  if (uploadError) {
+    console.error("replaceResumeAction upload:", uploadError);
+    return { status: "error", message: "We couldn't upload your resume. Please try again." };
+  }
+
+  const { error: sizeError } = await supabase
+    .from("student_profiles")
+    .update({ resume_path: resumePath, resume_size: resumeFile.size })
+    .eq("id", user.id);
+  if (sizeError) {
+    console.error("replaceResumeAction student_profiles:", sizeError);
+    return { status: "error", message: "Your resume was uploaded, but we couldn't update your profile. Please try again." };
+  }
+
+  revalidatePath("/student/profile");
+  return { status: "success", message: "Resume updated." };
 }
