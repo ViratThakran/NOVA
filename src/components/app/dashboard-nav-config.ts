@@ -21,6 +21,14 @@ export const STUDENT_NAV_ITEMS: readonly DashboardNavItem[] = [
   { href: "/student/settings", label: "Settings" },
 ];
 
+export const COMPANY_NAV_ITEMS: readonly DashboardNavItem[] = [
+  { href: "/company", label: "Dashboard" },
+  { href: "/company/profile", label: "Company" },
+  { href: "/company/members", label: "Members" },
+  { href: "/company/internships", label: "Internships" },
+  { href: "/company/applications", label: "Applications" },
+];
+
 export const ADMIN_NAV_ITEMS: readonly DashboardNavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard" },
   { href: "/admin/students", label: "Students" },

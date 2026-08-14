@@ -80,3 +80,44 @@ export async function requireRole(expectedRole: "student" | "admin") {
 
   return { user, roles, supabase };
 }
+
+export type CompanyRole = "owner" | "admin" | "member";
+
+/**
+ * Company-area equivalent of requireRole(). A user may belong to multiple
+ * companies (company_members has no UNIQUE(user_id)); multi-company
+ * switching is out of scope for this phase, so the most recently joined
+ * membership is used deterministically. This only affects which company is
+ * *shown* — RLS scopes every query to that membership regardless, so it
+ * introduces no isolation gap, just a UX limitation to revisit later.
+ *
+ * Same non-authoritative caveat as requireRole(): the real boundary is RLS
+ * (is_company_admin()/is_company_member(), see the Phase 5B-1 migration).
+ */
+export async function requireCompanyAccess() {
+  const auth = await getAuthenticatedUser();
+
+  if (!auth) {
+    redirect("/login");
+  }
+
+  const { user, roles, supabase } = auth;
+
+  const { data: memberships } = await supabase
+    .from("company_members")
+    .select("company_id, company_role")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (!memberships || memberships.length === 0) {
+    redirect(getDashboardPathForRoles(roles));
+  }
+
+  const active = memberships[0];
+  return {
+    user,
+    supabase,
+    companyId: active.company_id as string,
+    companyRole: active.company_role as CompanyRole,
+  };
+}

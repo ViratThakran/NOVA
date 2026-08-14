@@ -63,6 +63,33 @@ export const internshipStatusSchema = z.object({
   status: z.enum(["draft", "open", "closed", "archived"]),
 });
 
+// Schema for updating a company's profile fields
+export const companyProfileSchema = z.object({
+  company_id: z.string().uuid("Invalid company ID"),
+  name: z.string().min(1, "Company name is required").max(200),
+  description: z.string().max(2000).optional(),
+});
+
+// Schema for adding an existing user to a company by email. The email is
+// resolved to a user id server-side via the find_user_for_company_membership()
+// RPC (Phase 5B-3) — never trusted directly as an identifier.
+export const addCompanyMemberSchema = z.object({
+  company_id: z.string().uuid("Invalid company ID"),
+  email: z.string().trim().email("Enter a valid email address"),
+  company_role: z.enum(["admin", "member"]),
+});
+
+export const updateCompanyMemberRoleSchema = z.object({
+  company_id: z.string().uuid("Invalid company ID"),
+  member_user_id: z.string().uuid("Invalid user ID"),
+  company_role: z.enum(["admin", "member"]),
+});
+
+export const removeCompanyMemberSchema = z.object({
+  company_id: z.string().uuid("Invalid company ID"),
+  member_user_id: z.string().uuid("Invalid user ID"),
+});
+
 // -----------------------------------------------------------------------
 // Authentication schemas (Phase 3C)
 // -----------------------------------------------------------------------

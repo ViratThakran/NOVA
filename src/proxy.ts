@@ -45,7 +45,7 @@ export async function proxy(request: NextRequest) {
   // role isn't part of the JWT — that's done server-side in the matching
   // layout via requireRole() (see src/lib/auth.ts).
   const path = request.nextUrl.pathname;
-  const isProtectedArea = path.startsWith("/student") || path.startsWith("/admin");
+  const isProtectedArea = path.startsWith("/student") || path.startsWith("/admin") || path.startsWith("/company");
   const isAuthEntryPoint = path === "/login" || path.startsWith("/auth/register");
 
   if (!user && isProtectedArea) {

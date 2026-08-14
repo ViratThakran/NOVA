@@ -171,7 +171,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
 REVOKE EXECUTE ON FUNCTION public.write_audit_log(text, text, uuid, jsonb) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.write_audit_log(text, text, uuid, jsonb) FROM authenticated;
 
--- 4. Transactional Function: Review Application (invoked by admins)
+-- 4. Transactional Function: Review Application (invoked by admins, or by a
+-- company owner/admin reviewing an application against their own company's
+-- internship — see can_review_company_application() below, added in
+-- Phase 5B-3). The state machine, locking, enrollment/notification/audit-log
+-- behavior is unchanged from Phase 4B; only the authorization check grew a
+-- second, OR'd condition.
 CREATE OR REPLACE FUNCTION public.review_application(
     app_uuid uuid,
     review_status text,
@@ -181,9 +186,10 @@ RETURNS boolean AS $$
 DECLARE
     app_record public.applications%ROWTYPE;
 BEGIN
-    -- Verify actor is admin
-    IF NOT public.is_current_user_admin() THEN
-        RAISE EXCEPTION 'Unauthorized: User is not an administrator.';
+    -- Verify actor is a platform admin OR the owner/admin of the company that
+    -- owns this application's internship.
+    IF NOT public.is_current_user_admin() AND NOT public.can_review_company_application(app_uuid) THEN
+        RAISE EXCEPTION 'Unauthorized: You do not have permission to review this application.';
     END IF;
 
     -- Fetch and lock the application record to prevent race conditions
@@ -246,13 +252,15 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
 REVOKE EXECUTE ON FUNCTION public.review_application(uuid, text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.review_application(uuid, text, text) TO authenticated;
 
--- 4b. Transactional Function: Mark Application Under Review (invoked by admins)
+-- 4b. Transactional Function: Mark Application Under Review (invoked by
+-- admins, or by a company owner/admin — same authorization rule as
+-- review_application() above, added in Phase 5B-3)
 -- Companion to review_application() above: transitions pending -> under_review
 -- only. No decision has been made yet, so it deliberately creates no
--- enrollment/notification — it only records that an admin has started
+-- enrollment/notification — it only records that a reviewer has started
 -- looking at the application. Follows the exact same conventions as
 -- review_application(): SECURITY DEFINER with a function-level search_path
--- SET clause, an explicit admin check, a row lock, and a write_audit_log() call.
+-- SET clause, an authorization check, a row lock, and a write_audit_log() call.
 CREATE OR REPLACE FUNCTION public.mark_application_under_review(
     app_uuid uuid
 )
@@ -260,9 +268,10 @@ RETURNS boolean AS $$
 DECLARE
     app_record public.applications%ROWTYPE;
 BEGIN
-    -- Verify actor is admin
-    IF NOT public.is_current_user_admin() THEN
-        RAISE EXCEPTION 'Unauthorized: User is not an administrator.';
+    -- Verify actor is a platform admin OR the owner/admin of the company that
+    -- owns this application's internship.
+    IF NOT public.is_current_user_admin() AND NOT public.can_review_company_application(app_uuid) THEN
+        RAISE EXCEPTION 'Unauthorized: You do not have permission to review this application.';
     END IF;
 
     -- Fetch and lock the application record to prevent race conditions
@@ -496,6 +505,424 @@ GRANT SELECT ON public.notifications TO authenticated;
 -- than `read` in its SET clause is rejected with 42501 before RLS even runs.
 GRANT UPDATE (read) ON public.notifications TO authenticated;
 GRANT SELECT ON public.audit_logs TO authenticated;
+
+-- =========================================================================
+-- COMPANY PLATFORM FOUNDATION (Phase 5B-1)
+-- =========================================================================
+-- Schema + RLS foundation only. No company UI, no company Server Actions,
+-- no changes to review_application()/mark_application_under_review() — a
+-- company user's ability to review applications is explicitly deferred to
+-- a later phase. Everything below is additive: no existing table, function,
+-- policy, or GRANT above this line is modified.
+
+-- 9. Companies Table
+CREATE TABLE public.companies (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    description text,
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+-- 10. Company Members Table — the sole, authoritative source of
+-- company-scoped membership/role. user_roles.role's existing
+-- 'company_admin'/'company_member' enum values are deliberately left
+-- unpopulated; they carry no company_id and cannot represent "admin of
+-- which company" without overloading a column whose meaning is otherwise
+-- uniform ("this user globally holds this role") across every other row.
+CREATE TABLE public.company_members (
+    company_id uuid NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE RESTRICT,
+    company_role text NOT NULL CHECK (company_role IN ('owner', 'admin', 'member')),
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    PRIMARY KEY (company_id, user_id)
+);
+
+CREATE INDEX idx_company_members_user_id ON public.company_members(user_id);
+
+CREATE TRIGGER update_companies_modtime BEFORE UPDATE ON public.companies FOR EACH ROW EXECUTE FUNCTION public.update_modified_column();
+CREATE TRIGGER update_company_members_modtime BEFORE UPDATE ON public.company_members FOR EACH ROW EXECUTE FUNCTION public.update_modified_column();
+
+-- Internship ownership: nullable by design. NULL means platform-owned —
+-- every existing internship (and every internship Phase 5A's admin CRUD
+-- creates going forward) simply keeps company_id NULL, permanently valid,
+-- with no backfill and no synthetic "Platform" company row.
+ALTER TABLE public.internships
+    ADD COLUMN company_id uuid NULL REFERENCES public.companies(id) ON DELETE RESTRICT;
+
+CREATE INDEX idx_internships_company_id ON public.internships(company_id);
+
+-- 11. Company Authorization Helpers
+--
+-- Same hardened pattern as is_current_user_admin()/has_current_user_role():
+-- SECURITY DEFINER with a function-level search_path SET clause (never a
+-- runtime SET), REVOKE FROM PUBLIC + GRANT TO authenticated, and the user
+-- is always auth.uid() — never a caller-supplied parameter. Only
+-- company_id is ever a parameter, so an arbitrary/nonexistent company_id
+-- just yields false; it can never be used to probe or affect another
+-- company's data, since these functions return only a boolean.
+--
+-- SECURITY DEFINER is not optional here: a policy on company_members can
+-- itself call these helpers to check membership, and if the helpers were
+-- plain functions their internal SELECT ... FROM company_members would be
+-- subject to company_members' own RLS — which may itself depend on the
+-- same helper, a genuine recursion risk. Running as SECURITY DEFINER means
+-- the helper's internal lookup bypasses RLS entirely (the same reason
+-- write_audit_log() runs as its owner), so only the *calling* policy is
+-- ever RLS-gated.
+CREATE OR REPLACE FUNCTION public.is_company_member(target_company_id uuid)
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.company_members
+    WHERE company_id = target_company_id AND user_id = auth.uid()
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.is_company_member(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_company_member(uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.is_company_admin(target_company_id uuid)
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.company_members
+    WHERE company_id = target_company_id AND user_id = auth.uid() AND company_role IN ('owner', 'admin')
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.is_company_admin(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_company_admin(uuid) TO authenticated;
+
+-- Same predicate as is_company_member() today, kept as its own name so RLS
+-- policies read with intent-appropriate naming ("is_company_user" for
+-- broad read access to internships/applications vs "is_company_member" for
+-- membership-table semantics) without duplicating the underlying query.
+CREATE OR REPLACE FUNCTION public.is_company_user(target_company_id uuid)
+RETURNS boolean AS $$
+BEGIN
+  RETURN public.is_company_member(target_company_id);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.is_company_user(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_company_user(uuid) TO authenticated;
+
+-- 12. Transactional Function: Create Company (invoked by any authenticated user)
+--
+-- A direct client INSERT into companies followed by a separate INSERT into
+-- company_members would be two non-atomic statements — if the second failed
+-- or the client never ran it, the result is an orphaned company with zero
+-- members that no one (short of a platform admin) could ever access or
+-- manage. This RPC does both inserts in one function body, which Postgres
+-- guarantees is one transaction, the same atomicity guarantee
+-- review_application() already relies on for its own multi-table writes.
+CREATE OR REPLACE FUNCTION public.create_company(
+    company_name text,
+    company_description text
+)
+RETURNS uuid AS $$
+DECLARE
+    new_company_id uuid;
+    actor_uuid uuid;
+BEGIN
+    actor_uuid := auth.uid();
+
+    IF actor_uuid IS NULL THEN
+        RAISE EXCEPTION 'Unauthorized: Authentication required.';
+    END IF;
+
+    IF company_name IS NULL OR btrim(company_name) = '' THEN
+        RAISE EXCEPTION 'Invalid Input: Company name is required.';
+    END IF;
+
+    INSERT INTO public.companies (name, description)
+    VALUES (company_name, company_description)
+    RETURNING id INTO new_company_id;
+
+    INSERT INTO public.company_members (company_id, user_id, company_role)
+    VALUES (new_company_id, actor_uuid, 'owner');
+
+    PERFORM public.write_audit_log(
+        'company_created',
+        'company',
+        new_company_id,
+        jsonb_build_object('name', company_name)
+    );
+
+    RETURN new_company_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.create_company(text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.create_company(text, text) TO authenticated;
+
+-- 13. Trigger: Prevent internship company_id reassignment
+--
+-- RLS's WITH CHECK on UPDATE only validates the proposed new row, so a
+-- policy of the shape USING(is_company_admin(company_id))
+-- WITH CHECK(is_company_admin(company_id)) is NOT sufficient on its own: a
+-- user who administers both Company A and Company B could move an
+-- internship from A to B, since both the old and new company_id would
+-- independently satisfy is_company_admin(). company_id must be completely
+-- immutable for any non-platform-admin actor, so this is enforced as an
+-- explicit BEFORE UPDATE trigger (which has OLD/NEW directly, no
+-- self-referential subquery needed) rather than folded into RLS text.
+-- Platform admins are exempt — they already have unrestricted UPDATE via
+-- the existing "Admins can update internships" policy below, unchanged
+-- since Phase 4B; this trigger only closes a NEW gap the company_id column
+-- introduces, it does not add a new restriction on existing admin behavior.
+CREATE OR REPLACE FUNCTION public.prevent_internship_company_reassignment()
+RETURNS trigger AS $$
+BEGIN
+    IF NEW.company_id IS DISTINCT FROM OLD.company_id AND NOT public.is_current_user_admin() THEN
+        RAISE EXCEPTION 'Invalid Operation: company_id cannot be changed.';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER prevent_internship_company_reassignment_trigger
+  BEFORE UPDATE ON public.internships
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_internship_company_reassignment();
+
+-- 14. companies RLS policies
+ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Company members can read own company OR admin can read all" ON public.companies
+    FOR SELECT TO authenticated
+    USING (public.is_company_member(id) OR public.is_current_user_admin());
+
+CREATE POLICY "Company admins can update own company OR platform admin" ON public.companies
+    FOR UPDATE TO authenticated
+    USING (public.is_company_admin(id) OR public.is_current_user_admin())
+    WITH CHECK (public.is_company_admin(id) OR public.is_current_user_admin());
+
+-- No INSERT policy: company creation is exclusively via create_company()
+-- above (SECURITY DEFINER, bypasses RLS internally), the same "no direct
+-- client INSERT path" pattern already used for enrollments and audit_logs.
+-- No DELETE policy: matches the existing schema's soft-state-only model —
+-- nothing in this schema is hard-deletable by a client, not even by admins.
+
+-- 15. company_members RLS policies
+ALTER TABLE public.company_members ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Company members can read own company's membership OR admin can read all" ON public.company_members
+    FOR SELECT TO authenticated
+    USING (public.is_company_member(company_id) OR public.is_current_user_admin());
+
+-- A plain member fails is_company_admin() entirely, so they have zero
+-- INSERT/UPDATE/DELETE path here regardless of which row they target —
+-- self-escalation from member to admin/owner is structurally impossible,
+-- not just discouraged. 'owner' rows can only ever be created by
+-- create_company()'s own SECURITY-DEFINER-bypassing insert; no policy
+-- below ever permits company_role = 'owner' in a client-supplied INSERT or
+-- UPDATE, and no policy permits touching a row whose CURRENT role is
+-- 'owner' at all — ownership transfer/second-owner support is explicitly
+-- out of scope for this foundation phase.
+CREATE POLICY "Company admins can add non-owner members OR platform admin" ON public.company_members
+    FOR INSERT TO authenticated
+    WITH CHECK (
+        public.is_current_user_admin()
+        OR (public.is_company_admin(company_id) AND company_role IN ('admin', 'member'))
+    );
+
+CREATE POLICY "Company admins can update non-owner members OR platform admin" ON public.company_members
+    FOR UPDATE TO authenticated
+    USING (
+        public.is_current_user_admin()
+        OR (public.is_company_admin(company_id) AND company_role != 'owner')
+    )
+    WITH CHECK (
+        public.is_current_user_admin()
+        OR (public.is_company_admin(company_id) AND company_role IN ('admin', 'member'))
+    );
+
+CREATE POLICY "Company admins can remove non-owner members OR platform admin" ON public.company_members
+    FOR DELETE TO authenticated
+    USING (
+        public.is_current_user_admin()
+        OR (public.is_company_admin(company_id) AND company_role != 'owner')
+    );
+
+-- 16. internships RLS — additive company policies only.
+-- Postgres combines multiple PERMISSIVE policies for the same command with
+-- OR, so these are added as new, separate policies rather than editing the
+-- existing "Anyone can read open internships OR admin can read all" /
+-- "Admins can insert internships" / "Admins can update internships"
+-- policies from Phase 4B — those three are untouched, byte-for-byte, by
+-- this migration.
+
+CREATE POLICY "Company users can read own company's internships regardless of status" ON public.internships
+    FOR SELECT TO authenticated
+    USING (company_id IS NOT NULL AND public.is_company_user(company_id));
+
+CREATE POLICY "Company admins can insert internships for their own company" ON public.internships
+    FOR INSERT TO authenticated
+    WITH CHECK (company_id IS NOT NULL AND public.is_company_admin(company_id));
+
+CREATE POLICY "Company admins can update their own company's internships" ON public.internships
+    FOR UPDATE TO authenticated
+    USING (company_id IS NOT NULL AND public.is_company_admin(company_id))
+    WITH CHECK (company_id IS NOT NULL AND public.is_company_admin(company_id));
+
+-- 17. applications RLS — additive company policy only.
+-- Company application REVIEW (mutating status) is explicitly deferred;
+-- this is read-only, and review_application()/mark_application_under_review()
+-- are not modified by this migration.
+CREATE POLICY "Company users can read applications for their own company's internships" ON public.applications
+    FOR SELECT TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.internships i
+            WHERE i.id = applications.internship_id
+              AND i.company_id IS NOT NULL
+              AND public.is_company_user(i.company_id)
+        )
+    );
+
+-- 18. Company platform GRANTs
+-- companies: SELECT, UPDATE only — INSERT is RPC-only (create_company()),
+-- DELETE is intentionally absent (see the soft-state note above).
+GRANT SELECT, UPDATE ON public.companies TO authenticated;
+-- company_members: RLS is the actual restriction on all four commands.
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.company_members TO authenticated;
+-- internships/applications table-level GRANTs are unchanged from Phase 4B —
+-- the new company capability comes entirely from the RLS policies above,
+-- not from a wider base grant.
+
+-- =========================================================================
+-- COMPANY PLATFORM: APPLICATION REVIEW + IDENTITY LOOKUP (Phase 5B-3)
+-- =========================================================================
+-- Closes the three blockers reported at the end of Phase 5B-2: company
+-- reviewers could not call review_application()/mark_application_under_review()
+-- (both are extended above, in place, to also accept
+-- can_review_company_application() below), company admins could not resolve
+-- a user by email to add them as a member, and company users could not see
+-- applicant/fellow-member names because profiles RLS has no company branch.
+-- None of these are solved by widening profiles RLS — every read here goes
+-- through a narrowly-scoped SECURITY DEFINER function that independently
+-- re-verifies the caller's own company relationship via the existing
+-- is_company_member()/is_company_admin() helpers, the same "recheck inside
+-- the function, never trust the parameter" pattern is_company_admin() itself
+-- already established.
+
+-- 19. Authorization helper: can the caller review this specific application?
+-- Used by review_application()/mark_application_under_review() above (which
+-- are defined earlier in this file — plpgsql function bodies are only
+-- resolved at call time, so this forward reference is safe). Derives the
+-- actor from auth.uid() only (via is_company_admin(), never a parameter),
+-- and requires the application's internship to belong to a company (NULL
+-- company_id — platform-owned — always returns false here; platform admins
+-- reach those through the separate is_current_user_admin() branch instead).
+CREATE OR REPLACE FUNCTION public.can_review_company_application(application_id uuid)
+RETURNS boolean AS $$
+DECLARE
+    target_company_id uuid;
+BEGIN
+    SELECT i.company_id INTO target_company_id
+    FROM public.applications a
+    JOIN public.internships i ON i.id = a.internship_id
+    WHERE a.id = application_id;
+
+    IF target_company_id IS NULL THEN
+        RETURN false;
+    END IF;
+
+    RETURN public.is_company_admin(target_company_id);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.can_review_company_application(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.can_review_company_application(uuid) TO authenticated;
+
+-- 20. Secure identity lookup: resolve a user by exact email for company
+-- membership invites. Gated to "caller is owner/admin of at least one
+-- company" (not all authenticated users, and not scoped to a specific
+-- company_id — this function returns no company-membership information,
+-- only identity, so which company the caller administers is irrelevant to
+-- what it's safe to return). Exact, case-insensitive match only; returns
+-- zero or one row. No pattern/partial search, so it cannot be used to
+-- enumerate the user base beyond confirming/denying one exact address at a
+-- time — the same minimal exposure any "invite by email" feature has.
+CREATE OR REPLACE FUNCTION public.find_user_for_company_membership(lookup_email text)
+RETURNS TABLE (user_id uuid, email text, first_name text, last_name text) AS $$
+BEGIN
+    -- Table-qualified column reference: this function's own RETURNS TABLE
+    -- OUT parameter is also named user_id, which plpgsql would otherwise
+    -- treat as ambiguous against company_members.user_id.
+    IF NOT EXISTS (
+        SELECT 1 FROM public.company_members cm
+        WHERE cm.user_id = auth.uid() AND cm.company_role IN ('owner', 'admin')
+    ) THEN
+        RAISE EXCEPTION 'Unauthorized: You do not have permission to look up users.';
+    END IF;
+
+    IF lookup_email IS NULL OR btrim(lookup_email) = '' THEN
+        RETURN;
+    END IF;
+
+    RETURN QUERY
+    SELECT p.id, p.email, p.first_name, p.last_name
+    FROM public.profiles p
+    WHERE lower(p.email) = lower(btrim(lookup_email))
+    LIMIT 1;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.find_user_for_company_membership(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.find_user_for_company_membership(text) TO authenticated;
+
+-- 21. Company-scoped identity reads. Each independently re-verifies the
+-- caller's own relationship to target_company_id (never trusts it blindly)
+-- via the exact same helpers RLS itself uses, so these can never expose more
+-- than the equivalent RLS-guarded row-set already visible to the caller.
+
+-- Fellow company members' identities — any member (owner/admin/member) may
+-- see who else is on their own company's roster.
+CREATE OR REPLACE FUNCTION public.company_member_profiles(target_company_id uuid)
+RETURNS TABLE (user_id uuid, email text, first_name text, last_name text) AS $$
+BEGIN
+    IF NOT public.is_company_member(target_company_id) THEN
+        RETURN;
+    END IF;
+
+    RETURN QUERY
+    SELECT p.id, p.email, p.first_name, p.last_name
+    FROM public.company_members cm
+    JOIN public.profiles p ON p.id = cm.user_id
+    WHERE cm.company_id = target_company_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.company_member_profiles(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.company_member_profiles(uuid) TO authenticated;
+
+-- Applicant identities for the caller's own company's internships — any
+-- company user (read-only members included) may see who applied, mirroring
+-- the existing "Company users can read applications for their own company's
+-- internships" RLS policy's own reach, never wider.
+CREATE OR REPLACE FUNCTION public.company_applicant_profiles(target_company_id uuid)
+RETURNS TABLE (application_id uuid, user_id uuid, email text, first_name text, last_name text) AS $$
+BEGIN
+    IF NOT public.is_company_user(target_company_id) THEN
+        RETURN;
+    END IF;
+
+    RETURN QUERY
+    SELECT a.id, p.id, p.email, p.first_name, p.last_name
+    FROM public.applications a
+    JOIN public.internships i ON i.id = a.internship_id
+    JOIN public.profiles p ON p.id = a.student_id
+    WHERE i.company_id = target_company_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.company_applicant_profiles(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.company_applicant_profiles(uuid) TO authenticated;
 
 -- =========================================================================
 -- STORAGE: RESUME BUCKET
