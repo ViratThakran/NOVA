@@ -925,6 +925,232 @@ REVOKE EXECUTE ON FUNCTION public.company_applicant_profiles(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.company_applicant_profiles(uuid) TO authenticated;
 
 -- =========================================================================
+-- CONTENT CATALOG: PROGRAMS, COURSES, SKILLS (Phase 7)
+-- =========================================================================
+-- Establishes NOVA's learning-content catalog — flagship programs, the
+-- courses inside each, and a normalized, reusable skill vocabulary. This is
+-- catalog/reference data (like a course listing), not a full LMS: no video
+-- hosting, quizzes, certificates, progress tracking, or payments live here.
+--
+-- These are the FIRST tables in this schema readable by the `anon` role.
+-- Every other table in this file is `TO authenticated` only, by deliberate,
+-- consistent design (public marketing pages have always been fully static —
+-- see src/components/marketing/content.ts). Published catalog content is
+-- different in kind from every existing table: it holds no user data, no
+-- business-sensitive data, and is meant to be publicly browsable without a
+-- login (a course catalog page). Granting `anon` SELECT on PUBLISHED rows
+-- only, on these five new tables only, is a narrow, additive expansion —
+-- nothing existing changes, and drafts remain invisible to anon and to
+-- authenticated non-admins alike.
+
+-- 22. Programs Table — flagship, admin-curated learning tracks.
+CREATE TABLE public.programs (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    slug text UNIQUE NOT NULL,
+    name text NOT NULL,
+    short_description text NOT NULL,
+    long_description text NOT NULL,
+    category text NOT NULL CHECK (category IN (
+        'ai_ml', 'data_analytics', 'software_development', 'cybersecurity',
+        'cloud_devops', 'design', 'emerging_tech'
+    )),
+    difficulty text NOT NULL CHECK (difficulty IN ('beginner', 'intermediate', 'advanced')),
+    duration_weeks integer NOT NULL CHECK (duration_weeks > 0),
+    -- Career outcomes are simple role-title strings, not a separate Career
+    -- Paths table — see the Phase 7 report's "career-path decision": a
+    -- program's own outcomes list already represents this cleanly without
+    -- a redundant entity.
+    career_outcomes text[] NOT NULL DEFAULT '{}',
+    status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'archived')),
+    display_order integer NOT NULL DEFAULT 0,
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX idx_programs_status ON public.programs(status);
+
+CREATE TRIGGER update_programs_modtime BEFORE UPDATE ON public.programs FOR EACH ROW EXECUTE FUNCTION public.update_modified_column();
+
+-- 23. Courses Table — ordered content units within a program.
+-- No `prerequisites` column: sequencing is already fully expressed by
+-- (program_id, display_order); a separate prerequisite graph would be
+-- redundant complexity for a catalog with no enrollment/progress tracking.
+CREATE TABLE public.courses (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    program_id uuid NOT NULL REFERENCES public.programs(id) ON DELETE CASCADE,
+    slug text NOT NULL,
+    title text NOT NULL,
+    description text NOT NULL,
+    level text NOT NULL CHECK (level IN ('beginner', 'intermediate', 'advanced')),
+    duration_hours integer NOT NULL CHECK (duration_hours > 0),
+    display_order integer NOT NULL DEFAULT 0,
+    status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'archived')),
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    UNIQUE (program_id, slug)
+);
+
+CREATE INDEX idx_courses_program_id ON public.courses(program_id);
+CREATE INDEX idx_courses_status ON public.courses(status);
+
+CREATE TRIGGER update_courses_modtime BEFORE UPDATE ON public.courses FOR EACH ROW EXECUTE FUNCTION public.update_modified_column();
+
+-- 24. Skills Table — a normalized, reusable vocabulary (not a full taxonomy
+-- service). No `status`/draft-publish lifecycle: a skill is either part of
+-- the vocabulary or it isn't, unlike programs/courses which are genuine
+-- editorial content with a draft state.
+CREATE TABLE public.skills (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    slug text UNIQUE NOT NULL,
+    name text NOT NULL,
+    category text NOT NULL CHECK (category IN (
+        'language', 'data_ai', 'web', 'cloud_devops', 'security', 'design',
+        'analytics_tools', 'emerging_tech', 'soft_skills'
+    )),
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX idx_skills_category ON public.skills(category);
+
+-- 25. Join tables connecting programs/courses to skills. Internships are
+-- deliberately NOT connected to skills in this phase — see the Phase 7
+-- report's internship field classification; there is no existing consumer
+-- (filter/display) for internship-skill data yet, so adding it now would be
+-- speculative schema, not a genuine current requirement.
+CREATE TABLE public.program_skills (
+    program_id uuid NOT NULL REFERENCES public.programs(id) ON DELETE CASCADE,
+    skill_id uuid NOT NULL REFERENCES public.skills(id) ON DELETE CASCADE,
+    PRIMARY KEY (program_id, skill_id)
+);
+
+CREATE INDEX idx_program_skills_skill_id ON public.program_skills(skill_id);
+
+CREATE TABLE public.course_skills (
+    course_id uuid NOT NULL REFERENCES public.courses(id) ON DELETE CASCADE,
+    skill_id uuid NOT NULL REFERENCES public.skills(id) ON DELETE CASCADE,
+    PRIMARY KEY (course_id, skill_id)
+);
+
+CREATE INDEX idx_course_skills_skill_id ON public.course_skills(skill_id);
+
+-- 26. Content catalog RLS.
+ALTER TABLE public.programs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.skills ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.program_skills ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.course_skills ENABLE ROW LEVEL SECURITY;
+
+-- programs: published rows are public; admins see and manage everything.
+-- Two separate SELECT policies (rather than one `OR is_current_user_admin()`
+-- clause) because that function is only GRANTed to `authenticated` — an
+-- `anon` caller would get a permission error, not `false`, if a policy it's
+-- subject to tried to call it. Postgres ORs multiple PERMISSIVE policies for
+-- the same command, so `authenticated` still gets "published OR admin".
+CREATE POLICY "Anyone can read published programs" ON public.programs
+    FOR SELECT TO anon, authenticated
+    USING (status = 'published');
+
+CREATE POLICY "Admins can read all programs" ON public.programs
+    FOR SELECT TO authenticated
+    USING (public.is_current_user_admin());
+
+CREATE POLICY "Admins can insert programs" ON public.programs
+    FOR INSERT TO authenticated
+    WITH CHECK (public.is_current_user_admin());
+
+CREATE POLICY "Admins can update programs" ON public.programs
+    FOR UPDATE TO authenticated
+    USING (public.is_current_user_admin())
+    WITH CHECK (public.is_current_user_admin());
+
+-- No DELETE policy: matches internships/companies — archive via status,
+-- nothing here is hard-deletable.
+
+-- courses: a course is public only when BOTH it and its parent program are
+-- published, so a course can never leak ahead of its program's own launch.
+CREATE POLICY "Anyone can read published courses of published programs" ON public.courses
+    FOR SELECT TO anon, authenticated
+    USING (
+        status = 'published'
+        AND EXISTS (SELECT 1 FROM public.programs p WHERE p.id = courses.program_id AND p.status = 'published')
+    );
+
+CREATE POLICY "Admins can read all courses" ON public.courses
+    FOR SELECT TO authenticated
+    USING (public.is_current_user_admin());
+
+CREATE POLICY "Admins can insert courses" ON public.courses
+    FOR INSERT TO authenticated
+    WITH CHECK (public.is_current_user_admin());
+
+CREATE POLICY "Admins can update courses" ON public.courses
+    FOR UPDATE TO authenticated
+    USING (public.is_current_user_admin())
+    WITH CHECK (public.is_current_user_admin());
+
+-- skills: pure reference vocabulary, always readable, admin-managed.
+CREATE POLICY "Anyone can read skills" ON public.skills
+    FOR SELECT TO anon, authenticated
+    USING (true);
+
+CREATE POLICY "Admins can insert skills" ON public.skills
+    FOR INSERT TO authenticated
+    WITH CHECK (public.is_current_user_admin());
+
+CREATE POLICY "Admins can update skills" ON public.skills
+    FOR UPDATE TO authenticated
+    USING (public.is_current_user_admin())
+    WITH CHECK (public.is_current_user_admin());
+
+CREATE POLICY "Admins can delete skills" ON public.skills
+    FOR DELETE TO authenticated
+    USING (public.is_current_user_admin());
+
+-- program_skills / course_skills: visible whenever the parent content is
+-- visible; otherwise admin-only. FOR ALL covers every write command with a
+-- single admin-only policy, matching these tables' pure-junction shape (no
+-- content of their own beyond the two foreign keys).
+CREATE POLICY "Anyone can read skills for published programs" ON public.program_skills
+    FOR SELECT TO anon, authenticated
+    USING (EXISTS (SELECT 1 FROM public.programs p WHERE p.id = program_skills.program_id AND p.status = 'published'));
+
+CREATE POLICY "Admins can read all program_skills" ON public.program_skills
+    FOR SELECT TO authenticated
+    USING (public.is_current_user_admin());
+
+CREATE POLICY "Admins can manage program_skills" ON public.program_skills
+    FOR ALL TO authenticated
+    USING (public.is_current_user_admin())
+    WITH CHECK (public.is_current_user_admin());
+
+CREATE POLICY "Anyone can read skills for published courses" ON public.course_skills
+    FOR SELECT TO anon, authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.courses c
+            JOIN public.programs p ON p.id = c.program_id
+            WHERE c.id = course_skills.course_id AND c.status = 'published' AND p.status = 'published'
+        )
+    );
+
+CREATE POLICY "Admins can read all course_skills" ON public.course_skills
+    FOR SELECT TO authenticated
+    USING (public.is_current_user_admin());
+
+CREATE POLICY "Admins can manage course_skills" ON public.course_skills
+    FOR ALL TO authenticated
+    USING (public.is_current_user_admin())
+    WITH CHECK (public.is_current_user_admin());
+
+-- 27. Content catalog GRANTs.
+GRANT SELECT ON public.programs, public.courses, public.skills, public.program_skills, public.course_skills TO anon;
+GRANT SELECT, INSERT, UPDATE ON public.programs TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.courses TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.skills TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.program_skills TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.course_skills TO authenticated;
+
+-- =========================================================================
 -- STORAGE: RESUME BUCKET
 -- =========================================================================
 -- Private bucket for student resumes. `file_size_limit` and `allowed_mime_types`
@@ -980,3 +1206,269 @@ CREATE POLICY "Students can delete own resume" ON storage.objects
         bucket_id = 'resumes'
         AND (storage.foldername(name))[1] = auth.uid()::text
     );
+
+-- =========================================================================
+-- INITIAL CONTENT DATA (Phase 7)
+-- =========================================================================
+-- Real, production catalog content (not test fixtures — those live in
+-- supabase/seed.sql, which is explicitly local-dev/test-only and never runs
+-- outside `supabase start`). Taxonomy synthesized from Skill India/MeitY's
+-- FutureSkills PRIME (10 emerging-tech categories), AICTE's emerging-areas
+-- curriculum focus, and current industry demand data — see the Phase 7
+-- report for exact sources. All copy below is NOVA-original, not copied
+-- from any source. Every INSERT is idempotent (ON CONFLICT DO NOTHING) so
+-- re-running this migration on a database that already has this content is
+-- a no-op rather than a duplicate-key error.
+
+-- Skills vocabulary (56 rows across 9 categories).
+INSERT INTO public.skills (slug, name, category) VALUES
+    ('python', 'Python', 'language'),
+    ('javascript', 'JavaScript', 'language'),
+    ('typescript', 'TypeScript', 'language'),
+    ('sql', 'SQL', 'language'),
+    ('java', 'Java', 'language'),
+    ('cpp', 'C++', 'language'),
+    ('go', 'Go', 'language'),
+    ('machine-learning', 'Machine Learning', 'data_ai'),
+    ('deep-learning', 'Deep Learning', 'data_ai'),
+    ('generative-ai', 'Generative AI', 'data_ai'),
+    ('llms', 'Large Language Models', 'data_ai'),
+    ('nlp', 'Natural Language Processing', 'data_ai'),
+    ('computer-vision', 'Computer Vision', 'data_ai'),
+    ('data-analysis', 'Data Analysis', 'data_ai'),
+    ('data-visualization', 'Data Visualization', 'data_ai'),
+    ('statistics', 'Statistics', 'data_ai'),
+    ('pandas', 'Pandas', 'data_ai'),
+    ('numpy', 'NumPy', 'data_ai'),
+    ('tensorflow', 'TensorFlow', 'data_ai'),
+    ('pytorch', 'PyTorch', 'data_ai'),
+    ('scikit-learn', 'Scikit-learn', 'data_ai'),
+    ('react', 'React', 'web'),
+    ('nextjs', 'Next.js', 'web'),
+    ('nodejs', 'Node.js', 'web'),
+    ('rest-apis', 'REST APIs', 'web'),
+    ('html-css', 'HTML & CSS', 'web'),
+    ('git-github', 'Git & GitHub', 'web'),
+    ('system-design', 'System Design', 'web'),
+    ('aws', 'AWS', 'cloud_devops'),
+    ('azure', 'Azure', 'cloud_devops'),
+    ('docker', 'Docker', 'cloud_devops'),
+    ('kubernetes', 'Kubernetes', 'cloud_devops'),
+    ('ci-cd', 'CI/CD', 'cloud_devops'),
+    ('linux', 'Linux', 'cloud_devops'),
+    ('cloud-architecture', 'Cloud Architecture', 'cloud_devops'),
+    ('terraform', 'Terraform', 'cloud_devops'),
+    ('cybersecurity-fundamentals', 'Cybersecurity Fundamentals', 'security'),
+    ('network-security', 'Network Security', 'security'),
+    ('ethical-hacking', 'Ethical Hacking', 'security'),
+    ('cloud-security', 'Cloud Security', 'security'),
+    ('application-security', 'Application Security', 'security'),
+    ('incident-response', 'Incident Response', 'security'),
+    ('figma', 'Figma', 'design'),
+    ('ui-design', 'UI Design', 'design'),
+    ('ux-research', 'UX Research', 'design'),
+    ('design-systems', 'Design Systems', 'design'),
+    ('prototyping', 'Prototyping', 'design'),
+    ('power-bi', 'Power BI', 'analytics_tools'),
+    ('tableau', 'Tableau', 'analytics_tools'),
+    ('excel', 'Excel', 'analytics_tools'),
+    ('apache-spark', 'Apache Spark', 'analytics_tools'),
+    ('blockchain', 'Blockchain', 'emerging_tech'),
+    ('iot', 'Internet of Things', 'emerging_tech'),
+    ('ar-vr', 'AR/VR', 'emerging_tech'),
+    ('technical-communication', 'Technical Communication', 'soft_skills'),
+    ('problem-solving', 'Problem Solving', 'soft_skills')
+ON CONFLICT (slug) DO NOTHING;
+
+-- Flagship programs (7 rows).
+INSERT INTO public.programs (slug, name, short_description, long_description, category, difficulty, duration_weeks, career_outcomes, status, display_order) VALUES
+    (
+        'ai-machine-learning',
+        'Artificial Intelligence & Machine Learning',
+        'Learn to build, train, and deploy machine learning and generative AI systems from first principles.',
+        'This program takes you from Python fundamentals through classical machine learning into deep learning and generative AI. You''ll work with real datasets and models, building the practical judgment to apply AI responsibly to real problems, not just run pre-built notebooks.',
+        'ai_ml', 'intermediate', 16,
+        ARRAY['Machine Learning Engineer', 'AI Engineer', 'Data Scientist', 'Applied AI Developer'],
+        'published', 1
+    ),
+    (
+        'data-analytics-data-science',
+        'Data Analytics & Data Science',
+        'Turn raw data into decisions using SQL, Python, statistics, and modern BI tools.',
+        'A practical path through the data stack: querying and cleaning data, applying statistics, visualizing findings, and building predictive models. Built around real analysis workflows so you leave able to answer real business questions with data, not just describe techniques.',
+        'data_analytics', 'intermediate', 14,
+        ARRAY['Data Analyst', 'Business Intelligence Analyst', 'Junior Data Scientist', 'Analytics Associate'],
+        'published', 2
+    ),
+    (
+        'software-development',
+        'Software Development',
+        'Build production-grade full-stack web applications from the ground up.',
+        'Covers the core discipline of modern software engineering: version control, frontend and backend development, APIs, and system design, through the lens of shipping real, working applications rather than isolated exercises.',
+        'software_development', 'intermediate', 16,
+        ARRAY['Software Engineer', 'Full-Stack Developer', 'Frontend Developer', 'Backend Developer'],
+        'published', 3
+    ),
+    (
+        'cybersecurity',
+        'Cybersecurity',
+        'Learn to secure systems, networks, and applications against real-world threats.',
+        'Covers the foundations of networking and systems security, ethical hacking methodology, and application/cloud security practices, building toward the ability to assess, defend, and respond to real security incidents.',
+        'cybersecurity', 'intermediate', 14,
+        ARRAY['Security Analyst', 'SOC Analyst', 'Penetration Tester', 'Cloud Security Associate'],
+        'published', 4
+    ),
+    (
+        'cloud-devops',
+        'Cloud & DevOps',
+        'Deploy, scale, and operate modern applications using cloud infrastructure and DevOps practices.',
+        'Focuses on the operational side of software: containers, orchestration, CI/CD pipelines, and infrastructure as code, so you can take an application from a developer''s laptop to a reliable production environment.',
+        'cloud_devops', 'intermediate', 12,
+        ARRAY['DevOps Engineer', 'Cloud Engineer', 'Site Reliability Engineer', 'Platform Engineer'],
+        'published', 5
+    ),
+    (
+        'ui-ux-product-design',
+        'UI/UX & Product Design',
+        'Design usable, well-researched digital products from research through high-fidelity prototypes.',
+        'Covers design thinking, user research, interface design, and systematic design practice: the full path from understanding a user problem to a polished, testable product design.',
+        'design', 'beginner', 10,
+        ARRAY['UI/UX Designer', 'Product Designer', 'Design Associate'],
+        'published', 6
+    ),
+    (
+        'emerging-technologies',
+        'Emerging Technologies',
+        'Explore blockchain, IoT, and AR/VR: the technologies reshaping what''s next.',
+        'A survey-and-build program across the emerging technology landscape identified by national digital-skilling initiatives, giving you working exposure to blockchain, connected devices, and spatial computing rather than just conceptual familiarity.',
+        'emerging_tech', 'intermediate', 10,
+        ARRAY['Blockchain Developer', 'IoT Engineer', 'AR/VR Developer'],
+        'published', 7
+    )
+ON CONFLICT (slug) DO NOTHING;
+
+-- Program-level curated skill highlights (not the full course-skill union —
+-- a shorter, representative list for program cards/summaries).
+INSERT INTO public.program_skills (program_id, skill_id)
+SELECT p.id, s.id FROM (VALUES
+    ('ai-machine-learning', 'python'), ('ai-machine-learning', 'machine-learning'),
+    ('ai-machine-learning', 'deep-learning'), ('ai-machine-learning', 'generative-ai'),
+    ('ai-machine-learning', 'llms'), ('ai-machine-learning', 'pytorch'),
+    ('ai-machine-learning', 'tensorflow'), ('ai-machine-learning', 'statistics'),
+    ('data-analytics-data-science', 'sql'), ('data-analytics-data-science', 'python'),
+    ('data-analytics-data-science', 'statistics'), ('data-analytics-data-science', 'data-analysis'),
+    ('data-analytics-data-science', 'data-visualization'), ('data-analytics-data-science', 'power-bi'),
+    ('data-analytics-data-science', 'tableau'), ('data-analytics-data-science', 'excel'),
+    ('software-development', 'javascript'), ('software-development', 'typescript'),
+    ('software-development', 'react'), ('software-development', 'nodejs'),
+    ('software-development', 'git-github'), ('software-development', 'system-design'),
+    ('software-development', 'rest-apis'),
+    ('cybersecurity', 'cybersecurity-fundamentals'), ('cybersecurity', 'network-security'),
+    ('cybersecurity', 'ethical-hacking'), ('cybersecurity', 'cloud-security'),
+    ('cybersecurity', 'linux'), ('cybersecurity', 'incident-response'),
+    ('cloud-devops', 'aws'), ('cloud-devops', 'docker'),
+    ('cloud-devops', 'kubernetes'), ('cloud-devops', 'ci-cd'),
+    ('cloud-devops', 'linux'), ('cloud-devops', 'terraform'),
+    ('cloud-devops', 'cloud-architecture'),
+    ('ui-ux-product-design', 'figma'), ('ui-ux-product-design', 'ui-design'),
+    ('ui-ux-product-design', 'ux-research'), ('ui-ux-product-design', 'design-systems'),
+    ('ui-ux-product-design', 'prototyping'),
+    ('emerging-technologies', 'blockchain'), ('emerging-technologies', 'iot'),
+    ('emerging-technologies', 'ar-vr'), ('emerging-technologies', 'python')
+) AS v(program_slug, skill_slug)
+JOIN public.programs p ON p.slug = v.program_slug
+JOIN public.skills s ON s.slug = v.skill_slug
+ON CONFLICT DO NOTHING;
+
+-- Courses (38 rows across the 7 flagship programs).
+INSERT INTO public.courses (program_id, slug, title, description, level, duration_hours, display_order, status)
+SELECT p.id, v.slug, v.title, v.description, v.level, v.duration_hours, v.display_order, 'published'
+FROM (VALUES
+    ('ai-machine-learning', 'python-for-ai-data', 'Python for AI & Data', 'Core Python programming and the NumPy/Pandas foundations used throughout the rest of the program.', 'beginner', 20, 1),
+    ('ai-machine-learning', 'math-foundations-ml', 'Mathematical Foundations for ML', 'The linear algebra, calculus, and probability concepts that make ML algorithms make sense.', 'beginner', 16, 2),
+    ('ai-machine-learning', 'ml-fundamentals', 'Machine Learning Fundamentals', 'Supervised and unsupervised learning with scikit-learn, from regression to clustering.', 'intermediate', 30, 3),
+    ('ai-machine-learning', 'deep-learning-neural-networks', 'Deep Learning with Neural Networks', 'Building and training neural networks with TensorFlow and PyTorch.', 'intermediate', 30, 4),
+    ('ai-machine-learning', 'generative-ai-llms', 'Generative AI & LLMs', 'How large language models work and how to build applications on top of them.', 'advanced', 24, 5),
+    ('ai-machine-learning', 'ai-systems-capstone', 'AI Systems Capstone Project', 'A self-directed project applying the full ML pipeline to a real dataset.', 'advanced', 20, 6),
+    ('data-analytics-data-science', 'sql-for-data-analysis', 'SQL for Data Analysis', 'Querying, joining, and aggregating relational data to answer real questions.', 'beginner', 16, 1),
+    ('data-analytics-data-science', 'python-for-data-analysis', 'Python for Data Analysis', 'Using Python and Pandas to clean, transform, and explore datasets.', 'beginner', 20, 2),
+    ('data-analytics-data-science', 'statistics-for-data-science', 'Statistics for Data Science', 'The statistical reasoning behind confident, defensible data conclusions.', 'intermediate', 20, 3),
+    ('data-analytics-data-science', 'data-viz-powerbi-tableau', 'Data Visualization with Power BI & Tableau', 'Turning analysis into dashboards and visuals that communicate clearly.', 'intermediate', 18, 4),
+    ('data-analytics-data-science', 'applied-ml-for-analysts', 'Applied Machine Learning for Analysts', 'Practical predictive modeling techniques for analysts, not just data scientists.', 'advanced', 24, 5),
+    ('data-analytics-data-science', 'data-science-capstone', 'Data Science Capstone Project', 'An end-to-end analysis project from raw data to a decision-ready report.', 'advanced', 20, 6),
+    ('software-development', 'programming-foundations-js', 'Programming Foundations with JavaScript', 'Core programming concepts and JavaScript fundamentals for the web.', 'beginner', 20, 1),
+    ('software-development', 'git-github-workflow', 'Git, GitHub & Developer Workflow', 'Version control and collaborative development practices used on every real team.', 'beginner', 10, 2),
+    ('software-development', 'frontend-react', 'Frontend Development with React', 'Building interactive user interfaces with React and TypeScript.', 'intermediate', 30, 3),
+    ('software-development', 'backend-nodejs', 'Backend Development with Node.js', 'Building APIs and server-side logic with Node.js and SQL databases.', 'intermediate', 30, 4),
+    ('software-development', 'system-design-fundamentals', 'System Design Fundamentals', 'How to reason about scale, reliability, and architecture in real systems.', 'advanced', 20, 5),
+    ('software-development', 'fullstack-capstone', 'Full-Stack Capstone Project', 'Designing and building a complete full-stack application from scratch.', 'advanced', 24, 6),
+    ('cybersecurity', 'cybersecurity-foundations-course', 'Cybersecurity Fundamentals', 'Core security principles: threats, vulnerabilities, and defense-in-depth.', 'beginner', 16, 1),
+    ('cybersecurity', 'networking-linux-essentials', 'Networking & Linux Essentials', 'The networking and Linux systems knowledge every security role depends on.', 'beginner', 18, 2),
+    ('cybersecurity', 'ethical-hacking-pentest', 'Ethical Hacking & Penetration Testing', 'Offensive security methodology used to find and responsibly report vulnerabilities.', 'intermediate', 30, 3),
+    ('cybersecurity', 'app-cloud-security', 'Application & Cloud Security', 'Securing modern applications and cloud infrastructure against common attack paths.', 'intermediate', 24, 4),
+    ('cybersecurity', 'security-ops-incident-response', 'Security Operations & Incident Response', 'Monitoring, detecting, and responding to real security incidents.', 'advanced', 20, 5),
+    ('cloud-devops', 'cloud-computing-fundamentals', 'Cloud Computing Fundamentals', 'Core cloud concepts and services using AWS as the primary reference platform.', 'beginner', 16, 1),
+    ('cloud-devops', 'linux-shell-scripting', 'Linux & Shell Scripting', 'The command-line and scripting skills behind every DevOps workflow.', 'beginner', 14, 2),
+    ('cloud-devops', 'containers-docker-kubernetes', 'Containers with Docker & Kubernetes', 'Packaging and orchestrating applications with containers at scale.', 'intermediate', 26, 3),
+    ('cloud-devops', 'cicd-infra-as-code', 'CI/CD & Infrastructure as Code', 'Automating delivery pipelines and provisioning infrastructure with Terraform.', 'intermediate', 24, 4),
+    ('cloud-devops', 'cloud-devops-capstone', 'Cloud DevOps Capstone Project', 'Deploying and operating a real application on cloud infrastructure end-to-end.', 'advanced', 20, 5),
+    ('ui-ux-product-design', 'design-fundamentals-thinking', 'Design Fundamentals & Design Thinking', 'The core principles and problem-framing process behind good product design.', 'beginner', 14, 1),
+    ('ui-ux-product-design', 'ux-research-methods', 'UX Research Methods', 'Techniques for understanding real user needs before designing solutions.', 'beginner', 16, 2),
+    ('ui-ux-product-design', 'ui-design-figma', 'UI Design with Figma', 'Visual interface design and hands-on Figma craft.', 'intermediate', 22, 3),
+    ('ui-ux-product-design', 'design-systems-prototyping', 'Design Systems & Prototyping', 'Building reusable design systems and interactive prototypes.', 'intermediate', 20, 4),
+    ('ui-ux-product-design', 'product-design-capstone', 'Product Design Capstone Project', 'Taking a product problem from research through a polished, testable prototype.', 'advanced', 18, 5),
+    ('emerging-technologies', 'intro-emerging-tech', 'Introduction to Emerging Tech Landscape', 'An orientation to blockchain, IoT, and AR/VR and where each is headed.', 'beginner', 10, 1),
+    ('emerging-technologies', 'blockchain-web3-fundamentals', 'Blockchain & Web3 Fundamentals', 'How blockchain systems work and the basics of building on them.', 'intermediate', 18, 2),
+    ('emerging-technologies', 'iot-embedded-systems', 'IoT & Embedded Systems', 'Connecting physical devices and sensors into working IoT systems.', 'intermediate', 20, 3),
+    ('emerging-technologies', 'ar-vr-spatial-computing', 'AR/VR & Spatial Computing', 'The fundamentals of building augmented and virtual reality experiences.', 'intermediate', 18, 4),
+    ('emerging-technologies', 'emerging-tech-applied-project', 'Emerging Tech Applied Project', 'A self-directed project combining blockchain, IoT, or AR/VR into a working demo.', 'advanced', 16, 5)
+) AS v(program_slug, slug, title, description, level, duration_hours, display_order)
+JOIN public.programs p ON p.slug = v.program_slug
+ON CONFLICT (program_id, slug) DO NOTHING;
+
+-- Course-level skills (2-3 per course).
+INSERT INTO public.course_skills (course_id, skill_id)
+SELECT c.id, s.id FROM (VALUES
+    ('ai-machine-learning', 'python-for-ai-data', 'python'), ('ai-machine-learning', 'python-for-ai-data', 'numpy'), ('ai-machine-learning', 'python-for-ai-data', 'pandas'),
+    ('ai-machine-learning', 'math-foundations-ml', 'statistics'), ('ai-machine-learning', 'math-foundations-ml', 'machine-learning'),
+    ('ai-machine-learning', 'ml-fundamentals', 'machine-learning'), ('ai-machine-learning', 'ml-fundamentals', 'scikit-learn'), ('ai-machine-learning', 'ml-fundamentals', 'python'),
+    ('ai-machine-learning', 'deep-learning-neural-networks', 'deep-learning'), ('ai-machine-learning', 'deep-learning-neural-networks', 'tensorflow'), ('ai-machine-learning', 'deep-learning-neural-networks', 'pytorch'),
+    ('ai-machine-learning', 'generative-ai-llms', 'generative-ai'), ('ai-machine-learning', 'generative-ai-llms', 'llms'), ('ai-machine-learning', 'generative-ai-llms', 'nlp'),
+    ('ai-machine-learning', 'ai-systems-capstone', 'machine-learning'), ('ai-machine-learning', 'ai-systems-capstone', 'deep-learning'), ('ai-machine-learning', 'ai-systems-capstone', 'python'),
+    ('data-analytics-data-science', 'sql-for-data-analysis', 'sql'), ('data-analytics-data-science', 'sql-for-data-analysis', 'data-analysis'),
+    ('data-analytics-data-science', 'python-for-data-analysis', 'python'), ('data-analytics-data-science', 'python-for-data-analysis', 'pandas'), ('data-analytics-data-science', 'python-for-data-analysis', 'data-analysis'),
+    ('data-analytics-data-science', 'statistics-for-data-science', 'statistics'), ('data-analytics-data-science', 'statistics-for-data-science', 'data-analysis'),
+    ('data-analytics-data-science', 'data-viz-powerbi-tableau', 'power-bi'), ('data-analytics-data-science', 'data-viz-powerbi-tableau', 'tableau'), ('data-analytics-data-science', 'data-viz-powerbi-tableau', 'data-visualization'),
+    ('data-analytics-data-science', 'applied-ml-for-analysts', 'machine-learning'), ('data-analytics-data-science', 'applied-ml-for-analysts', 'scikit-learn'), ('data-analytics-data-science', 'applied-ml-for-analysts', 'python'),
+    ('data-analytics-data-science', 'data-science-capstone', 'sql'), ('data-analytics-data-science', 'data-science-capstone', 'python'), ('data-analytics-data-science', 'data-science-capstone', 'data-analysis'),
+    ('software-development', 'programming-foundations-js', 'javascript'), ('software-development', 'programming-foundations-js', 'html-css'),
+    ('software-development', 'git-github-workflow', 'git-github'),
+    ('software-development', 'frontend-react', 'react'), ('software-development', 'frontend-react', 'javascript'), ('software-development', 'frontend-react', 'typescript'),
+    ('software-development', 'backend-nodejs', 'nodejs'), ('software-development', 'backend-nodejs', 'rest-apis'), ('software-development', 'backend-nodejs', 'sql'),
+    ('software-development', 'system-design-fundamentals', 'system-design'),
+    ('software-development', 'fullstack-capstone', 'react'), ('software-development', 'fullstack-capstone', 'nodejs'), ('software-development', 'fullstack-capstone', 'system-design'),
+    ('cybersecurity', 'cybersecurity-foundations-course', 'cybersecurity-fundamentals'), ('cybersecurity', 'cybersecurity-foundations-course', 'network-security'),
+    ('cybersecurity', 'networking-linux-essentials', 'linux'), ('cybersecurity', 'networking-linux-essentials', 'network-security'),
+    ('cybersecurity', 'ethical-hacking-pentest', 'ethical-hacking'), ('cybersecurity', 'ethical-hacking-pentest', 'network-security'),
+    ('cybersecurity', 'app-cloud-security', 'application-security'), ('cybersecurity', 'app-cloud-security', 'cloud-security'),
+    ('cybersecurity', 'security-ops-incident-response', 'incident-response'), ('cybersecurity', 'security-ops-incident-response', 'network-security'),
+    ('cloud-devops', 'cloud-computing-fundamentals', 'aws'), ('cloud-devops', 'cloud-computing-fundamentals', 'cloud-architecture'),
+    ('cloud-devops', 'linux-shell-scripting', 'linux'),
+    ('cloud-devops', 'containers-docker-kubernetes', 'docker'), ('cloud-devops', 'containers-docker-kubernetes', 'kubernetes'),
+    ('cloud-devops', 'cicd-infra-as-code', 'ci-cd'), ('cloud-devops', 'cicd-infra-as-code', 'terraform'),
+    ('cloud-devops', 'cloud-devops-capstone', 'docker'), ('cloud-devops', 'cloud-devops-capstone', 'kubernetes'), ('cloud-devops', 'cloud-devops-capstone', 'ci-cd'),
+    ('ui-ux-product-design', 'design-fundamentals-thinking', 'ui-design'), ('ui-ux-product-design', 'design-fundamentals-thinking', 'ux-research'),
+    ('ui-ux-product-design', 'ux-research-methods', 'ux-research'),
+    ('ui-ux-product-design', 'ui-design-figma', 'figma'), ('ui-ux-product-design', 'ui-design-figma', 'ui-design'),
+    ('ui-ux-product-design', 'design-systems-prototyping', 'design-systems'), ('ui-ux-product-design', 'design-systems-prototyping', 'prototyping'),
+    ('ui-ux-product-design', 'product-design-capstone', 'figma'), ('ui-ux-product-design', 'product-design-capstone', 'design-systems'), ('ui-ux-product-design', 'product-design-capstone', 'prototyping'),
+    ('emerging-technologies', 'intro-emerging-tech', 'blockchain'), ('emerging-technologies', 'intro-emerging-tech', 'iot'), ('emerging-technologies', 'intro-emerging-tech', 'ar-vr'),
+    ('emerging-technologies', 'blockchain-web3-fundamentals', 'blockchain'),
+    ('emerging-technologies', 'iot-embedded-systems', 'iot'),
+    ('emerging-technologies', 'ar-vr-spatial-computing', 'ar-vr'),
+    ('emerging-technologies', 'emerging-tech-applied-project', 'blockchain'), ('emerging-technologies', 'emerging-tech-applied-project', 'iot'), ('emerging-technologies', 'emerging-tech-applied-project', 'ar-vr')
+) AS v(program_slug, course_slug, skill_slug)
+JOIN public.programs p ON p.slug = v.program_slug
+JOIN public.courses c ON c.program_id = p.id AND c.slug = v.course_slug
+JOIN public.skills s ON s.slug = v.skill_slug
+ON CONFLICT DO NOTHING;
