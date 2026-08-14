@@ -18,11 +18,11 @@ export default function CompaniesPage() {
     <PublicPageShell>
       <PageHeader title="For companies" description={companiesPillar.description} />
       <EmptyState
-        title="Company tools are coming soon"
-        description="A dedicated company platform — profiles, postings, and applicant review — isn't built yet."
+        title="Post internships and review applicants"
+        description="Companies can manage a profile, post internships, and review applicants from the company platform."
         action={
-          <Link href="/#companies" className={buttonVariants({ variant: "outline", size: "sm" })}>
-            See the homepage overview
+          <Link href="/login" className={buttonVariants({ variant: "primary", size: "sm" })}>
+            Sign in to the company platform
           </Link>
         }
       />
