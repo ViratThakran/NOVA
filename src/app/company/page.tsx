@@ -9,13 +9,23 @@ export const metadata: Metadata = { title: "Dashboard — NOVA Company" };
 export default async function CompanyDashboardPage() {
   const { supabase, companyId, companyRole } = await requireCompanyAccess();
 
-  const { data: company } = await supabase.from("companies").select("name, description").eq("id", companyId).single();
-  const { data: internships } = await supabase.from("internships").select("id").eq("company_id", companyId);
+  const [{ data: company }, { data: internships }, { count: memberCount }] = await Promise.all([
+    supabase.from("companies").select("name, description").eq("id", companyId).single(),
+    supabase.from("internships").select("id, status").eq("company_id", companyId),
+    supabase.from("company_members").select("*", { count: "exact", head: true }).eq("company_id", companyId),
+  ]);
+
   const internshipIds = (internships ?? []).map((i) => i.id);
-  const { count: applicationCount } =
-    internshipIds.length > 0
-      ? await supabase.from("applications").select("id", { count: "exact", head: true }).in("internship_id", internshipIds)
-      : { count: 0 };
+  const openInternshipCount = (internships ?? []).filter((i) => i.status === "open").length;
+
+  let applicationsByStatus: Record<string, number> = {};
+  if (internshipIds.length > 0) {
+    const { data: applications } = await supabase.from("applications").select("status").in("internship_id", internshipIds);
+    for (const row of applications ?? []) {
+      applicationsByStatus[row.status] = (applicationsByStatus[row.status] ?? 0) + 1;
+    }
+  }
+  const totalApplications = Object.values(applicationsByStatus).reduce((sum, n) => sum + n, 0);
 
   return (
     <div className="flex flex-col gap-8">
@@ -24,8 +34,13 @@ export default async function CompanyDashboardPage() {
       <Card>
         <CardContent className="flex flex-col gap-4 p-6">
           <Row label="Your role" value={<Badge variant="primary">{companyRole}</Badge>} />
+          <Row label="Members" value={(memberCount ?? 0).toString()} />
           <Row label="Internships" value={internshipIds.length.toString()} />
-          <Row label="Applications received" value={(applicationCount ?? 0).toString()} />
+          <Row label="Open internships" value={openInternshipCount.toString()} />
+          <Row label="Applications received" value={totalApplications.toString()} />
+          <Row label="Pending review" value={((applicationsByStatus.pending ?? 0) + (applicationsByStatus.under_review ?? 0)).toString()} />
+          <Row label="Accepted" value={(applicationsByStatus.accepted ?? 0).toString()} />
+          <Row label="Rejected" value={(applicationsByStatus.rejected ?? 0).toString()} />
         </CardContent>
       </Card>
     </div>
