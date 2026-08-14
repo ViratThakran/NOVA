@@ -14,6 +14,8 @@ import {
   internshipStatusSchema,
   reviewSchema,
   markUnderReviewSchema,
+  serviceRequestSchema,
+  cancelServiceRequestSchema,
 } from "@/lib/validation";
 import type { CompanyActionState } from "./action-state";
 
@@ -357,4 +359,63 @@ export async function reviewCompanyApplicationAction(
     status: "success",
     message: parsed.data.status === "accepted" ? "Application accepted." : "Application rejected.",
   };
+}
+
+export async function requestCompanyServiceAction(
+  _prevState: CompanyActionState,
+  formData: FormData
+): Promise<CompanyActionState> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase } = auth;
+
+  const parsed = serviceRequestSchema.safeParse({
+    service_id: formData.get("service_id"),
+    company_id: formData.get("company_id"),
+    details: formData.get("details"),
+  });
+  if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
+  if (!parsed.data.company_id) return { status: "error", message: "Missing company." };
+
+  // Any company member may request a service on the company's behalf — a
+  // lower-stakes action than creating an internship listing, so this only
+  // requires membership (is_company_member), not is_company_admin. The
+  // INSERT RLS policy independently re-verifies the same membership.
+  const { data: isMember } = await supabase.rpc("is_company_member", { target_company_id: parsed.data.company_id });
+  if (!isMember) return { status: "error", message: "You don't have permission to request services for this company." };
+
+  const { error } = await supabase.from("service_requests").insert({
+    service_id: parsed.data.service_id,
+    requester_id: auth.user.id,
+    company_id: parsed.data.company_id,
+    details: parsed.data.details,
+  });
+  if (error) {
+    console.error("requestCompanyServiceAction:", error);
+    return { status: "error", message: "We couldn't submit your request. Please try again." };
+  }
+
+  revalidatePath("/company/services");
+  return { status: "success", message: "Request submitted." };
+}
+
+export async function cancelCompanyServiceRequestAction(
+  _prevState: CompanyActionState,
+  formData: FormData
+): Promise<CompanyActionState> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase } = auth;
+
+  const parsed = cancelServiceRequestSchema.safeParse({ request_id: formData.get("request_id") });
+  if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
+
+  const { error } = await supabase.rpc("cancel_service_request", { request_id: parsed.data.request_id });
+  if (error) {
+    console.error("cancelCompanyServiceRequestAction:", error);
+    return { status: "error", message: "We couldn't cancel this request. Please try again." };
+  }
+
+  revalidatePath("/company/services");
+  return { status: "success", message: "Request cancelled." };
 }

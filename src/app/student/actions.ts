@@ -4,7 +4,14 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createServerSideClient } from "@/lib/supabase";
 import { getAuthenticatedUser } from "@/lib/auth";
-import { onboardingSchema, studentProfileSchema, applicationSchema, markNotificationReadSchema } from "@/lib/validation";
+import {
+  onboardingSchema,
+  studentProfileSchema,
+  applicationSchema,
+  markNotificationReadSchema,
+  serviceRequestSchema,
+  cancelServiceRequestSchema,
+} from "@/lib/validation";
 import type { OnboardingActionState, ApplicationActionState, NotificationActionState, ProfileActionState } from "./action-state";
 
 // Mirrors the "resumes" bucket's own file_size_limit (see
@@ -336,4 +343,64 @@ export async function replaceResumeAction(
 
   revalidatePath("/student/profile");
   return { status: "success", message: "Resume updated." };
+}
+
+export async function requestServiceAction(
+  _prevState: ApplicationActionState,
+  formData: FormData
+): Promise<ApplicationActionState> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase, user, roles } = auth;
+
+  if (!roles.includes("student")) {
+    return { status: "error", message: "Only students can request services here." };
+  }
+
+  const parsed = serviceRequestSchema.safeParse({
+    service_id: formData.get("service_id"),
+    details: formData.get("details"),
+  });
+  if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
+
+  // requester_id is the authenticated user's own id, never read from
+  // formData — service_requests' INSERT RLS (WITH CHECK requester_id =
+  // auth.uid()) would reject anything else regardless. company_id is
+  // omitted entirely for a personal request.
+  const { error } = await supabase.from("service_requests").insert({
+    service_id: parsed.data.service_id,
+    requester_id: user.id,
+    details: parsed.data.details,
+  });
+  if (error) {
+    console.error("requestServiceAction:", error);
+    return { status: "error", message: "We couldn't submit your request. Please try again." };
+  }
+
+  revalidatePath("/student/services");
+  return { status: "success", message: "Request submitted." };
+}
+
+export async function cancelServiceRequestAction(
+  _prevState: ApplicationActionState,
+  formData: FormData
+): Promise<ApplicationActionState> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase } = auth;
+
+  const parsed = cancelServiceRequestSchema.safeParse({ request_id: formData.get("request_id") });
+  if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
+
+  // cancel_service_request() re-verifies the caller is the original
+  // requester (or a company admin / platform admin) internally — this
+  // action does not attempt that check itself.
+  const { error } = await supabase.rpc("cancel_service_request", { request_id: parsed.data.request_id });
+  if (error) {
+    console.error("cancelServiceRequestAction:", error);
+    return { status: "error", message: "We couldn't cancel this request. Please try again." };
+  }
+
+  revalidatePath("/student/services");
+  return { status: "success", message: "Request cancelled." };
 }

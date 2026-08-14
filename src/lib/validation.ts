@@ -105,6 +105,91 @@ export const removeCompanyMemberSchema = z.object({
 });
 
 // -----------------------------------------------------------------------
+// Service catalog schemas (Phase 8A)
+// -----------------------------------------------------------------------
+
+const slugSchema = z
+  .string()
+  .min(1, "Slug is required")
+  .max(100)
+  .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Slug must be lowercase letters, numbers, and hyphens only");
+
+// Schema for creating a service — content fields shared with editServiceSchema.
+export const serviceSchema = z.object({
+  category_id: z.string().uuid("Invalid category"),
+  name: z.string().min(1, "Name is required").max(200),
+  slug: slugSchema,
+  short_description: z.string().min(1, "Short description is required").max(300),
+  description: z.string().min(1, "Description is required").max(5000),
+  // Mirrors the services.automation_level CHECK constraint exactly — no
+  // "human_required" option, matching the AI-first catalog's own scope.
+  automation_level: z.enum(["autonomous", "approval_required"]),
+  display_order: z.coerce.number().int().min(0).default(0),
+});
+
+export const editServiceSchema = serviceSchema.extend({
+  service_id: z.string().uuid("Invalid service ID"),
+});
+
+// Schema for toggling only a service's publish state.
+export const serviceStatusSchema = z.object({
+  service_id: z.string().uuid("Invalid service ID"),
+  published: z.boolean(),
+});
+
+// -----------------------------------------------------------------------
+// Service request schemas (Phase 8B)
+// -----------------------------------------------------------------------
+
+// Schema for submitting a new service request. company_id is optional —
+// present only when a company member is requesting on behalf of their
+// company (see requireCompanyAccess()); omitted for a personal/student
+// request. Never trusted as the sole authorization signal — the INSERT RLS
+// policy independently re-verifies company membership regardless.
+export const serviceRequestSchema = z.object({
+  service_id: z.string().uuid("Invalid service"),
+  company_id: z.string().uuid("Invalid company").optional(),
+  details: z.string().min(1, "Please describe what you need").max(5000),
+});
+
+// Schema for admin accept/reject of a pending request — mirrors reviewSchema's shape.
+export const reviewServiceRequestSchema = z.object({
+  request_id: z.string().uuid("Invalid request ID"),
+  decision: z.enum(["accepted", "rejected"]),
+});
+
+// Schema for advancing an accepted request through the delivery lifecycle.
+// notes is required by the advance_service_request() RPC itself when
+// new_status is 'delivered' — validated there, not duplicated here, so the
+// one real rule stays in the one place that enforces it.
+export const advanceServiceRequestSchema = z.object({
+  request_id: z.string().uuid("Invalid request ID"),
+  new_status: z.enum(["in_progress", "delivered", "completed"]),
+  notes: z.string().max(5000).optional(),
+});
+
+export const cancelServiceRequestSchema = z.object({
+  request_id: z.string().uuid("Invalid request ID"),
+});
+
+// -----------------------------------------------------------------------
+// AI workforce orchestration schemas (Phase 8D)
+// -----------------------------------------------------------------------
+
+export const planServiceRequestSchema = z.object({
+  request_id: z.string().uuid("Invalid request ID"),
+});
+
+export const runAiTaskSchema = z.object({
+  task_id: z.string().uuid("Invalid task ID"),
+});
+
+export const decideAiApprovalSchema = z.object({
+  approval_id: z.string().uuid("Invalid approval ID"),
+  decision: z.enum(["approved", "rejected"]),
+});
+
+// -----------------------------------------------------------------------
 // Authentication schemas (Phase 3C)
 // -----------------------------------------------------------------------
 

@@ -1151,6 +1151,854 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.program_skills TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.course_skills TO authenticated;
 
 -- =========================================================================
+-- SERVICE CATALOG (Phase 8A)
+-- =========================================================================
+-- The public services catalog NOVA will eventually operate AI-first — this
+-- phase is the catalog foundation only (categories + services + an
+-- automation_level field describing how autonomously each can run later).
+-- No request/project/execution/AI-agent tables exist yet; those are later
+-- phases. Follows the exact published-content pattern Phase 7 established
+-- for programs/courses: a simple `published boolean` here rather than
+-- Phase 7's draft/published/archived status enum, matching this phase's own
+-- schema spec (services have no "archived" concept yet — just on or off).
+
+-- 28. Service Categories Table — a small, fixed taxonomy (8 rows, seeded
+-- below). No admin UI manages this table in Phase 8A ("keep category
+-- management out of this phase" per the spec); the RLS/GRANTs below still
+-- give admins full CRUD capability at the database level for when a
+-- category-management UI is genuinely needed later.
+CREATE TABLE public.service_categories (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    slug text UNIQUE NOT NULL,
+    description text,
+    display_order integer NOT NULL DEFAULT 0,
+    published boolean NOT NULL DEFAULT false,
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX idx_service_categories_published ON public.service_categories(published);
+
+CREATE TRIGGER update_service_categories_modtime BEFORE UPDATE ON public.service_categories FOR EACH ROW EXECUTE FUNCTION public.update_modified_column();
+
+-- 29. Services Table.
+CREATE TABLE public.services (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    category_id uuid NOT NULL REFERENCES public.service_categories(id) ON DELETE RESTRICT,
+    name text NOT NULL,
+    slug text UNIQUE NOT NULL,
+    short_description text NOT NULL,
+    description text NOT NULL,
+    -- Two levels only, deliberately no "human_required": a service that
+    -- needs a human to do the actual work doesn't belong in an AI-first
+    -- catalog at all (see the Phase 8A report's category selection).
+    automation_level text NOT NULL CHECK (automation_level IN ('autonomous', 'approval_required')),
+    published boolean NOT NULL DEFAULT false,
+    display_order integer NOT NULL DEFAULT 0,
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX idx_services_category_id ON public.services(category_id);
+CREATE INDEX idx_services_published ON public.services(published);
+
+CREATE TRIGGER update_services_modtime BEFORE UPDATE ON public.services FOR EACH ROW EXECUTE FUNCTION public.update_modified_column();
+
+-- 30. Service catalog RLS. Same two-policy-per-role split as Phase 7's
+-- programs/courses: `anon` has no EXECUTE grant on is_current_user_admin(),
+-- so the anon-scoped policy never calls it, and Postgres ORs the two
+-- SELECT policies together for `authenticated`.
+ALTER TABLE public.service_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.services ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can read published service categories" ON public.service_categories
+    FOR SELECT TO anon, authenticated
+    USING (published = true);
+
+CREATE POLICY "Admins can read all service categories" ON public.service_categories
+    FOR SELECT TO authenticated
+    USING (public.is_current_user_admin());
+
+CREATE POLICY "Admins can manage service categories" ON public.service_categories
+    FOR ALL TO authenticated
+    USING (public.is_current_user_admin())
+    WITH CHECK (public.is_current_user_admin());
+
+-- A service is public only when BOTH it and its parent category are
+-- published, mirroring Phase 7's courses-require-published-program rule.
+CREATE POLICY "Anyone can read published services in published categories" ON public.services
+    FOR SELECT TO anon, authenticated
+    USING (
+        published = true
+        AND EXISTS (SELECT 1 FROM public.service_categories sc WHERE sc.id = services.category_id AND sc.published = true)
+    );
+
+CREATE POLICY "Admins can read all services" ON public.services
+    FOR SELECT TO authenticated
+    USING (public.is_current_user_admin());
+
+CREATE POLICY "Admins can manage services" ON public.services
+    FOR ALL TO authenticated
+    USING (public.is_current_user_admin())
+    WITH CHECK (public.is_current_user_admin());
+
+-- 31. Service catalog GRANTs.
+GRANT SELECT ON public.service_categories, public.services TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.service_categories TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.services TO authenticated;
+
+-- =========================================================================
+-- SERVICE REQUESTS (Phase 8B)
+-- =========================================================================
+-- The minimum production-capable workflow for a student or company to
+-- actually request a catalog service and track it through to delivery.
+-- Deliberately ONE table, not a separate "projects" table: nothing yet
+-- (agent execution, QA, artifacts — Phase 8C/8D/8E) needs a distinct
+-- project entity with its own ownership model, so a second table today
+-- would be speculative schema. If a genuinely separate concept emerges in
+-- a later phase, it can reference service_requests.id by foreign key then.
+--
+-- Ownership: requester_id is always auth.uid() (never client-supplied,
+-- enforced by the INSERT policy's WITH CHECK). company_id is nullable —
+-- NULL means a personal/student request, non-NULL means the request was
+-- filed on behalf of a company the requester is a member of, mirroring the
+-- internships.company_id NULL-means-platform-owned convention from Phase
+-- 5B-1. Company members share visibility into their own company's
+-- requests, the same "any member can see, admin/owner can act" split
+-- already established for company internships/applications.
+--
+-- No direct UPDATE/DELETE RLS policy exists on this table at all — every
+-- status transition goes through one of the three RPCs below, the exact
+-- same "no direct mutation, RPC is the only path" pattern applications
+-- already uses for review_application()/mark_application_under_review().
+CREATE TABLE public.service_requests (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    service_id uuid NOT NULL REFERENCES public.services(id) ON DELETE RESTRICT,
+    requester_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE RESTRICT,
+    company_id uuid REFERENCES public.companies(id) ON DELETE RESTRICT,
+    details text NOT NULL,
+    status text NOT NULL DEFAULT 'pending' CHECK (status IN (
+        'pending', 'accepted', 'rejected', 'in_progress', 'delivered', 'completed', 'cancelled'
+    )),
+    deliverable_notes text,
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX idx_service_requests_requester_id ON public.service_requests(requester_id);
+CREATE INDEX idx_service_requests_company_id ON public.service_requests(company_id);
+CREATE INDEX idx_service_requests_service_id ON public.service_requests(service_id);
+CREATE INDEX idx_service_requests_status ON public.service_requests(status);
+
+CREATE TRIGGER update_service_requests_modtime BEFORE UPDATE ON public.service_requests FOR EACH ROW EXECUTE FUNCTION public.update_modified_column();
+
+-- 32. service_requests RLS.
+ALTER TABLE public.service_requests ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Requesters, company members, and admin can read relevant requests" ON public.service_requests
+    FOR SELECT TO authenticated
+    USING (
+        requester_id = auth.uid()
+        OR (company_id IS NOT NULL AND public.is_company_member(company_id))
+        OR public.is_current_user_admin()
+    );
+
+CREATE POLICY "Authenticated users can create their own service requests" ON public.service_requests
+    FOR INSERT TO authenticated
+    WITH CHECK (
+        requester_id = auth.uid()
+        AND (company_id IS NULL OR public.is_company_member(company_id))
+    );
+
+-- 33. Transactional Function: Review Service Request (invoked by admins).
+-- Mirrors review_application()'s own shape exactly: SECURITY DEFINER, a
+-- function-level search_path, an upfront admin check, a row lock, a single
+-- pending -> accepted|rejected transition, and an audit log entry.
+CREATE OR REPLACE FUNCTION public.review_service_request(
+    request_id uuid,
+    decision text
+)
+RETURNS boolean AS $$
+DECLARE
+    req_record public.service_requests%ROWTYPE;
+BEGIN
+    IF NOT public.is_current_user_admin() THEN
+        RAISE EXCEPTION 'Unauthorized: User is not an administrator.';
+    END IF;
+
+    SELECT * INTO req_record FROM public.service_requests WHERE id = request_id FOR UPDATE;
+
+    IF req_record.id IS NULL THEN
+        RAISE EXCEPTION 'Request not found.';
+    END IF;
+
+    IF req_record.status != 'pending' THEN
+        RAISE EXCEPTION 'Invalid State: Request has already been reviewed.';
+    END IF;
+
+    IF decision NOT IN ('accepted', 'rejected') THEN
+        RAISE EXCEPTION 'Invalid Status: Decision must be accepted or rejected.';
+    END IF;
+
+    UPDATE public.service_requests SET status = decision WHERE id = request_id;
+
+    PERFORM public.write_audit_log(
+        'service_request_' || decision,
+        'service_request',
+        request_id,
+        jsonb_build_object('previous_status', req_record.status, 'new_status', decision)
+    );
+
+    RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.review_service_request(uuid, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.review_service_request(uuid, text) TO authenticated;
+
+-- 34. Transactional Function: Advance Service Request (invoked by admins).
+-- Moves an accepted request exactly one step forward through the delivery
+-- lifecycle: accepted -> in_progress -> delivered -> completed. Any other
+-- requested transition (skipping a step, moving backward) is rejected —
+-- this is the actual state-machine enforcement the Phase 8B spec asks for,
+-- not just a free-form status column. Delivery notes are required at the
+-- 'delivered' step (this is where "final delivery can be recorded" lives)
+-- and are stored on the row itself, visible to the requester via RLS.
+CREATE OR REPLACE FUNCTION public.advance_service_request(
+    request_id uuid,
+    new_status text,
+    notes text DEFAULT NULL
+)
+RETURNS boolean AS $$
+DECLARE
+    req_record public.service_requests%ROWTYPE;
+    expected_next text;
+BEGIN
+    IF NOT public.is_current_user_admin() THEN
+        RAISE EXCEPTION 'Unauthorized: User is not an administrator.';
+    END IF;
+
+    SELECT * INTO req_record FROM public.service_requests WHERE id = request_id FOR UPDATE;
+
+    IF req_record.id IS NULL THEN
+        RAISE EXCEPTION 'Request not found.';
+    END IF;
+
+    expected_next := CASE req_record.status
+        WHEN 'accepted' THEN 'in_progress'
+        WHEN 'in_progress' THEN 'delivered'
+        WHEN 'delivered' THEN 'completed'
+        ELSE NULL
+    END;
+
+    IF expected_next IS NULL OR new_status != expected_next THEN
+        RAISE EXCEPTION 'Invalid State: Cannot move from % to %.', req_record.status, new_status;
+    END IF;
+
+    IF new_status = 'delivered' AND (notes IS NULL OR btrim(notes) = '') THEN
+        RAISE EXCEPTION 'Invalid Input: Delivery notes are required when marking a request delivered.';
+    END IF;
+
+    UPDATE public.service_requests
+    SET status = new_status, deliverable_notes = COALESCE(notes, deliverable_notes)
+    WHERE id = request_id;
+
+    PERFORM public.write_audit_log(
+        'service_request_advanced_to_' || new_status,
+        'service_request',
+        request_id,
+        jsonb_build_object('previous_status', req_record.status, 'new_status', new_status)
+    );
+
+    RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.advance_service_request(uuid, text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.advance_service_request(uuid, text, text) TO authenticated;
+
+-- 35. Transactional Function: Cancel Service Request.
+-- Unlike the two RPCs above, this has three possible authorized callers
+-- (the original requester, the requesting company's owner/admin, or a
+-- platform admin) so the row must be fetched BEFORE the authorization
+-- check can be evaluated — the same reason can_review_company_application()
+-- exists as its own helper in Phase 5B-3, just inlined here since it's
+-- only used once.
+CREATE OR REPLACE FUNCTION public.cancel_service_request(
+    request_id uuid
+)
+RETURNS boolean AS $$
+DECLARE
+    req_record public.service_requests%ROWTYPE;
+BEGIN
+    SELECT * INTO req_record FROM public.service_requests WHERE id = request_id FOR UPDATE;
+
+    IF req_record.id IS NULL THEN
+        RAISE EXCEPTION 'Request not found.';
+    END IF;
+
+    IF NOT (
+        req_record.requester_id = auth.uid()
+        OR (req_record.company_id IS NOT NULL AND public.is_company_admin(req_record.company_id))
+        OR public.is_current_user_admin()
+    ) THEN
+        RAISE EXCEPTION 'Unauthorized: You do not have permission to cancel this request.';
+    END IF;
+
+    IF req_record.status != 'pending' THEN
+        RAISE EXCEPTION 'Invalid State: Only a pending request can be cancelled.';
+    END IF;
+
+    UPDATE public.service_requests SET status = 'cancelled' WHERE id = request_id;
+
+    PERFORM public.write_audit_log(
+        'service_request_cancelled',
+        'service_request',
+        request_id,
+        jsonb_build_object('previous_status', req_record.status)
+    );
+
+    RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.cancel_service_request(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.cancel_service_request(uuid) TO authenticated;
+
+-- 36. service_requests GRANTs. No UPDATE/DELETE grant at all — every
+-- mutation goes through the three SECURITY DEFINER RPCs above, which bypass
+-- table grants entirely (the same reason applications has no UPDATE grant).
+GRANT SELECT, INSERT ON public.service_requests TO authenticated;
+
+-- =========================================================================
+-- AI WORKFORCE ARCHITECTURE (Phase 8C) — CONTROL PLANE ONLY
+-- =========================================================================
+-- This is the persistent model and RLS/RPC security boundary that Phase 8D
+-- will actually execute against. Nothing here calls a real AI provider,
+-- runs code, deploys anything, or sends anything external — every RPC below
+-- only records state (task/run/approval bookkeeping). All lifecycle RPCs
+-- are admin-only for now: there is no live agent runtime yet to hold its
+-- own identity, so a human operator is the only real actor who can move
+-- anything through this pipeline until Phase 8D exists. That restriction is
+-- easy to loosen later; it is not safe to loosen by accident, so it starts
+-- as tight as possible.
+--
+-- Six tables, chosen to be the smallest model that can represent the full
+-- vision without duplicating anything:
+--   agent_definitions              the AI workforce roster
+--   ai_capabilities                the fixed capability vocabulary, each
+--                                   tagged with whether it requires approval
+--                                   (the authoritative safety classification
+--                                   lives in data, not scattered app code)
+--   agent_definition_capabilities  which agent has which capability
+--   ai_tasks                       one row per unit of AI work, always tied
+--                                   to a service_request
+--   agent_runs                     one row per execution ATTEMPT of a task —
+--                                   deliberately separate from ai_tasks so a
+--                                   failed run followed by a successful retry
+--                                   never overwrites history
+--   ai_approvals                   a first-class approval record, never a
+--                                   client-supplied boolean
+--
+-- No separate "ai_task_assignments" table: a task has exactly one current
+-- assigned agent, so agent_definition_id is just a column on ai_tasks — a
+-- join table would only be justified by a many-agents-per-task requirement
+-- this phase doesn't have. No separate "ai_execution_logs" table:
+-- agent_runs already IS the execution log (start/complete/fail/summary),
+-- and the higher-level event trail (task_created, approval_granted, ...)
+-- reuses the existing audit_logs table below, not a second audit system.
+--
+-- Ownership for RLS purposes is never duplicated onto these tables — a
+-- task's visibility is derived from its service_request's own
+-- requester_id/company_id via EXISTS, the exact same ownership predicate
+-- service_requests' own SELECT policy already uses. This means there is
+-- exactly one place that decides "who owns this work," and every table in
+-- this subsystem defers to it instead of re-implementing it.
+
+-- 37. Agent Definitions Table — the AI workforce roster.
+CREATE TABLE public.agent_definitions (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    slug text UNIQUE NOT NULL,
+    name text NOT NULL,
+    description text NOT NULL,
+    status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE TRIGGER update_agent_definitions_modtime BEFORE UPDATE ON public.agent_definitions FOR EACH ROW EXECUTE FUNCTION public.update_modified_column();
+
+-- 38. AI Capabilities Table — the fixed, admin-managed vocabulary of
+-- actions an agent can be granted. requires_approval is read by
+-- request_ai_task_approval() below to decide whether a task attempting
+-- this capability must stop and wait for a human — the classification is
+-- data an admin curates here, not a hardcoded branch in application code.
+CREATE TABLE public.ai_capabilities (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    slug text UNIQUE NOT NULL,
+    name text NOT NULL,
+    description text NOT NULL,
+    requires_approval boolean NOT NULL DEFAULT false,
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+-- 39. Agent <-> Capability join table.
+CREATE TABLE public.agent_definition_capabilities (
+    agent_definition_id uuid NOT NULL REFERENCES public.agent_definitions(id) ON DELETE CASCADE,
+    capability_id uuid NOT NULL REFERENCES public.ai_capabilities(id) ON DELETE CASCADE,
+    PRIMARY KEY (agent_definition_id, capability_id)
+);
+
+CREATE INDEX idx_agent_definition_capabilities_capability_id ON public.agent_definition_capabilities(capability_id);
+
+-- 40. AI Tasks Table — one row per unit of AI work. Always tied to a
+-- service_request (Phase 8B); parent_task_id supports the AI Project
+-- Manager decomposing one request into several subtasks (research, design,
+-- development, QA, deployment) without inventing a second hierarchy
+-- concept. agent_definition_id is nullable because a task can genuinely
+-- exist before an agent is picked for it (status = 'pending').
+CREATE TABLE public.ai_tasks (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    service_request_id uuid NOT NULL REFERENCES public.service_requests(id) ON DELETE CASCADE,
+    parent_task_id uuid REFERENCES public.ai_tasks(id) ON DELETE SET NULL,
+    agent_definition_id uuid REFERENCES public.agent_definitions(id) ON DELETE RESTRICT,
+    title text NOT NULL,
+    status text NOT NULL DEFAULT 'pending' CHECK (status IN (
+        'pending', 'assigned', 'running', 'waiting_for_approval', 'blocked', 'failed', 'completed', 'cancelled'
+    )),
+    priority text NOT NULL DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
+    input jsonb NOT NULL DEFAULT '{}'::jsonb,
+    output jsonb,
+    error text,
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    started_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX idx_ai_tasks_service_request_id ON public.ai_tasks(service_request_id);
+CREATE INDEX idx_ai_tasks_parent_task_id ON public.ai_tasks(parent_task_id);
+CREATE INDEX idx_ai_tasks_agent_definition_id ON public.ai_tasks(agent_definition_id);
+CREATE INDEX idx_ai_tasks_status ON public.ai_tasks(status);
+
+CREATE TRIGGER update_ai_tasks_modtime BEFORE UPDATE ON public.ai_tasks FOR EACH ROW EXECUTE FUNCTION public.update_modified_column();
+
+-- 41. Agent Runs Table — one row per execution ATTEMPT of a task, not per
+-- task. A failed run followed by a successful retry produces two rows;
+-- neither is ever overwritten, so execution history stays fully auditable.
+-- `summary` is explicitly for safe, human-readable text only — never raw
+-- secrets, API keys, or credentials (enforced by convention/code review,
+-- the same way write_audit_log()'s `changes` payload already is).
+CREATE TABLE public.agent_runs (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    ai_task_id uuid NOT NULL REFERENCES public.ai_tasks(id) ON DELETE CASCADE,
+    agent_definition_id uuid NOT NULL REFERENCES public.agent_definitions(id) ON DELETE RESTRICT,
+    status text NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'succeeded', 'failed')),
+    summary text,
+    started_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX idx_agent_runs_ai_task_id ON public.agent_runs(ai_task_id);
+CREATE INDEX idx_agent_runs_agent_definition_id ON public.agent_runs(agent_definition_id);
+
+-- 42. AI Approvals Table — a first-class approval record. Never trust an
+-- `approved` boolean supplied by a client; this row, and only this row
+-- (decided exclusively through decide_ai_approval() below), is the
+-- authoritative record of what was requested, why, by which agent, against
+-- which resource, and who ultimately decided it.
+CREATE TABLE public.ai_approvals (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    ai_task_id uuid NOT NULL REFERENCES public.ai_tasks(id) ON DELETE CASCADE,
+    capability_id uuid REFERENCES public.ai_capabilities(id) ON DELETE RESTRICT,
+    requested_by_agent_id uuid REFERENCES public.agent_definitions(id) ON DELETE RESTRICT,
+    reason text NOT NULL,
+    resource_description text,
+    status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    decided_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    decided_at timestamp with time zone,
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX idx_ai_approvals_ai_task_id ON public.ai_approvals(ai_task_id);
+CREATE INDEX idx_ai_approvals_status ON public.ai_approvals(status);
+
+-- 43. RLS. agent_definitions/ai_capabilities/agent_definition_capabilities
+-- are an open-read, admin-managed vocabulary — the same "anyone can read,
+-- only admin can write" shape as skills (Phase 7). None of these three are
+-- ever exposed to `anon`: unlike programs/services, this is internal
+-- operational data with no public-catalog purpose.
+ALTER TABLE public.agent_definitions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_capabilities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.agent_definition_capabilities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.agent_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_approvals ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can read agent definitions" ON public.agent_definitions
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Admins can manage agent definitions" ON public.agent_definitions
+    FOR ALL TO authenticated USING (public.is_current_user_admin()) WITH CHECK (public.is_current_user_admin());
+
+CREATE POLICY "Authenticated users can read AI capabilities" ON public.ai_capabilities
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Admins can manage AI capabilities" ON public.ai_capabilities
+    FOR ALL TO authenticated USING (public.is_current_user_admin()) WITH CHECK (public.is_current_user_admin());
+
+CREATE POLICY "Authenticated users can read agent capability assignments" ON public.agent_definition_capabilities
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Admins can manage agent capability assignments" ON public.agent_definition_capabilities
+    FOR ALL TO authenticated USING (public.is_current_user_admin()) WITH CHECK (public.is_current_user_admin());
+
+-- ai_tasks: visible to admin, or to whoever can already see the underlying
+-- service_request (its own requester, or a member of the company it was
+-- filed under) — re-deriving that exact predicate via EXISTS rather than
+-- duplicating requester_id/company_id columns onto this table. No direct
+-- UPDATE/DELETE policy at all: every status change goes through the RPCs
+-- below, the same "RPC-only mutation" shape service_requests already uses.
+CREATE POLICY "Task owners and admin can read AI tasks" ON public.ai_tasks
+    FOR SELECT TO authenticated
+    USING (
+        public.is_current_user_admin()
+        OR EXISTS (
+            SELECT 1 FROM public.service_requests sr
+            WHERE sr.id = ai_tasks.service_request_id
+              AND (sr.requester_id = auth.uid() OR (sr.company_id IS NOT NULL AND public.is_company_member(sr.company_id)))
+        )
+    );
+
+CREATE POLICY "Admins can create AI tasks" ON public.ai_tasks
+    FOR INSERT TO authenticated
+    WITH CHECK (public.is_current_user_admin());
+
+-- agent_runs: same owner-or-admin visibility, derived one hop further
+-- through ai_tasks -> service_requests. No INSERT/UPDATE policy at all —
+-- even creation happens only via start_agent_run()/complete_agent_run()
+-- below, unlike ai_tasks which allows a direct admin INSERT.
+CREATE POLICY "Task owners and admin can read agent runs" ON public.agent_runs
+    FOR SELECT TO authenticated
+    USING (
+        public.is_current_user_admin()
+        OR EXISTS (
+            SELECT 1 FROM public.ai_tasks t
+            JOIN public.service_requests sr ON sr.id = t.service_request_id
+            WHERE t.id = agent_runs.ai_task_id
+              AND (sr.requester_id = auth.uid() OR (sr.company_id IS NOT NULL AND public.is_company_member(sr.company_id)))
+        )
+    );
+
+-- ai_approvals: same owner-or-admin visibility. No INSERT/UPDATE policy —
+-- request_ai_task_approval() and decide_ai_approval() are the only paths.
+CREATE POLICY "Task owners and admin can read AI approvals" ON public.ai_approvals
+    FOR SELECT TO authenticated
+    USING (
+        public.is_current_user_admin()
+        OR EXISTS (
+            SELECT 1 FROM public.ai_tasks t
+            JOIN public.service_requests sr ON sr.id = t.service_request_id
+            WHERE t.id = ai_approvals.ai_task_id
+              AND (sr.requester_id = auth.uid() OR (sr.company_id IS NOT NULL AND public.is_company_member(sr.company_id)))
+        )
+    );
+
+-- 44. GRANTs. ai_tasks allows a direct admin INSERT (task creation has no
+-- multi-table side effect requiring RPC atomicity); everything else in this
+-- subsystem is SELECT-only at the grant level — every mutation happens
+-- inside a SECURITY DEFINER RPC, which bypasses table grants entirely.
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.agent_definitions TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.ai_capabilities TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.agent_definition_capabilities TO authenticated;
+GRANT SELECT, INSERT ON public.ai_tasks TO authenticated;
+GRANT SELECT ON public.agent_runs TO authenticated;
+GRANT SELECT ON public.ai_approvals TO authenticated;
+
+-- 45. Transactional Function: Assign AI Task. pending -> assigned only.
+CREATE OR REPLACE FUNCTION public.assign_ai_task(
+    task_id uuid,
+    agent_definition_id uuid
+)
+RETURNS boolean AS $$
+DECLARE
+    task_record public.ai_tasks%ROWTYPE;
+BEGIN
+    IF NOT public.is_current_user_admin() THEN
+        RAISE EXCEPTION 'Unauthorized: User is not an administrator.';
+    END IF;
+
+    SELECT * INTO task_record FROM public.ai_tasks WHERE id = task_id FOR UPDATE;
+    IF task_record.id IS NULL THEN
+        RAISE EXCEPTION 'Task not found.';
+    END IF;
+    IF task_record.status != 'pending' THEN
+        RAISE EXCEPTION 'Invalid State: Only a pending task can be assigned.';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM public.agent_definitions a WHERE a.id = assign_ai_task.agent_definition_id AND a.status = 'active') THEN
+        RAISE EXCEPTION 'Invalid Input: Agent is not active.';
+    END IF;
+
+    UPDATE public.ai_tasks
+    SET status = 'assigned', agent_definition_id = assign_ai_task.agent_definition_id
+    WHERE id = task_id;
+
+    PERFORM public.write_audit_log('ai_task_assigned', 'ai_task', task_id, jsonb_build_object('agent_definition_id', agent_definition_id));
+
+    RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.assign_ai_task(uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.assign_ai_task(uuid, uuid) TO authenticated;
+
+-- 46. Transactional Function: Start Agent Run. assigned -> running.
+-- Requires the run's agent to match the task's currently assigned agent —
+-- a task cannot be "started" by an agent it was never assigned to, closing
+-- an obvious identity-confusion gap for when Phase 8D introduces real
+-- agent-initiated calls.
+CREATE OR REPLACE FUNCTION public.start_agent_run(
+    task_id uuid,
+    agent_definition_id uuid
+)
+RETURNS uuid AS $$
+DECLARE
+    task_record public.ai_tasks%ROWTYPE;
+    new_run_id uuid;
+BEGIN
+    IF NOT public.is_current_user_admin() THEN
+        RAISE EXCEPTION 'Unauthorized: User is not an administrator.';
+    END IF;
+
+    SELECT * INTO task_record FROM public.ai_tasks WHERE id = task_id FOR UPDATE;
+    IF task_record.id IS NULL THEN
+        RAISE EXCEPTION 'Task not found.';
+    END IF;
+    IF task_record.status != 'assigned' THEN
+        RAISE EXCEPTION 'Invalid State: Only an assigned task can start running.';
+    END IF;
+    IF task_record.agent_definition_id IS DISTINCT FROM start_agent_run.agent_definition_id THEN
+        RAISE EXCEPTION 'Invalid Input: Agent does not match the task''s assigned agent.';
+    END IF;
+
+    INSERT INTO public.agent_runs (ai_task_id, agent_definition_id, status)
+    VALUES (task_id, agent_definition_id, 'running')
+    RETURNING id INTO new_run_id;
+
+    UPDATE public.ai_tasks SET status = 'running', started_at = timezone('utc'::text, now()) WHERE id = task_id;
+
+    PERFORM public.write_audit_log('agent_run_started', 'ai_task', task_id, jsonb_build_object('run_id', new_run_id, 'agent_definition_id', agent_definition_id));
+
+    RETURN new_run_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.start_agent_run(uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.start_agent_run(uuid, uuid) TO authenticated;
+
+-- 47. Transactional Function: Complete Agent Run. running -> completed|failed.
+CREATE OR REPLACE FUNCTION public.complete_agent_run(
+    run_id uuid,
+    outcome text,
+    summary text DEFAULT NULL,
+    output jsonb DEFAULT NULL
+)
+RETURNS boolean AS $$
+DECLARE
+    run_record public.agent_runs%ROWTYPE;
+    task_record public.ai_tasks%ROWTYPE;
+BEGIN
+    IF NOT public.is_current_user_admin() THEN
+        RAISE EXCEPTION 'Unauthorized: User is not an administrator.';
+    END IF;
+
+    IF outcome NOT IN ('succeeded', 'failed') THEN
+        RAISE EXCEPTION 'Invalid Status: Outcome must be succeeded or failed.';
+    END IF;
+
+    SELECT * INTO run_record FROM public.agent_runs WHERE id = run_id FOR UPDATE;
+    IF run_record.id IS NULL THEN
+        RAISE EXCEPTION 'Run not found.';
+    END IF;
+    IF run_record.status != 'running' THEN
+        RAISE EXCEPTION 'Invalid State: This run has already finished.';
+    END IF;
+
+    SELECT * INTO task_record FROM public.ai_tasks WHERE id = run_record.ai_task_id FOR UPDATE;
+    IF task_record.status != 'running' THEN
+        RAISE EXCEPTION 'Invalid State: Task is no longer running.';
+    END IF;
+
+    UPDATE public.agent_runs
+    SET status = outcome, summary = complete_agent_run.summary, completed_at = timezone('utc'::text, now())
+    WHERE id = run_id;
+
+    IF outcome = 'succeeded' THEN
+        UPDATE public.ai_tasks
+        SET status = 'completed', output = complete_agent_run.output, completed_at = timezone('utc'::text, now())
+        WHERE id = task_record.id;
+    ELSE
+        UPDATE public.ai_tasks
+        SET status = 'failed', error = complete_agent_run.summary, completed_at = timezone('utc'::text, now())
+        WHERE id = task_record.id;
+    END IF;
+
+    PERFORM public.write_audit_log(
+        CASE WHEN outcome = 'succeeded' THEN 'agent_run_completed' ELSE 'agent_run_failed' END,
+        'ai_task', task_record.id,
+        jsonb_build_object('run_id', run_id, 'outcome', outcome)
+    );
+
+    RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.complete_agent_run(uuid, text, text, jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.complete_agent_run(uuid, text, text, jsonb) TO authenticated;
+
+-- 48. Transactional Function: Request AI Task Approval. running ->
+-- waiting_for_approval. Only meaningful for a capability actually flagged
+-- requires_approval — this is where that flag is enforced, not merely
+-- documented.
+CREATE OR REPLACE FUNCTION public.request_ai_task_approval(
+    task_id uuid,
+    capability_id uuid,
+    reason text,
+    resource_description text DEFAULT NULL
+)
+RETURNS uuid AS $$
+DECLARE
+    task_record public.ai_tasks%ROWTYPE;
+    cap_record public.ai_capabilities%ROWTYPE;
+    new_approval_id uuid;
+BEGIN
+    IF NOT public.is_current_user_admin() THEN
+        RAISE EXCEPTION 'Unauthorized: User is not an administrator.';
+    END IF;
+
+    SELECT * INTO task_record FROM public.ai_tasks WHERE id = task_id FOR UPDATE;
+    IF task_record.id IS NULL THEN
+        RAISE EXCEPTION 'Task not found.';
+    END IF;
+    IF task_record.status != 'running' THEN
+        RAISE EXCEPTION 'Invalid State: Only a running task can request approval.';
+    END IF;
+
+    SELECT * INTO cap_record FROM public.ai_capabilities WHERE id = capability_id;
+    IF cap_record.id IS NULL THEN
+        RAISE EXCEPTION 'Invalid Input: Unknown capability.';
+    END IF;
+    IF NOT cap_record.requires_approval THEN
+        RAISE EXCEPTION 'Invalid Input: This capability does not require approval.';
+    END IF;
+    IF reason IS NULL OR btrim(reason) = '' THEN
+        RAISE EXCEPTION 'Invalid Input: A reason is required.';
+    END IF;
+
+    INSERT INTO public.ai_approvals (ai_task_id, capability_id, requested_by_agent_id, reason, resource_description)
+    VALUES (task_id, capability_id, task_record.agent_definition_id, reason, resource_description)
+    RETURNING id INTO new_approval_id;
+
+    UPDATE public.ai_tasks SET status = 'waiting_for_approval' WHERE id = task_id;
+
+    PERFORM public.write_audit_log('approval_requested', 'ai_task', task_id, jsonb_build_object('approval_id', new_approval_id, 'capability_id', capability_id));
+
+    RETURN new_approval_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.request_ai_task_approval(uuid, uuid, text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.request_ai_task_approval(uuid, uuid, text, text) TO authenticated;
+
+-- 49. Transactional Function: Decide AI Approval. The ONLY path that can
+-- ever change an approval's status — never a client-supplied boolean.
+-- approved -> task resumes to 'running'; rejected -> task moves to
+-- 'cancelled' (mirrors the exact "waiting_for_approval -> cancelled"
+-- transition the Phase 8C spec itself calls out).
+CREATE OR REPLACE FUNCTION public.decide_ai_approval(
+    approval_id uuid,
+    decision text
+)
+RETURNS boolean AS $$
+DECLARE
+    approval_record public.ai_approvals%ROWTYPE;
+    task_record public.ai_tasks%ROWTYPE;
+BEGIN
+    IF NOT public.is_current_user_admin() THEN
+        RAISE EXCEPTION 'Unauthorized: User is not an administrator.';
+    END IF;
+
+    IF decision NOT IN ('approved', 'rejected') THEN
+        RAISE EXCEPTION 'Invalid Status: Decision must be approved or rejected.';
+    END IF;
+
+    SELECT * INTO approval_record FROM public.ai_approvals WHERE id = approval_id FOR UPDATE;
+    IF approval_record.id IS NULL THEN
+        RAISE EXCEPTION 'Approval not found.';
+    END IF;
+    IF approval_record.status != 'pending' THEN
+        RAISE EXCEPTION 'Invalid State: This approval has already been decided.';
+    END IF;
+
+    SELECT * INTO task_record FROM public.ai_tasks WHERE id = approval_record.ai_task_id FOR UPDATE;
+    IF task_record.status != 'waiting_for_approval' THEN
+        RAISE EXCEPTION 'Invalid State: Task is no longer waiting for approval.';
+    END IF;
+
+    UPDATE public.ai_approvals
+    SET status = decision, decided_by = auth.uid(), decided_at = timezone('utc'::text, now())
+    WHERE id = approval_id;
+
+    UPDATE public.ai_tasks
+    SET status = (CASE WHEN decision = 'approved' THEN 'running' ELSE 'cancelled' END)
+    WHERE id = task_record.id;
+
+    PERFORM public.write_audit_log(
+        CASE WHEN decision = 'approved' THEN 'approval_granted' ELSE 'approval_rejected' END,
+        'ai_task', task_record.id,
+        jsonb_build_object('approval_id', approval_id)
+    );
+
+    RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.decide_ai_approval(uuid, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.decide_ai_approval(uuid, text) TO authenticated;
+
+-- 50. Transactional Function: Cancel AI Task. Any non-terminal state except
+-- 'running' (a running task must fail, complete, or request approval — it
+-- cannot simply be yanked away mid-execution) can move to 'cancelled'.
+CREATE OR REPLACE FUNCTION public.cancel_ai_task(
+    task_id uuid
+)
+RETURNS boolean AS $$
+DECLARE
+    task_record public.ai_tasks%ROWTYPE;
+BEGIN
+    IF NOT public.is_current_user_admin() THEN
+        RAISE EXCEPTION 'Unauthorized: User is not an administrator.';
+    END IF;
+
+    SELECT * INTO task_record FROM public.ai_tasks WHERE id = task_id FOR UPDATE;
+    IF task_record.id IS NULL THEN
+        RAISE EXCEPTION 'Task not found.';
+    END IF;
+    IF task_record.status NOT IN ('pending', 'assigned', 'blocked', 'waiting_for_approval') THEN
+        RAISE EXCEPTION 'Invalid State: A task in status % cannot be cancelled.', task_record.status;
+    END IF;
+
+    UPDATE public.ai_tasks SET status = 'cancelled' WHERE id = task_id;
+
+    PERFORM public.write_audit_log('ai_task_cancelled', 'ai_task', task_id, jsonb_build_object('previous_status', task_record.status));
+
+    RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.cancel_ai_task(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.cancel_ai_task(uuid) TO authenticated;
+
+-- =========================================================================
 -- STORAGE: RESUME BUCKET
 -- =========================================================================
 -- Private bucket for student resumes. `file_size_limit` and `allowed_mime_types`
@@ -1472,3 +2320,285 @@ JOIN public.programs p ON p.slug = v.program_slug
 JOIN public.courses c ON c.program_id = p.id AND c.slug = v.course_slug
 JOIN public.skills s ON s.slug = v.skill_slug
 ON CONFLICT DO NOTHING;
+
+-- =========================================================================
+-- INITIAL SERVICE CATALOG DATA (Phase 8A)
+-- =========================================================================
+-- 8 fixed categories and 40 services. Every service is one NOVA AI can
+-- realistically perform the majority of the digital work for — no physical
+-- services, no offensive security, nothing that inherently requires a human
+-- professional. automation_level reflects today's honest capability, not
+-- an aspiration: anything touching live production systems, real customer
+-- interactions, or external sends is 'approval_required'.
+
+INSERT INTO public.service_categories (slug, name, description, display_order, published) VALUES
+    ('websites-web', 'Websites & Web', 'Full websites, landing pages, and web content, designed, written, and shipped by NOVA AI.', 1, true),
+    ('ai-automation', 'AI & Automation', 'Chatbots, workflow automation, and AI systems that take real work off your team''s plate.', 2, true),
+    ('digital-marketing', 'Digital Marketing', 'SEO, content, and campaign work grounded in real research, not guesswork.', 3, true),
+    ('design-creative', 'Design & Creative', 'Interfaces, presentations, and brand content generated to a professional standard.', 4, true),
+    ('data-business', 'Data & Business', 'Turning raw data and documents into clean, decision-ready outputs.', 5, true),
+    ('software-development', 'Software Development', 'Real applications, APIs, and internal tools, built and shipped end-to-end.', 6, true),
+    ('cloud-infrastructure', 'Cloud & Infrastructure', 'Deployment, containers, and infrastructure operated reliably and securely.', 7, true),
+    ('defensive-cybersecurity', 'Defensive Cybersecurity', 'Hardening, scanning, and auditing your systems against real-world threats.', 8, true)
+ON CONFLICT (slug) DO NOTHING;
+
+INSERT INTO public.services (category_id, slug, name, short_description, description, automation_level, published, display_order)
+SELECT sc.id, v.slug, v.name, v.short_description, v.description, v.automation_level, true, v.display_order
+FROM (VALUES
+    ('websites-web', 'ai-website-creation', 'AI Website Creation', 'A complete, production-ready website generated from a brief.', 'NOVA AI turns a project brief into a full website: structure, copy, and visual design assembled together. You review the finished site before it goes live; the build itself runs without step-by-step supervision.', 'autonomous', 1),
+    ('websites-web', 'landing-page-creation', 'Landing Page Creation', 'A focused, conversion-oriented landing page ready to publish.', 'A single, purpose-built page designed around one goal, such as signups, sales, or bookings, generated end-to-end from your product details and target audience.', 'autonomous', 2),
+    ('websites-web', 'website-redesign', 'Website Redesign', 'A modernized version of an existing site, reviewed before launch.', 'NOVA AI rebuilds an existing website''s design and structure while preserving your content and SEO equity. Because this replaces something already live, the redesign is reviewed against your brand before it is deployed.', 'approval_required', 3),
+    ('websites-web', 'website-content-generation', 'Website Content Generation', 'On-brand page copy and product content generated from what you already have.', 'Existing brochures, docs, or notes become polished website copy: page content, product descriptions, and section text written to match your brand voice.', 'autonomous', 4),
+    ('websites-web', 'website-seo-optimization', 'Website SEO Optimization', 'Technical and on-page SEO improvements applied to an existing site.', 'NOVA AI audits page structure, metadata, and content for search visibility, then applies the improvements directly rather than just producing an audit report.', 'autonomous', 5),
+    ('ai-automation', 'ai-chatbot-development', 'AI Chatbot Development', 'A trained AI chatbot for your website or product.', 'A conversational assistant built on your own content and FAQs, ready to answer real customer questions on your site or app.', 'autonomous', 1),
+    ('ai-automation', 'ai-customer-support-agents', 'AI Customer Support Agents', 'An AI agent that handles support conversations across your channels.', 'NOVA AI builds and trains a support agent that can resolve common tickets directly. Because it interacts with real customers, initial responses are reviewed before the agent operates unsupervised.', 'approval_required', 2),
+    ('ai-automation', 'workflow-automation', 'Workflow Automation (n8n)', 'Business workflows automated end-to-end with n8n.', 'Repetitive multi-step processes such as data syncing, notifications, and approvals are automated into a single reliable workflow, built and tested by NOVA AI.', 'autonomous', 3),
+    ('ai-automation', 'ai-document-processing', 'AI Document Processing', 'Automated extraction and structuring of information from documents.', 'Invoices, forms, and reports converted into structured, usable data automatically, removing manual data entry from the process.', 'autonomous', 4),
+    ('ai-automation', 'ai-knowledge-base-rag', 'AI Knowledge Base & RAG Systems', 'A searchable AI assistant trained on your own documentation.', 'Your internal docs, wikis, or product content become a retrieval-augmented AI system that answers questions grounded in your real material, not generic web knowledge.', 'autonomous', 5),
+    ('digital-marketing', 'seo-audit-strategy', 'SEO Audit & Strategy', 'A full technical and content SEO audit with a prioritized action plan.', 'NOVA AI reviews site structure, content, and technical SEO factors, then produces a clear, prioritized plan for what to fix first.', 'autonomous', 1),
+    ('digital-marketing', 'keyword-competitor-research', 'Keyword & Competitor Research', 'Real keyword and competitor data to ground your content strategy.', 'Structured research into what your audience searches for and how competitors rank for it, delivered as a usable reference rather than a raw data dump.', 'autonomous', 2),
+    ('digital-marketing', 'blog-article-generation', 'Blog & Article Generation', 'SEO-aware articles written from a topic brief.', 'Well-researched, on-brand articles generated from a topic and target keyword, ready for publishing or light editorial review.', 'autonomous', 3),
+    ('digital-marketing', 'social-media-content-generation', 'Social Media Content Generation', 'A batch of on-brand social posts generated from your content calendar.', 'Captions, post copy, and content ideas generated across platforms to match your brand voice and posting cadence.', 'autonomous', 4),
+    ('digital-marketing', 'email-campaign-automation', 'Email Campaign Automation', 'A written and scheduled email campaign, reviewed before it sends.', 'NOVA AI drafts and sequences a full email campaign. Because sending reaches real recipients, the final campaign is reviewed before it goes out.', 'approval_required', 5),
+    ('design-creative', 'ui-ux-wireframes', 'UI/UX Wireframes', 'Structured wireframes for a product or website from a feature brief.', 'Low-to-mid fidelity wireframes that map out layout and user flow before visual design begins, generated directly from your feature requirements.', 'autonomous', 1),
+    ('design-creative', 'figma-design-generation', 'Figma Design Generation', 'A working Figma design file generated from a brief or wireframe.', 'A structured, editable Figma file with real components and layouts, ready for your team to refine or hand off to development.', 'autonomous', 2),
+    ('design-creative', 'presentation-generation', 'Presentation Generation', 'A polished slide deck generated from your content and outline.', 'Pitch decks, reports, or internal presentations built from your talking points into a structured, visually consistent deck.', 'autonomous', 3),
+    ('design-creative', 'social-media-graphics', 'Social Media Graphics', 'On-brand graphics generated for social posts and campaigns.', 'A batch of visual assets sized and styled for your platforms, generated to match your brand''s existing visual identity.', 'autonomous', 4),
+    ('design-creative', 'brand-content-generation', 'Brand Content Generation', 'Consistent brand copy and messaging generated across formats.', 'Taglines, descriptions, and brand messaging generated to a consistent voice, usable across your website, marketing, and product.', 'autonomous', 5),
+    ('data-business', 'data-cleaning-transformation', 'Data Cleaning & Transformation', 'Messy datasets cleaned, structured, and made analysis-ready.', 'Duplicate, inconsistent, or malformed data cleaned and transformed into a structured dataset ready for analysis or reporting.', 'autonomous', 1),
+    ('data-business', 'sql-data-analysis', 'SQL Data Analysis', 'Structured analysis of your data with real, queryable answers.', 'NOVA AI writes and runs the SQL needed to answer specific business questions against your data, delivering findings rather than just queries.', 'autonomous', 2),
+    ('data-business', 'power-bi-dashboards', 'Power BI Dashboards', 'A working Power BI dashboard built from your data source.', 'Your data connected into a structured, readable Power BI dashboard with the metrics and views your team actually needs.', 'autonomous', 3),
+    ('data-business', 'automated-business-reports', 'Automated Business Reports', 'Recurring reports generated automatically from your data.', 'A defined report, such as sales, performance, or operations, generated on a schedule from your live data source with no manual compilation required.', 'autonomous', 4),
+    ('data-business', 'competitive-market-research', 'Competitive & Market Research', 'Structured research into your market and competitors.', 'A synthesized view of competitor positioning, pricing, and market trends, built from real public sources into a usable reference document.', 'autonomous', 5),
+    ('software-development', 'mvp-development', 'MVP Development', 'A working MVP built from your product requirements.', 'A functional first version of your product, built end-to-end by NOVA AI. Given the scope and cost of a full build, milestones are reviewed with you along the way.', 'approval_required', 1),
+    ('software-development', 'api-development', 'API Development', 'A working API built to your specification.', 'A REST API implemented and tested against your defined endpoints and data model, ready to integrate into your application.', 'autonomous', 2),
+    ('software-development', 'internal-tool-development', 'Internal Business Tool Development', 'A small internal tool built to solve a specific operational need.', 'Admin panels, internal dashboards, or workflow tools built and deployed to solve a specific, well-defined internal problem.', 'autonomous', 3),
+    ('software-development', 'bug-fixing-code-refactoring', 'Bug Fixing & Code Refactoring', 'Existing code diagnosed, fixed, and cleaned up.', 'NOVA AI investigates a reported bug or code-quality issue, implements the fix, and verifies it against your existing tests.', 'autonomous', 4),
+    ('software-development', 'automated-testing-setup', 'Automated Testing Setup', 'A real test suite added to an existing codebase.', 'Unit and integration tests written for your existing application, giving you a safety net for future changes.', 'autonomous', 5),
+    ('cloud-infrastructure', 'website-deployment', 'Website Deployment', 'Your website deployed to a production environment.', 'NOVA AI configures hosting, domains, and deployment for your site. Because this affects a live production environment, the final deployment step is reviewed before it goes live.', 'approval_required', 1),
+    ('cloud-infrastructure', 'docker-containerization', 'Docker Containerization', 'Your application packaged into a working Docker setup.', 'A Dockerfile and container configuration built and tested for your application, ready to run consistently anywhere.', 'autonomous', 2),
+    ('cloud-infrastructure', 'ci-cd-pipeline-setup', 'CI/CD Pipeline Setup', 'An automated build-and-deploy pipeline for your repository.', 'A working CI/CD pipeline configured to test and deploy your application automatically on every change.', 'autonomous', 3),
+    ('cloud-infrastructure', 'server-monitoring-setup', 'Server Monitoring Setup', 'Monitoring and alerting configured for your infrastructure.', 'Uptime, performance, and error monitoring set up and connected to real alerts, so issues are visible before they become outages.', 'autonomous', 4),
+    ('cloud-infrastructure', 'backup-configuration', 'Backup Configuration', 'Automated backups configured for your data and infrastructure.', 'A scheduled backup system configured for your database or files. Because backup and restore touch production data directly, the configuration is reviewed before activation.', 'approval_required', 5),
+    ('defensive-cybersecurity', 'security-header-configuration', 'Security Header Configuration', 'Standard security headers configured for your website.', 'HTTP security headers, including CSP and HSTS, reviewed and configured to current best practice for your site.', 'autonomous', 1),
+    ('defensive-cybersecurity', 'ssl-security-configuration', 'SSL & Security Configuration', 'SSL and core security settings configured for your domain.', 'Certificate and transport security configured correctly for your domain. Because this affects live traffic to a production site, changes are reviewed before they go live.', 'approval_required', 2),
+    ('defensive-cybersecurity', 'dependency-vulnerability-scanning', 'Dependency & Vulnerability Scanning', 'Your project''s dependencies scanned for known vulnerabilities.', 'An automated scan of your project''s dependencies against known vulnerability databases, with a clear report of what needs updating.', 'autonomous', 3),
+    ('defensive-cybersecurity', 'configuration-security-audit', 'Configuration Security Audit', 'A review of your infrastructure and app configuration for security gaps.', 'NOVA AI reviews server, application, and access configuration against common security misconfigurations and reports what it finds.', 'autonomous', 4),
+    ('defensive-cybersecurity', 'wordpress-security-hardening', 'WordPress Security Hardening', 'A WordPress site hardened against common attack vectors.', 'Plugin, permission, and configuration hardening applied to an existing WordPress site. Because this modifies a live site''s security posture, changes are reviewed before being applied.', 'approval_required', 5)
+) AS v(category_slug, slug, name, short_description, description, automation_level, display_order)
+JOIN public.service_categories sc ON sc.slug = v.category_slug
+ON CONFLICT (slug) DO NOTHING;
+
+-- =========================================================================
+-- INITIAL AI WORKFORCE DATA (Phase 8C)
+-- =========================================================================
+-- A small, deliberately general-purpose roster (7 agents) and a fixed
+-- capability vocabulary (16 capabilities) — not dozens of narrow agents.
+-- Each agent's assigned capabilities are chosen to make the
+-- safe/approval-required split concrete: Operations Agent, for example, is
+-- almost entirely approval-gated, while Research/QA are almost entirely
+-- autonomous.
+
+INSERT INTO public.agent_definitions (slug, name, description, status) VALUES
+    ('ai-project-manager', 'AI Project Manager', 'Receives a service request, breaks it into tasks, assigns the right agents, and tracks progress to delivery.', 'active'),
+    ('research-agent', 'Research Agent', 'Performs web, market, competitor, and technical research to ground a task in real information.', 'active'),
+    ('developer-agent', 'Developer Agent', 'Builds and debugs websites, frontend/backend code, and APIs.', 'active'),
+    ('content-marketing-agent', 'Content & Marketing Agent', 'Produces SEO research, content drafts, marketing copy, and campaign material.', 'active'),
+    ('data-analytics-agent', 'Data & Analytics Agent', 'Cleans data, runs analysis, and produces reports and dashboards.', 'active'),
+    ('qa-agent', 'QA Agent', 'Validates outputs against requirements, runs tests, and checks deliverables before they ship.', 'active'),
+    ('operations-agent', 'Operations Agent', 'Coordinates operational and infrastructure tasks, always respecting approval requirements for sensitive actions.', 'active')
+ON CONFLICT (slug) DO NOTHING;
+
+INSERT INTO public.ai_capabilities (slug, name, description, requires_approval) VALUES
+    ('research', 'Research', 'Conduct structured research on a topic.', false),
+    ('read_public_web', 'Read Public Web', 'Read publicly available web content.', false),
+    ('read_service_request', 'Read Service Request', 'Read the details of the service request a task belongs to.', false),
+    ('write_draft', 'Write Draft', 'Produce a draft document, page, or piece of content.', false),
+    ('create_task', 'Create Task', 'Create a new AI task.', false),
+    ('update_task', 'Update Task', 'Update an existing AI task''s metadata.', false),
+    ('generate_code', 'Generate Code', 'Write or modify source code.', false),
+    ('run_tests', 'Run Tests', 'Execute automated tests against generated work.', false),
+    ('create_artifact', 'Create Artifact', 'Produce a stored output artifact for a task.', false),
+    ('request_approval', 'Request Approval', 'Request human approval for a sensitive action.', false),
+    ('deploy', 'Deploy', 'Deploy an application to a production environment.', true),
+    ('send_email', 'Send Email', 'Send an email to a customer or external party.', true),
+    ('publish_content', 'Publish Content', 'Publish content externally (site, social, blog).', true),
+    ('modify_production', 'Modify Production', 'Modify a live production system or its data.', true),
+    ('change_dns', 'Change DNS', 'Modify DNS configuration for a domain.', true),
+    ('delete_production_data', 'Delete Production Data', 'Permanently delete data from a production system.', true)
+ON CONFLICT (slug) DO NOTHING;
+
+INSERT INTO public.agent_definition_capabilities (agent_definition_id, capability_id)
+SELECT a.id, c.id FROM (VALUES
+    ('ai-project-manager', 'read_service_request'), ('ai-project-manager', 'create_task'),
+    ('ai-project-manager', 'update_task'), ('ai-project-manager', 'request_approval'),
+    ('research-agent', 'research'), ('research-agent', 'read_public_web'),
+    ('research-agent', 'write_draft'), ('research-agent', 'create_artifact'),
+    ('developer-agent', 'generate_code'), ('developer-agent', 'run_tests'),
+    ('developer-agent', 'create_artifact'), ('developer-agent', 'deploy'),
+    ('developer-agent', 'modify_production'),
+    ('content-marketing-agent', 'research'), ('content-marketing-agent', 'write_draft'),
+    ('content-marketing-agent', 'create_artifact'), ('content-marketing-agent', 'publish_content'),
+    ('data-analytics-agent', 'research'), ('data-analytics-agent', 'create_artifact'),
+    ('data-analytics-agent', 'run_tests'),
+    ('qa-agent', 'run_tests'), ('qa-agent', 'read_service_request'), ('qa-agent', 'create_artifact'),
+    ('operations-agent', 'deploy'), ('operations-agent', 'change_dns'),
+    ('operations-agent', 'modify_production'), ('operations-agent', 'delete_production_data'),
+    ('operations-agent', 'request_approval')
+) AS v(agent_slug, capability_slug)
+JOIN public.agent_definitions a ON a.slug = v.agent_slug
+JOIN public.ai_capabilities c ON c.slug = v.capability_slug
+ON CONFLICT DO NOTHING;
+
+-- =========================================================================
+-- PHASE 8E: PRODUCTION AI WORKFLOWS + CONTROLLED AUTONOMY
+-- =========================================================================
+-- Extends the 8C/8D control plane with exactly what a real, complete,
+-- auto-advancing workflow needs and nothing more: bounded retries (loop
+-- protection), single-use approval consumption (closes the gap where 8D
+-- could request approval but never actually had a way to safely execute
+-- after it was granted), and one small artifacts table. No duplicate
+-- agent/task/approval/audit system is introduced.
+
+-- 51. Loop protection: every task carries its own bounded retry budget.
+-- retry_ai_task() below is the only path that increments retry_count, and
+-- it refuses once the budget is exhausted — this is what stops "Developer
+-- fails -> retry -> fails -> retry -> ..." from ever becoming unbounded.
+ALTER TABLE public.ai_tasks ADD COLUMN retry_count integer NOT NULL DEFAULT 0;
+ALTER TABLE public.ai_tasks ADD COLUMN max_retries integer NOT NULL DEFAULT 3;
+
+-- 52. Approval consumption: a granted approval must be usable exactly once.
+-- Without this, decide_ai_approval() flipping a task back to 'running' gave
+-- no safe way to actually perform the sensitive action — re-asking
+-- authorizeToolUse() would (correctly, per Phase 8D's own test) just create
+-- ANOTHER pending approval, forever. consume_ai_approval() is the missing
+-- single-use gate: exactly one execution per granted approval, blocking
+-- replay.
+ALTER TABLE public.ai_approvals ADD COLUMN consumed_at timestamp with time zone;
+
+-- 53. AI Artifacts Table — re-evaluated against the Phase 8D decision to
+-- reuse ai_tasks.output for a single-task, single-consumer result. That no
+-- longer holds once a workflow has MULTIPLE tasks producing deliverables
+-- that OTHER tasks and the service request as a whole need to reference by
+-- type (a QA task inspecting the Developer task's actual output; an admin
+-- wanting "every file this request produced" without knowing which task
+-- made which). ai_tasks.output stays as each run's own result; ai_artifacts
+-- is the addressable, typed, service-request-scoped record of what was
+-- produced. Content is jsonb only (no storage bucket) — every artifact type
+-- in this phase (research reports, generated website source, QA reports,
+-- deployment records) is text/JSON-representable; a storage_path column can
+-- be added later if a binary artifact type is ever needed.
+CREATE TABLE public.ai_artifacts (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    service_request_id uuid NOT NULL REFERENCES public.service_requests(id) ON DELETE CASCADE,
+    ai_task_id uuid NOT NULL REFERENCES public.ai_tasks(id) ON DELETE CASCADE,
+    created_by_agent_id uuid REFERENCES public.agent_definitions(id) ON DELETE RESTRICT,
+    type text NOT NULL CHECK (type IN ('research_report', 'website_source', 'qa_report', 'content_draft', 'deployment_record')),
+    title text NOT NULL,
+    content jsonb NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX idx_ai_artifacts_service_request_id ON public.ai_artifacts(service_request_id);
+CREATE INDEX idx_ai_artifacts_ai_task_id ON public.ai_artifacts(ai_task_id);
+
+ALTER TABLE public.ai_artifacts ENABLE ROW LEVEL SECURITY;
+
+-- Same owner-or-admin shape as ai_tasks/agent_runs/ai_approvals. No direct
+-- UPDATE/DELETE — artifacts are immutable once created.
+CREATE POLICY "Task owners and admin can read AI artifacts" ON public.ai_artifacts
+    FOR SELECT TO authenticated
+    USING (
+        public.is_current_user_admin()
+        OR EXISTS (
+            SELECT 1 FROM public.service_requests sr
+            WHERE sr.id = ai_artifacts.service_request_id
+              AND (sr.requester_id = auth.uid() OR (sr.company_id IS NOT NULL AND public.is_company_member(sr.company_id)))
+        )
+    );
+
+CREATE POLICY "Admins can create AI artifacts" ON public.ai_artifacts
+    FOR INSERT TO authenticated
+    WITH CHECK (public.is_current_user_admin());
+
+GRANT SELECT, INSERT ON public.ai_artifacts TO authenticated;
+
+-- 54. Transactional Function: Retry AI Task. failed -> assigned, bounded by
+-- max_retries. Keeps failure recovery inside the same state machine every
+-- other transition uses — there is no separate "requeue" concept.
+CREATE OR REPLACE FUNCTION public.retry_ai_task(
+    task_id uuid
+)
+RETURNS boolean AS $$
+DECLARE
+    task_record public.ai_tasks%ROWTYPE;
+BEGIN
+    IF NOT public.is_current_user_admin() THEN
+        RAISE EXCEPTION 'Unauthorized: User is not an administrator.';
+    END IF;
+
+    SELECT * INTO task_record FROM public.ai_tasks WHERE id = task_id FOR UPDATE;
+    IF task_record.id IS NULL THEN
+        RAISE EXCEPTION 'Task not found.';
+    END IF;
+    IF task_record.status != 'failed' THEN
+        RAISE EXCEPTION 'Invalid State: Only a failed task can be retried.';
+    END IF;
+    IF task_record.retry_count >= task_record.max_retries THEN
+        RAISE EXCEPTION 'Invalid State: This task has reached its retry limit.';
+    END IF;
+    IF task_record.agent_definition_id IS NULL
+       OR NOT EXISTS (SELECT 1 FROM public.agent_definitions a WHERE a.id = task_record.agent_definition_id AND a.status = 'active') THEN
+        RAISE EXCEPTION 'Invalid State: Task has no active agent to retry with.';
+    END IF;
+
+    UPDATE public.ai_tasks
+    SET status = 'assigned', retry_count = retry_count + 1, error = NULL, completed_at = NULL
+    WHERE id = task_id;
+
+    PERFORM public.write_audit_log('ai_task_retried', 'ai_task', task_id, jsonb_build_object('retry_count', task_record.retry_count + 1));
+
+    RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.retry_ai_task(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.retry_ai_task(uuid) TO authenticated;
+
+-- 55. Transactional Function: Consume AI Approval. The ONLY path that can
+-- ever mark a granted approval as used. authorizeToolUse() calls this
+-- immediately before treating an approval-required tool as authorized —
+-- exactly once per approval, ever. A second attempt to consume the same
+-- approval (replay) fails here, not by convention.
+CREATE OR REPLACE FUNCTION public.consume_ai_approval(
+    approval_id uuid
+)
+RETURNS boolean AS $$
+DECLARE
+    approval_record public.ai_approvals%ROWTYPE;
+BEGIN
+    IF NOT public.is_current_user_admin() THEN
+        RAISE EXCEPTION 'Unauthorized: User is not an administrator.';
+    END IF;
+
+    SELECT * INTO approval_record FROM public.ai_approvals WHERE id = approval_id FOR UPDATE;
+    IF approval_record.id IS NULL THEN
+        RAISE EXCEPTION 'Approval not found.';
+    END IF;
+    IF approval_record.status != 'approved' THEN
+        RAISE EXCEPTION 'Invalid State: Only an approved approval can be consumed.';
+    END IF;
+    IF approval_record.consumed_at IS NOT NULL THEN
+        RAISE EXCEPTION 'Invalid State: This approval has already been used.';
+    END IF;
+
+    UPDATE public.ai_approvals SET consumed_at = timezone('utc'::text, now()) WHERE id = approval_id;
+
+    PERFORM public.write_audit_log('approval_consumed', 'ai_task', approval_record.ai_task_id, jsonb_build_object('approval_id', approval_id));
+
+    RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+
+REVOKE EXECUTE ON FUNCTION public.consume_ai_approval(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.consume_ai_approval(uuid) TO authenticated;

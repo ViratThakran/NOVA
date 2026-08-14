@@ -9,6 +9,13 @@ import {
   internshipSchema,
   editInternshipSchema,
   internshipStatusSchema,
+  serviceSchema,
+  editServiceSchema,
+  serviceStatusSchema,
+  serviceRequestSchema,
+  reviewServiceRequestSchema,
+  advanceServiceRequestSchema,
+  cancelServiceRequestSchema,
   registerSchema,
   loginSchema,
   forgotPasswordSchema,
@@ -344,6 +351,189 @@ describe("Security Validation Schemas", () => {
 
     it("should reject a non-UUID internship_id", () => {
       const result = internshipStatusSchema.safeParse({ internship_id: "not-a-uuid", status: "open" });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Service Schema", () => {
+    const validService = {
+      category_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
+      name: "AI Website Creation",
+      slug: "ai-website-creation",
+      short_description: "A complete, production-ready website generated from a brief.",
+      description: "NOVA AI turns a project brief into a full website.",
+      automation_level: "autonomous",
+      display_order: 1,
+    };
+
+    it("should accept valid service content", () => {
+      const result = serviceSchema.safeParse(validService);
+      expect(result.success).toBe(true);
+    });
+
+    it("should reject a non-UUID category_id", () => {
+      const result = serviceSchema.safeParse({ ...validService, category_id: "not-a-uuid" });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject an empty name", () => {
+      const result = serviceSchema.safeParse({ ...validService, name: "" });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject an invalid automation_level", () => {
+      const result = serviceSchema.safeParse({ ...validService, automation_level: "human_required" });
+      expect(result.success).toBe(false);
+    });
+
+    it("should accept both real automation levels", () => {
+      for (const automation_level of ["autonomous", "approval_required"]) {
+        const result = serviceSchema.safeParse({ ...validService, automation_level });
+        expect(result.success).toBe(true);
+      }
+    });
+
+    it("should reject a slug with uppercase or spaces", () => {
+      expect(serviceSchema.safeParse({ ...validService, slug: "AI Website" }).success).toBe(false);
+      expect(serviceSchema.safeParse({ ...validService, slug: "ai_website" }).success).toBe(false);
+    });
+
+    it("should accept a well-formed kebab-case slug", () => {
+      const result = serviceSchema.safeParse({ ...validService, slug: "ai-website-creation-2" });
+      expect(result.success).toBe(true);
+    });
+
+    it("should default display_order to 0 when omitted", () => {
+      const { display_order, ...withoutOrder } = validService;
+      const result = serviceSchema.safeParse(withoutOrder);
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.display_order).toBe(0);
+    });
+  });
+
+  describe("Edit Service Schema", () => {
+    it("should accept valid content plus a service_id", () => {
+      const result = editServiceSchema.safeParse({
+        service_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
+        category_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
+        name: "Landing Page Creation",
+        slug: "landing-page-creation",
+        short_description: "A focused, conversion-oriented landing page.",
+        description: "A single, purpose-built page designed around one goal.",
+        automation_level: "autonomous",
+        display_order: 2,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("should reject a non-UUID service_id", () => {
+      const result = editServiceSchema.safeParse({
+        service_id: "not-a-uuid",
+        category_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
+        name: "Landing Page Creation",
+        slug: "landing-page-creation",
+        short_description: "x",
+        description: "x",
+        automation_level: "autonomous",
+        display_order: 2,
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Service Status Schema", () => {
+    it("should accept a valid publish toggle", () => {
+      const result = serviceStatusSchema.safeParse({
+        service_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
+        published: true,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("should reject a non-boolean published value", () => {
+      const result = serviceStatusSchema.safeParse({
+        service_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
+        published: "true",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a non-UUID service_id", () => {
+      const result = serviceStatusSchema.safeParse({ service_id: "not-a-uuid", published: true });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Service Request Schema", () => {
+    const validRequest = {
+      service_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
+      details: "I need a landing page for my project.",
+    };
+
+    it("should accept a valid personal request (no company_id)", () => {
+      const result = serviceRequestSchema.safeParse(validRequest);
+      expect(result.success).toBe(true);
+    });
+
+    it("should accept a valid company request", () => {
+      const result = serviceRequestSchema.safeParse({ ...validRequest, company_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789" });
+      expect(result.success).toBe(true);
+    });
+
+    it("should reject empty details", () => {
+      const result = serviceRequestSchema.safeParse({ ...validRequest, details: "" });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a non-UUID service_id", () => {
+      const result = serviceRequestSchema.safeParse({ ...validRequest, service_id: "not-a-uuid" });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a non-UUID company_id", () => {
+      const result = serviceRequestSchema.safeParse({ ...validRequest, company_id: "not-a-uuid" });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Review Service Request Schema", () => {
+    it("should accept accepted and rejected decisions", () => {
+      for (const decision of ["accepted", "rejected"]) {
+        const result = reviewServiceRequestSchema.safeParse({ request_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789", decision });
+        expect(result.success).toBe(true);
+      }
+    });
+
+    it("should reject an invented decision", () => {
+      const result = reviewServiceRequestSchema.safeParse({ request_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789", decision: "maybe" });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Advance Service Request Schema", () => {
+    it("should accept each real forward status with optional notes", () => {
+      for (const new_status of ["in_progress", "delivered", "completed"]) {
+        const result = advanceServiceRequestSchema.safeParse({ request_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789", new_status, notes: "x" });
+        expect(result.success).toBe(true);
+      }
+    });
+
+    it("should reject 'pending' or 'accepted' as a target (never a forward move)", () => {
+      for (const new_status of ["pending", "accepted"]) {
+        const result = advanceServiceRequestSchema.safeParse({ request_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789", new_status });
+        expect(result.success).toBe(false);
+      }
+    });
+  });
+
+  describe("Cancel Service Request Schema", () => {
+    it("should accept a valid request_id", () => {
+      const result = cancelServiceRequestSchema.safeParse({ request_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789" });
+      expect(result.success).toBe(true);
+    });
+
+    it("should reject a non-UUID request_id", () => {
+      const result = cancelServiceRequestSchema.safeParse({ request_id: "not-a-uuid" });
       expect(result.success).toBe(false);
     });
   });
