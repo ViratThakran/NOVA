@@ -42,6 +42,27 @@ export const markNotificationReadSchema = z.object({
   notification_id: z.string().uuid("Invalid notification ID"),
 });
 
+// Schema for internship content — shared by create and edit, since both
+// write the same four columns (status is handled separately below).
+export const internshipSchema = z.object({
+  title: z.string().min(1, "Title is required").max(200),
+  description: z.string().min(1, "Description is required").max(5000),
+  requirements: z.string().min(1, "Requirements are required").max(5000),
+  eligibility: z.string().min(1, "Eligibility is required").max(5000),
+});
+
+// Schema for editing an existing internship's content
+export const editInternshipSchema = internshipSchema.extend({
+  internship_id: z.string().uuid("Invalid internship ID"),
+});
+
+// Schema for changing only an internship's status — the enum mirrors the
+// internships.status CHECK constraint exactly, no invented states.
+export const internshipStatusSchema = z.object({
+  internship_id: z.string().uuid("Invalid internship ID"),
+  status: z.enum(["draft", "open", "closed", "archived"]),
+});
+
 // -----------------------------------------------------------------------
 // Authentication schemas (Phase 3C)
 // -----------------------------------------------------------------------

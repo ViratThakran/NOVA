@@ -6,6 +6,9 @@ import {
   reviewSchema,
   markUnderReviewSchema,
   markNotificationReadSchema,
+  internshipSchema,
+  editInternshipSchema,
+  internshipStatusSchema,
   registerSchema,
   loginSchema,
   forgotPasswordSchema,
@@ -253,6 +256,94 @@ describe("Security Validation Schemas", () => {
 
     it("should reject a missing notification_id", () => {
       const result = markNotificationReadSchema.safeParse({});
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Internship Content Schema", () => {
+    const validInternship = {
+      title: "Software Engineering Intern",
+      description: "Work with the platform team on real features.",
+      requirements: "Comfortable with TypeScript.",
+      eligibility: "Open to students in their 2nd year or above.",
+    };
+
+    it("should accept valid internship content", () => {
+      const result = internshipSchema.safeParse(validInternship);
+      expect(result.success).toBe(true);
+    });
+
+    it("should reject an empty title", () => {
+      const result = internshipSchema.safeParse({ ...validInternship, title: "" });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject an empty description", () => {
+      const result = internshipSchema.safeParse({ ...validInternship, description: "" });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject an empty requirements field", () => {
+      const result = internshipSchema.safeParse({ ...validInternship, requirements: "" });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject an empty eligibility field", () => {
+      const result = internshipSchema.safeParse({ ...validInternship, eligibility: "" });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a title over 200 characters", () => {
+      const result = internshipSchema.safeParse({ ...validInternship, title: "a".repeat(201) });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Edit Internship Schema", () => {
+    it("should accept valid content plus an internship_id", () => {
+      const result = editInternshipSchema.safeParse({
+        internship_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
+        title: "Data Science Intern",
+        description: "Analyze real datasets.",
+        requirements: "Basic statistics.",
+        eligibility: "Any enrolled student.",
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("should reject a non-UUID internship_id", () => {
+      const result = editInternshipSchema.safeParse({
+        internship_id: "not-a-uuid",
+        title: "Data Science Intern",
+        description: "Analyze real datasets.",
+        requirements: "Basic statistics.",
+        eligibility: "Any enrolled student.",
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Internship Status Schema", () => {
+    it("should accept each real internship status", () => {
+      for (const status of ["draft", "open", "closed", "archived"]) {
+        const result = internshipStatusSchema.safeParse({
+          internship_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
+          status,
+        });
+        expect(result.success).toBe(true);
+      }
+    });
+
+    it("should reject an invented status", () => {
+      const result = internshipStatusSchema.safeParse({
+        internship_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789",
+        status: "published",
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a non-UUID internship_id", () => {
+      const result = internshipStatusSchema.safeParse({ internship_id: "not-a-uuid", status: "open" });
       expect(result.success).toBe(false);
     });
   });
