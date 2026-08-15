@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/app/page-header";
 import { EmptyState } from "@/components/app/empty-state";
@@ -103,7 +104,9 @@ export default async function CompanyServicesPage() {
               <Card key={request.id}>
                 <CardContent className="flex flex-wrap items-center justify-between gap-4 p-6">
                   <div className="flex flex-col gap-1">
-                    <span className="text-small font-medium text-text">{request.services?.name ?? "Service"}</span>
+                    <Link href={`/company/services/${request.id}`} className="text-small font-medium text-text hover:text-primary">
+                      {request.services?.name ?? "Service"}
+                    </Link>
                     <span className="text-caption text-text-muted">
                       Requested {new Date(request.created_at).toLocaleDateString()}
                     </span>

@@ -190,6 +190,22 @@ export const decideAiApprovalSchema = z.object({
 });
 
 // -----------------------------------------------------------------------
+// Contact form schema (Phase 9)
+// -----------------------------------------------------------------------
+
+export const contactSubmissionSchema = z.object({
+  name: z.string().min(1, "Name is required").max(200),
+  email: z.string().email("Enter a valid email address").max(320),
+  company: z.string().max(200).optional(),
+  message: z.string().min(1, "Please enter a message").max(5000),
+});
+
+export const contactSubmissionStatusSchema = z.object({
+  submission_id: z.string().uuid("Invalid submission ID"),
+  status: z.enum(["new", "reviewed"]),
+});
+
+// -----------------------------------------------------------------------
 // Authentication schemas (Phase 3C)
 // -----------------------------------------------------------------------
 

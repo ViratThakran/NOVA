@@ -1,0 +1,139 @@
+import type { Metadata } from "next";
+import { z } from "zod";
+import { PageHeader } from "@/components/app/page-header";
+import { EmptyState } from "@/components/app/empty-state";
+import { ErrorState } from "@/components/app/error-state";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { requireCompanyAccess } from "@/lib/auth";
+import { CancelRequestButton } from "../cancel-request-button";
+
+export const metadata: Metadata = { title: "Service request — NOVA Company" };
+
+const idSchema = z.string().uuid();
+
+const STATUS_VARIANTS: Record<string, "default" | "primary" | "success" | "warning" | "error" | "info"> = {
+  pending: "warning",
+  accepted: "info",
+  rejected: "error",
+  in_progress: "primary",
+  delivered: "success",
+  completed: "success",
+  cancelled: "default",
+};
+
+interface RequestRow {
+  id: string;
+  status: string;
+  details: string;
+  deliverable_notes: string | null;
+  created_at: string;
+  services: { name: string; short_description: string } | null;
+}
+
+interface ArtifactRow {
+  id: string;
+  type: string;
+  title: string;
+  created_at: string;
+}
+
+// Customer-facing tracking view for company requests — same boundary as the
+// student version: status + deliverables only, no internal AI/agent
+// visibility. The full operational view is admin-only.
+export default async function CompanyServiceRequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const notFoundState = (
+    <div className="flex flex-col gap-8">
+      <PageHeader title="Service request" />
+      <EmptyState title="Request not found" description="This request doesn't exist." />
+    </div>
+  );
+
+  if (!idSchema.safeParse(id).success) return notFoundState;
+
+  const { supabase, companyId, companyRole } = await requireCompanyAccess();
+
+  const { data: request, error } = await supabase
+    .from("service_requests")
+    .select("id, status, details, deliverable_notes, created_at, services(name, short_description)")
+    .eq("id", id)
+    .eq("company_id", companyId)
+    .maybeSingle();
+
+  if (error) {
+    return (
+      <div className="flex flex-col gap-8">
+        <PageHeader title="Service request" />
+        <ErrorState title="Couldn't load this request" description="Something went wrong. Please try again." />
+      </div>
+    );
+  }
+
+  if (!request) return notFoundState;
+
+  const row = request as unknown as RequestRow;
+
+  const { data: artifacts } = await supabase
+    .from("ai_artifacts")
+    .select("id, type, title, created_at")
+    .eq("service_request_id", id)
+    .order("created_at", { ascending: true });
+
+  return (
+    <div className="flex flex-col gap-8">
+      <PageHeader title={row.services?.name ?? "Service request"} description={`Requested ${new Date(row.created_at).toLocaleDateString()}`} />
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="flex flex-col gap-6 lg:col-span-2">
+          <Card>
+            <CardContent className="flex flex-col gap-4 p-6">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-small font-medium text-text">Status</span>
+                <Badge variant={STATUS_VARIANTS[row.status] ?? "default"}>{row.status}</Badge>
+              </div>
+              <Section title="What you asked for" body={row.details} />
+              {row.deliverable_notes && <Section title="Delivery notes" body={row.deliverable_notes} />}
+            </CardContent>
+          </Card>
+
+          {artifacts && artifacts.length > 0 && (
+            <Card>
+              <CardContent className="flex flex-col gap-3 p-6">
+                <h3 className="text-small font-semibold text-text">Deliverables</h3>
+                <ul className="flex flex-col gap-2">
+                  {(artifacts as ArtifactRow[]).map((artifact) => (
+                    <li key={artifact.id} className="flex items-center justify-between gap-2 border-t border-border pt-2 first:border-t-0 first:pt-0">
+                      <span className="text-small text-text">{artifact.title}</span>
+                      <Badge variant="default">{artifact.type.replace(/_/g, " ")}</Badge>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-4">
+          {row.status === "pending" && (companyRole === "owner" || companyRole === "admin") && (
+            <Card>
+              <CardContent className="flex flex-col gap-3 p-6">
+                <p className="text-small font-medium text-text">Manage request</p>
+                <CancelRequestButton requestId={row.id} />
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Section({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="flex flex-col gap-1.5 border-t border-border pt-4 first:border-t-0 first:pt-0">
+      <h3 className="text-small font-semibold text-text">{title}</h3>
+      <p className="whitespace-pre-line text-body text-text-muted">{body}</p>
+    </div>
+  );
+}

@@ -41,6 +41,7 @@ export const ADMIN_NAV_ITEMS: readonly DashboardNavItem[] = [
   { href: "/admin/applications", label: "Applications" },
   { href: "/admin/enrollments", label: "Enrollments" },
   { href: "/admin/audit-logs", label: "Audit Logs" },
+  { href: "/admin/contact", label: "Contact" },
   { href: "/admin/notifications", label: "Notifications" },
   { href: "/admin/settings", label: "Settings" },
 ];

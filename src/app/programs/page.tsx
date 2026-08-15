@@ -1,6 +1,8 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { PublicPageShell } from "@/components/marketing/public-page-shell";
 import { PageHeader } from "@/components/app/page-header";
+import { EmptyState } from "@/components/app/empty-state";
 import { ErrorState } from "@/components/app/error-state";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -56,38 +58,42 @@ export default async function ProgramsPage() {
 
       {error ? (
         <ErrorState title="Couldn't load programs" description="Something went wrong. Please try again." />
+      ) : !programs || programs.length === 0 ? (
+        <EmptyState title="No programs published yet" description="NOVA's learning programs will appear here." />
       ) : (
         <div className="grid gap-6 sm:grid-cols-2">
-          {(programs as unknown as ProgramRow[] | null)?.map((program) => {
+          {(programs as unknown as ProgramRow[]).map((program) => {
             const skills = program.program_skills.map((ps) => ps.skills?.name).filter(Boolean) as string[];
             return (
-              <Card key={program.id} className="h-full">
-                <CardHeader className="flex flex-col gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="primary">{CATEGORY_LABELS[program.category] ?? program.category}</Badge>
-                    <Badge variant="default">{program.difficulty}</Badge>
-                    <Badge variant="default">{program.duration_weeks} weeks</Badge>
-                  </div>
-                  <CardTitle as="h2" className="text-body">
-                    {program.name}
-                  </CardTitle>
-                  <CardDescription>{program.short_description}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3 pt-0">
-                  {skills.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {skills.map((skill) => (
-                        <Badge key={skill} variant="info">
-                          {skill}
-                        </Badge>
-                      ))}
+              <Link key={program.id} href={`/programs/${program.slug}`}>
+                <Card className="h-full transition-colors hover:border-primary/40">
+                  <CardHeader className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="primary">{CATEGORY_LABELS[program.category] ?? program.category}</Badge>
+                      <Badge variant="default">{program.difficulty}</Badge>
+                      <Badge variant="default">{program.duration_weeks} weeks</Badge>
                     </div>
-                  )}
-                  {program.career_outcomes.length > 0 && (
-                    <p className="text-caption text-text-muted">Career outcomes: {program.career_outcomes.join(", ")}</p>
-                  )}
-                </CardContent>
-              </Card>
+                    <CardTitle as="h2" className="text-body">
+                      {program.name}
+                    </CardTitle>
+                    <CardDescription>{program.short_description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-3 pt-0">
+                    {skills.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {skills.map((skill) => (
+                          <Badge key={skill} variant="info">
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    {program.career_outcomes.length > 0 && (
+                      <p className="text-caption text-text-muted">Career outcomes: {program.career_outcomes.join(", ")}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </Link>
             );
           })}
         </div>

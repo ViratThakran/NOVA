@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { PublicPageShell } from "@/components/marketing/public-page-shell";
 import { PageHeader } from "@/components/app/page-header";
@@ -88,17 +89,19 @@ export default async function ServicesPage() {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {categoryServices.map((service) => (
-                    <Card key={service.id} className="h-full">
-                      <CardHeader className="flex flex-col gap-2">
-                        <Badge variant={service.automation_level === "autonomous" ? "success" : "warning"}>
-                          {AUTOMATION_LABELS[service.automation_level] ?? service.automation_level}
-                        </Badge>
-                        <CardTitle as="h3" className="text-body">
-                          {service.name}
-                        </CardTitle>
-                        <CardDescription>{service.short_description}</CardDescription>
-                      </CardHeader>
-                    </Card>
+                    <Link key={service.id} href={`/services/${service.slug}`}>
+                      <Card className="h-full transition-colors hover:border-primary/40">
+                        <CardHeader className="flex flex-col gap-2">
+                          <Badge variant={service.automation_level === "autonomous" ? "success" : "warning"}>
+                            {AUTOMATION_LABELS[service.automation_level] ?? service.automation_level}
+                          </Badge>
+                          <CardTitle as="h3" className="text-body">
+                            {service.name}
+                          </CardTitle>
+                          <CardDescription>{service.short_description}</CardDescription>
+                        </CardHeader>
+                      </Card>
+                    </Link>
                   ))}
                 </div>
               </section>

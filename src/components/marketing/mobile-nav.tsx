@@ -63,7 +63,15 @@ export function MobileNav() {
         aria-label="Site menu"
         onClick={handleBackdropClick}
         className={cn(
-          "m-0 ml-auto flex h-dvh max-h-none w-full max-w-xs flex-col border-l border-border bg-surface-elevated p-0 text-text",
+          // `hidden` + `open:flex` (not a bare `flex`) matters here: a
+          // native <dialog> without the `open` attribute is only ever
+          // hidden by the UA stylesheet's `dialog:not([open]){display:none}`
+          // rule, which an unconditional `flex` utility overrides — the
+          // drawer stayed visibly painted (just click-through, since it's
+          // no longer in the top layer) even after close() correctly
+          // cleared the `open` attribute. Scoping `flex` to `open:` keeps
+          // the element genuinely hidden while closed.
+          "m-0 ml-auto hidden h-dvh max-h-none w-full max-w-xs flex-col border-l border-border bg-surface-elevated p-0 text-text open:flex",
           "backdrop:bg-background/80 backdrop:backdrop-blur-sm"
         )}
       >

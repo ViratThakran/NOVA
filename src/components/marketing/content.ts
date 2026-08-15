@@ -9,11 +9,13 @@
 export const HERO_VISUAL_STEPS = ["Learn", "Build", "Prove", "Connect", "Grow"] as const;
 
 export const NAV_ITEMS = [
-  { href: "/platform", label: "Platform" },
   { href: "/programs", label: "Programs" },
+  { href: "/courses", label: "Courses" },
+  { href: "/internships", label: "Internships" },
   { href: "/services", label: "Services" },
   { href: "/companies", label: "Companies" },
   { href: "/about", label: "About" },
+  { href: "/contact", label: "Contact" },
 ] as const;
 
 export const JOURNEY_STEPS = [

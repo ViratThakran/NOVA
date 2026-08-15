@@ -16,6 +16,8 @@ import {
   reviewServiceRequestSchema,
   advanceServiceRequestSchema,
   cancelServiceRequestSchema,
+  contactSubmissionSchema,
+  contactSubmissionStatusSchema,
   registerSchema,
   loginSchema,
   forgotPasswordSchema,
@@ -534,6 +536,59 @@ describe("Security Validation Schemas", () => {
 
     it("should reject a non-UUID request_id", () => {
       const result = cancelServiceRequestSchema.safeParse({ request_id: "not-a-uuid" });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Contact Submission Schema", () => {
+    const validSubmission = { name: "Alice", email: "alice@example.com", message: "Hello, I have a question." };
+
+    it("should accept a valid submission without a company", () => {
+      const result = contactSubmissionSchema.safeParse(validSubmission);
+      expect(result.success).toBe(true);
+    });
+
+    it("should accept a valid submission with a company", () => {
+      const result = contactSubmissionSchema.safeParse({ ...validSubmission, company: "Acme Inc" });
+      expect(result.success).toBe(true);
+    });
+
+    it("should reject an empty name", () => {
+      const result = contactSubmissionSchema.safeParse({ ...validSubmission, name: "" });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject an invalid email", () => {
+      const result = contactSubmissionSchema.safeParse({ ...validSubmission, email: "not-an-email" });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject an empty message", () => {
+      const result = contactSubmissionSchema.safeParse({ ...validSubmission, message: "" });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a message over 5000 characters", () => {
+      const result = contactSubmissionSchema.safeParse({ ...validSubmission, message: "a".repeat(5001) });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("Contact Submission Status Schema", () => {
+    it("should accept 'new' and 'reviewed' statuses", () => {
+      for (const status of ["new", "reviewed"]) {
+        const result = contactSubmissionStatusSchema.safeParse({ submission_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789", status });
+        expect(result.success).toBe(true);
+      }
+    });
+
+    it("should reject an invented status", () => {
+      const result = contactSubmissionStatusSchema.safeParse({ submission_id: "713ba0c6-302a-4a6c-9403-b0eb972f7789", status: "archived" });
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject a non-UUID submission_id", () => {
+      const result = contactSubmissionStatusSchema.safeParse({ submission_id: "not-a-uuid", status: "new" });
       expect(result.success).toBe(false);
     });
   });

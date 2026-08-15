@@ -18,6 +18,7 @@ import {
   planServiceRequestSchema,
   runAiTaskSchema,
   decideAiApprovalSchema,
+  contactSubmissionStatusSchema,
 } from "@/lib/validation";
 import * as aiEngine from "@/lib/ai-engine/engine";
 import type { AdminActionState } from "./action-state";
@@ -682,4 +683,39 @@ export async function decideAiApprovalAction(
   revalidatePath("/admin/services/requests");
 
   return { status: "success", message: parsed.data.decision === "approved" ? "Approved." : "Rejected." };
+}
+
+export async function markContactSubmissionReviewedAction(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const auth = await getAuthenticatedUser();
+
+  if (!auth) {
+    return { status: "error", message: "Your session has expired. Please log in again." };
+  }
+
+  const { supabase, roles } = auth;
+
+  if (!roles.some((role) => ADMIN_ROLES.includes(role))) {
+    return { status: "error", message: "You don't have permission to manage contact submissions." };
+  }
+
+  const parsed = contactSubmissionStatusSchema.safeParse({
+    submission_id: formData.get("submission_id"),
+    status: formData.get("status"),
+  });
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
+  }
+
+  const { error } = await supabase.from("contact_submissions").update({ status: parsed.data.status }).eq("id", parsed.data.submission_id);
+  if (error) {
+    console.error("markContactSubmissionReviewedAction:", error);
+    return { status: "error", message: "We couldn't update this submission. Please try again." };
+  }
+
+  revalidatePath("/admin/contact");
+
+  return { status: "success", message: "Marked reviewed." };
 }

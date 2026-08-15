@@ -2602,3 +2602,62 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
 
 REVOKE EXECUTE ON FUNCTION public.consume_ai_approval(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.consume_ai_approval(uuid) TO authenticated;
+
+-- =========================================================================
+-- PHASE 9: FUNCTIONAL PRODUCT COMPLETION
+-- =========================================================================
+
+-- 56. Public internship discovery. The existing "Anyone can read open
+-- internships OR admin can read all" policy is TO authenticated only — an
+-- anonymous visitor genuinely has no way to read internships at all today,
+-- despite the policy's name. This adds the missing anon-scoped policy
+-- alongside (never replacing) the existing one, the same two-policy-per-role
+-- split already used for programs/courses/services: an anon policy that
+-- never calls is_current_user_admin() (anon has no EXECUTE grant on it),
+-- Postgres ORs the two together for whichever role actually applies.
+CREATE POLICY "Anonymous can read open internships" ON public.internships
+    FOR SELECT TO anon
+    USING (status = 'open');
+
+GRANT SELECT ON public.internships TO anon;
+
+-- 57. Contact Submissions Table — the minimal persistent backing /contact
+-- genuinely needs to be a real (not fake) form: anon can only ever INSERT,
+-- never read back its own or anyone else's submission; only an admin can
+-- read/triage them. No email delivery is implemented here (no email
+-- provider exists in this codebase) — a submission is durably recorded for
+-- an admin to act on, which is honest about what's actually implemented.
+CREATE TABLE public.contact_submissions (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    email text NOT NULL,
+    company text,
+    message text NOT NULL,
+    status text NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'reviewed')),
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX idx_contact_submissions_status ON public.contact_submissions(status);
+
+ALTER TABLE public.contact_submissions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can submit a contact message" ON public.contact_submissions
+    FOR INSERT TO anon, authenticated
+    WITH CHECK (true);
+
+CREATE POLICY "Admins can read contact submissions" ON public.contact_submissions
+    FOR SELECT TO authenticated
+    USING (public.is_current_user_admin());
+
+CREATE POLICY "Admins can update contact submissions" ON public.contact_submissions
+    FOR UPDATE TO authenticated
+    USING (public.is_current_user_admin())
+    WITH CHECK (public.is_current_user_admin());
+
+-- INSERT-only for anon (and authenticated non-admins by the same policy) —
+-- no SELECT/UPDATE/DELETE grant at all for either, so even a crafted
+-- request can never read back submissions; only the grant below (scoped to
+-- authenticated, gated further by the admin-only policies above) allows
+-- reading/triaging.
+GRANT INSERT ON public.contact_submissions TO anon, authenticated;
+GRANT SELECT, UPDATE ON public.contact_submissions TO authenticated;
