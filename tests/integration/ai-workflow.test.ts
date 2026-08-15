@@ -17,9 +17,9 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { planServiceRequest } from "@/lib/ai/project-manager";
-import { runDeploymentTask } from "@/lib/ai/developer-agent";
-import { authorizeToolUse } from "@/lib/ai/tools";
+import { planServiceRequest } from "@/lib/ai-engine/agents/project-manager";
+import { runDeploymentTask } from "@/lib/ai-engine/agents/developer-agent";
+import { authorizeToolUse } from "@/lib/ai-engine/tools";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;

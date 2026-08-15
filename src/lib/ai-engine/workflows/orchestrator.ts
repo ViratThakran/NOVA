@@ -1,40 +1,29 @@
-// Workflow auto-advance engine (Phase 8E). Only workflow-driven tasks (ones
+// Workflow auto-advance orchestrator. Only workflow-driven tasks (ones
 // created from a typed WorkflowDefinition, carrying workflow_slug/
 // workflow_key in their `input`) ever auto-advance — the generic,
-// model-decomposed plan path from Phase 8D is untouched and stays
-// manual-per-task, exactly as before. This is a deliberate scope boundary:
-// only a reviewed, known-safe, fixed-shape workflow gets full automation.
+// model-decomposed plan path stays manual-per-task, exactly as before.
+// This is a deliberate scope boundary: only a reviewed, known-safe,
+// fixed-shape workflow gets full automation.
 //
 // decideNextWorkflowStep() is pure — no database access — so the actual
 // branching logic (advance vs. return-to-Developer vs. wait) is directly
 // unit-testable without a running Supabase instance, the same "pure logic
 // extraction" convention used throughout this codebase (see
-// findInvalidDependencyIndex in schemas.ts).
+// findInvalidDependencyIndex in schemas/index.ts).
 //
 // Loop protection: MAX_AUTO_ADVANCE_STEPS bounds the recursion depth
 // defensively, but the real guarantee is structural — every workflow is a
 // small, fixed-length list of typed task templates (never model-generated,
-// never recursively decomposed), and every RPC transition this engine
+// never recursively decomposed), and every RPC transition this module
 // triggers (assign_ai_task, retry_ai_task) is itself guarded by the
 // database's own state-machine checks, so no task can ever be advanced or
 // retried more times than its own max_retries allows.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { findWorkflowBySlug, type WorkflowDefinition } from "./workflows";
-import { runResearchTask } from "./research-agent";
-import { runDevelopmentTask, runDeploymentTask } from "./developer-agent";
-import { runQaTask } from "./qa-agent";
-
-const MAX_AUTO_ADVANCE_STEPS = 10;
-
-type RunnerFn = (supabase: SupabaseClient, taskId: string) => Promise<{ status: string; message?: string }>;
-
-const RUNNABLE_TASK_KEYS: Record<string, RunnerFn> = {
-  research: runResearchTask,
-  development: runDevelopmentTask,
-  qa: runQaTask,
-  deployment: runDeploymentTask,
-};
+import { findWorkflowBySlug } from "./registry";
+import type { WorkflowDefinition } from "./types";
+import { WORKFLOW_TASK_RUNNERS } from "../agents";
+import { MAX_AUTO_ADVANCE_STEPS } from "../config";
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -90,11 +79,11 @@ interface WorkflowTaskRow {
 }
 
 // Database-touching orchestration on top of the pure decision above. Called
-// after every successful task completion (from the Server Action layer) so
-// the happy path — research -> development -> QA -> (approval) -> deploy —
-// runs to completion (or the next human-needed stop) without a separate
-// click per step, while any failure or approval requirement halts the
-// chain for a human to act on.
+// after every successful task completion (from engine.ts) so the happy
+// path — research -> development -> QA -> (approval) -> deploy — runs to
+// completion (or the next human-needed stop) without a separate click per
+// step, while any failure or approval requirement halts the chain for a
+// human to act on.
 export async function advanceWorkflow(supabase: SupabaseClient, serviceRequestId: string, depth = 0): Promise<void> {
   if (depth >= MAX_AUTO_ADVANCE_STEPS) return;
 
@@ -130,7 +119,7 @@ export async function advanceWorkflow(supabase: SupabaseClient, serviceRequestId
     const { error } = await supabase.rpc("retry_ai_task", { task_id: returnTask.id });
     if (error) return; // retry budget exhausted, or otherwise blocked — leave for a human
 
-    const runner = RUNNABLE_TASK_KEYS[decision.returnToKey];
+    const runner = WORKFLOW_TASK_RUNNERS[decision.returnToKey];
     if (runner) {
       const result = await runner(supabase, returnTask.id);
       if (result.status === "success") await advanceWorkflow(supabase, serviceRequestId, depth + 1);
@@ -148,7 +137,7 @@ export async function advanceWorkflow(supabase: SupabaseClient, serviceRequestId
   const { error: assignError } = await supabase.rpc("assign_ai_task", { task_id: nextTask.id, agent_definition_id: agentRow.id });
   if (assignError) return;
 
-  const runner = RUNNABLE_TASK_KEYS[decision.nextKey];
+  const runner = WORKFLOW_TASK_RUNNERS[decision.nextKey];
   if (!runner) return;
 
   const result = await runner(supabase, nextTask.id);

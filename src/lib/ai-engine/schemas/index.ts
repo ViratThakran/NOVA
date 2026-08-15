@@ -1,7 +1,7 @@
-// Structured AI output schemas (Phase 8D). Orchestration NEVER depends on
-// arbitrary model prose — every model response is parsed as JSON and
-// validated against one of these schemas before anything in the response is
-// acted on. A response that fails validation fails the task safely (status
+// Structured AI output schemas. Orchestration NEVER depends on arbitrary
+// model prose — every model response is parsed as JSON and validated
+// against one of these schemas before anything in the response is acted
+// on. A response that fails validation fails the task safely (status
 // 'failed', no tasks created, no tool executed) rather than being
 // interpreted loosely.
 
@@ -9,12 +9,12 @@ import { z } from "zod";
 
 // The AI Project Manager's decomposition of a service request into child
 // tasks. agent_slug/capability_slugs are the MODEL's claim about what it
-// thinks is appropriate — planServiceRequest() in project-manager.ts
-// independently re-verifies both against the real agent_definitions/
+// thinks is appropriate — agents/project-manager.ts independently
+// re-verifies both against the real agent_definitions/
 // agent_definition_capabilities tables before creating anything. A model
 // claiming a capability an agent doesn't actually have is rejected, not
-// trusted (see Step 4 of the Phase 8D spec: "never blindly execute
-// arbitrary instructions returned by the model").
+// trusted ("never blindly execute arbitrary instructions returned by the
+// model").
 export const taskPlanSchema = z.object({
   tasks: z
     .array(
@@ -26,8 +26,8 @@ export const taskPlanSchema = z.object({
         // Index into this same tasks array that must complete first, or
         // null for "no dependency, can be planned immediately." Validated
         // structurally (must point backward, never to itself or forward)
-        // in project-manager.ts, not here — Zod checks shape, not graph
-        // validity.
+        // in agents/project-manager.ts, not here — Zod checks shape, not
+        // graph validity.
         depends_on_index: z.number().int().nonnegative().nullable().optional(),
       })
     )
@@ -46,10 +46,10 @@ export const researchResultSchema = z.object({
 
 export type ResearchResult = z.infer<typeof researchResultSchema>;
 
-// The Developer Agent's generated deliverable (Phase 8E) — a small, capped
-// set of virtual files. This is NEVER written to the real NOVA filesystem
-// and NEVER executed; it is the customer's generated deliverable, stored as
-// an ai_artifacts row and rendered/downloaded, not run. Capped at 8 files /
+// The Developer Agent's generated deliverable — a small, capped set of
+// virtual files. This is NEVER written to the real NOVA filesystem and
+// NEVER executed; it is the customer's generated deliverable, stored as an
+// ai_artifacts row and rendered/downloaded, not run. Capped at 8 files /
 // 20,000 chars each to keep a single AI response bounded and reviewable.
 export const websiteBuildSchema = z.object({
   files: z
@@ -65,9 +65,10 @@ export const websiteBuildSchema = z.object({
 
 export type WebsiteBuild = z.infer<typeof websiteBuildSchema>;
 
-// The QA Agent's structured verdict (Phase 8E). `status` is the field
-// workflow-engine.ts inspects to decide whether to advance or route the
-// work back to the Developer Agent — see WorkflowTaskTemplate.onFailureReturnToKey.
+// The QA Agent's structured verdict. `status` is the field
+// workflows/orchestrator.ts inspects to decide whether to advance or route
+// the work back to the Developer Agent — see
+// WorkflowTaskTemplate.onFailureReturnToKey (workflows/types.ts).
 export const qaResultSchema = z.object({
   status: z.enum(["passed", "failed"]),
   issues: z.array(z.string().min(1).max(500)).max(20).default([]),
@@ -77,11 +78,10 @@ export const qaResultSchema = z.object({
 
 export type QaResult = z.infer<typeof qaResultSchema>;
 
-// The Content & Marketing Agent's generated draft (Phase 8E). This is
-// `generate_content` (capability: write_draft, no approval) — publishing or
-// sending it anywhere is a SEPARATE, approval-required capability
-// (publish_content / send_email) that no code path in this phase invokes
-// automatically.
+// The Content & Marketing Agent's generated draft. This is
+// `generate_content` (capability: write_draft, no approval) — publishing
+// or sending it anywhere is a SEPARATE, approval-required capability
+// (publish_content / send_email) that no code path invokes automatically.
 export const contentDraftSchema = z.object({
   title: z.string().min(1).max(200),
   body: z.string().min(1).max(10000),
@@ -118,9 +118,10 @@ export function checkWebsiteBuildStructure(build: WebsiteBuild): { issues: strin
 
 // Pure structural validation of a plan's dependency graph — every
 // depends_on_index must point strictly backward (< its own index, >= 0).
-// Kept out of project-manager.ts so it's directly unit-testable without a
-// database, the same "pure logic extracted for testing" convention already
-// used throughout this codebase (see e.g. application-view-state.ts).
+// Kept out of agents/project-manager.ts so it's directly unit-testable
+// without a database, the same "pure logic extracted for testing"
+// convention used throughout this codebase (see e.g.
+// application-view-state.ts).
 export function findInvalidDependencyIndex(plan: TaskPlan): number | null {
   for (let i = 0; i < plan.tasks.length; i++) {
     const dep = plan.tasks[i].depends_on_index;

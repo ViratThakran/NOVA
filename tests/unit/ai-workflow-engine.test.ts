@@ -10,8 +10,9 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { decideNextWorkflowStep, isRecord, type WorkflowTaskState } from "../../src/lib/ai/workflow-engine";
-import { WEBSITE_CREATION_WORKFLOW, findWorkflowForService, findWorkflowBySlug } from "../../src/lib/ai/workflows";
+import { decideNextWorkflowStep, isRecord, type WorkflowTaskState } from "../../src/lib/ai-engine/workflows/orchestrator";
+import { WEBSITE_CREATION_WORKFLOW } from "../../src/lib/ai-engine/workflows/website";
+import { findWorkflowForService, findWorkflowBySlug } from "../../src/lib/ai-engine/workflows/registry";
 
 function state(key: string, status: string, output: unknown = null): WorkflowTaskState {
   return { key, status, output };

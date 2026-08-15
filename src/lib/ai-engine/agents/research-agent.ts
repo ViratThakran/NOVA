@@ -1,15 +1,16 @@
-// Research Agent (Phase 8D) — the one specialized agent implemented
-// end-to-end this phase, chosen because it needs no dangerous production
-// privileges (Step 6 of the spec). The full path: assign -> start a real
-// agent_run -> authorize the one tool it uses (web_search, gated on
-// read_public_web) -> produce a schema-validated structured result ->
-// complete the run -> complete the task. Every step re-uses the Phase 8C
-// RPCs and the tools.ts authorization gate — nothing here bypasses either.
+// Research Agent — the first specialized agent implemented end-to-end,
+// chosen because it needs no dangerous production privileges. The full
+// path: assign -> start a real agent_run -> authorize the one tool it uses
+// (web_search, gated on read_public_web) -> produce a schema-validated
+// structured result -> complete the run -> complete the task. Every step
+// re-uses the shared RPCs and tools/index.ts's authorization gate —
+// nothing here bypasses either.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getAiProvider } from "./provider";
-import { researchResultSchema, type ResearchResult } from "./schemas";
-import { authorizeToolUse, webSearch } from "./tools";
+import { getAiProvider } from "../providers";
+import { researchResultSchema, type ResearchResult } from "../schemas";
+import { authorizeToolUse, webSearch } from "../tools";
+import { recordArtifact } from "../artifacts";
 
 export interface RunResearchTaskResult {
   status: "success" | "waiting_for_approval" | "error";
@@ -100,14 +101,14 @@ export async function runResearchTask(supabase: SupabaseClient, taskId: string):
   }
 
   // Addressable, typed record of this deliverable at the service-request
-  // level (Phase 8E) — separate from ai_tasks.output, which stays this
-  // run's own record. Safe execution metadata only: provider name and
-  // result count, never raw scraped content beyond what's already in the
+  // level — separate from ai_tasks.output, which stays this run's own
+  // record. Safe execution metadata only: provider name and result count,
+  // never raw scraped content beyond what's already in the
   // schema-validated result.
-  await supabase.from("ai_artifacts").insert({
-    service_request_id: task.service_request_id,
-    ai_task_id: taskId,
-    created_by_agent_id: agent.id,
+  await recordArtifact(supabase, {
+    serviceRequestId: task.service_request_id,
+    taskId,
+    agentId: agent.id,
     type: "research_report",
     title: `Research: ${topic || "service request"}`,
     content: { ...result, search_provider: search.provider, search_result_count: search.resultCount },

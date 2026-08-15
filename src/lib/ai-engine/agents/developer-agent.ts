@@ -1,15 +1,14 @@
-// Developer Agent (Phase 8E). Builds the website-creation workflow's
-// "development" and "deployment" tasks — the same agent, two different
-// tools, gated very differently: generate_website (generate_code, no
-// approval) vs deploy_website (deploy, approval-required).
+// Developer Agent. Builds the website-creation workflow's "development"
+// and "deployment" tasks — the same agent, two different tools, gated very
+// differently: generate_website (generate_code, no approval) vs
+// deploy_website (deploy, approval-required).
 //
 // This agent does NOT get shell/filesystem/machine access. "Building a
 // website" here means generating a small, capped set of virtual files
 // (schema-validated, stored as an ai_artifacts row) — never written to the
 // real NOVA repository and never executed. No sandbox/container/shell
-// capability was introduced this phase; giving an AI agent real command
-// execution is explicitly out of scope for "the smallest safe production
-// workflow" (see the Phase 8E report's limitations section).
+// capability was introduced; giving an AI agent real command execution is
+// explicitly out of scope for "the smallest safe production workflow".
 //
 // Deployment is a deterministic MOCK hosting integration: no real
 // hosting/DNS credential exists in this environment, and none is invented.
@@ -17,9 +16,10 @@
 // nothing downstream can mistake it for a real production release.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getAiProvider } from "./provider";
-import { websiteBuildSchema, checkWebsiteBuildStructure, type WebsiteBuild } from "./schemas";
-import { authorizeToolUse } from "./tools";
+import { getAiProvider } from "../providers";
+import { websiteBuildSchema, checkWebsiteBuildStructure, type WebsiteBuild } from "../schemas";
+import { authorizeToolUse } from "../tools";
+import { recordArtifact } from "../artifacts";
 
 export interface RunDeveloperTaskResult {
   status: "success" | "waiting_for_approval" | "error";
@@ -112,10 +112,10 @@ export async function runDevelopmentTask(supabase: SupabaseClient, taskId: strin
     return { status: "error", message: "The generated website failed a basic structural check. The task was marked failed." };
   }
 
-  await supabase.from("ai_artifacts").insert({
-    service_request_id: task.service_request_id,
-    ai_task_id: taskId,
-    created_by_agent_id: agent.id,
+  await recordArtifact(supabase, {
+    serviceRequestId: task.service_request_id,
+    taskId,
+    agentId: agent.id,
     type: "website_source",
     title: "Generated website source",
     content: { files: build.files },
@@ -210,10 +210,10 @@ export async function runDeploymentTask(supabase: SupabaseClient, taskId: string
   };
 
   if (!existingDeployment) {
-    await supabase.from("ai_artifacts").insert({
-      service_request_id: task.service_request_id,
-      ai_task_id: taskId,
-      created_by_agent_id: agent.id,
+    await recordArtifact(supabase, {
+      serviceRequestId: task.service_request_id,
+      taskId,
+      agentId: agent.id,
       type: "deployment_record",
       title: "Deployment record (sandbox)",
       content: deployment,

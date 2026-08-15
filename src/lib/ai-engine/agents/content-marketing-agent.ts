@@ -1,10 +1,10 @@
-// Content & Marketing Agent (Phase 8E). Produces drafts only — website
-// copy, SEO content, social posts, email drafts, product descriptions,
+// Content & Marketing Agent. Produces drafts only — website copy, SEO
+// content, social posts, email drafts, product descriptions,
 // advertisements. generate_content (capability: write_draft) is NOT
 // approval-required and is the only tool this module calls. Publishing or
 // sending that content anywhere is a deliberately separate, approval-gated
-// capability (publish_content / send_email, see tools.ts's
-// publish_content_externally entry) that no code in this phase invokes
+// capability (publish_content / send_email, see tools/index.ts's
+// publish_content_externally entry) that no code in this agent invokes
 // automatically — nothing here ever publishes or sends on its own.
 //
 // This agent is not wired into the Website Creation workflow (that
@@ -13,9 +13,10 @@
 // content-generation service.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getAiProvider } from "./provider";
-import { contentDraftSchema, type ContentDraft } from "./schemas";
-import { authorizeToolUse } from "./tools";
+import { getAiProvider } from "../providers";
+import { contentDraftSchema, type ContentDraft } from "../schemas";
+import { authorizeToolUse } from "../tools";
+import { recordArtifact } from "../artifacts";
 
 export interface RunContentTaskResult {
   status: "success" | "waiting_for_approval" | "error";
@@ -84,10 +85,10 @@ export async function runContentTask(supabase: SupabaseClient, taskId: string): 
     return { status: "error", message: "AI returned invalid output. The task was marked failed." };
   }
 
-  await supabase.from("ai_artifacts").insert({
-    service_request_id: task.service_request_id,
-    ai_task_id: taskId,
-    created_by_agent_id: agent.id,
+  await recordArtifact(supabase, {
+    serviceRequestId: task.service_request_id,
+    taskId,
+    agentId: agent.id,
     type: "content_draft",
     title: draft.title,
     content: draft,

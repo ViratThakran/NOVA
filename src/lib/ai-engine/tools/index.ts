@@ -1,17 +1,20 @@
-// Controlled tool abstraction (Phase 8D, extended Phase 8E). The model never
-// decides whether it has permission to use a tool — this module does,
-// entirely server-side, before any tool runs. Every tool declares the single
-// capability it requires; authorizeToolUse() is the one gate every tool call
-// must pass through, checking (in order) that the task's assigned agent
-// actually has that capability, and — critically — whether the capability
-// requires human approval. If it does, the tool is NOT executed on this
-// call: either an already-granted, not-yet-used approval is consumed
-// (exactly once, never replayed), or the task moves to
-// 'waiting_for_approval' via request_ai_task_approval() and the caller gets
-// back `authorized: false`. Nothing here ever trusts a cached "this was
-// approved before" belief without checking the database fresh.
+// Controlled tool abstraction. The model never decides whether it has
+// permission to use a tool — this module does, entirely server-side,
+// before any tool runs. Every tool declares the single capability it
+// requires; authorizeToolUse() is the one gate every tool call must pass
+// through, checking (in order) that the task's assigned agent actually has
+// that capability, and — critically — whether the capability requires
+// human approval. If it does, the tool is NOT executed on this call:
+// either an already-granted, not-yet-used approval is consumed (exactly
+// once, never replayed), or the task moves to 'waiting_for_approval' and
+// the caller gets back `authorized: false`. Nothing here ever trusts a
+// cached "this was approved before" belief without checking the database
+// fresh — NOVA's database remains the authority, this module only asks it
+// questions.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { requestApproval, consumeApproval } from "../approvals";
+import { ENABLE_REAL_WEB_SEARCH_ENV_VAR, MAX_WEB_SEARCH_RESULTS, WEB_SEARCH_TIMEOUT_MS } from "../config";
 
 // Tool registry: tool slug -> the one capability required to use it.
 export const TOOL_CAPABILITY: Record<string, string> = {
@@ -75,10 +78,10 @@ export async function authorizeToolUse(
   if (capability.requires_approval) {
     // Look for an existing, granted, NOT YET USED approval for this exact
     // task+capability. This is the only path that lets an approval-required
-    // tool ever actually execute — request_ai_task_approval() itself always
-    // creates a fresh pending request every time it's called (proven by the
-    // Phase 8D "never trusts cached approval state" test); consuming an
-    // approval and requesting one are deliberately two different RPCs.
+    // tool ever actually execute — requestApproval() itself always creates
+    // a fresh pending request every time it's called (proven by the "never
+    // trusts cached approval state" test); consuming an approval and
+    // requesting one are deliberately two different operations.
     const { data: existingApproval } = await supabase
       .from("ai_approvals")
       .select("id")
@@ -91,18 +94,18 @@ export async function authorizeToolUse(
       .maybeSingle();
 
     if (existingApproval) {
-      const { error: consumeError } = await supabase.rpc("consume_ai_approval", { approval_id: existingApproval.id });
+      const { error: consumeError } = await consumeApproval(supabase, existingApproval.id);
       if (consumeError) {
         return { authorized: false, waitingForApproval: false, reason: consumeError.message };
       }
       return { authorized: true, waitingForApproval: false, approvalId: existingApproval.id as string };
     }
 
-    const { data: approvalId, error: approvalError } = await supabase.rpc("request_ai_task_approval", {
-      task_id: params.taskId,
-      capability_id: capability.id,
+    const { data: approvalId, error: approvalError } = await requestApproval(supabase, {
+      taskId: params.taskId,
+      capabilityId: capability.id,
       reason: params.reason,
-      resource_description: `Tool: ${params.toolSlug}`,
+      resourceDescription: `Tool: ${params.toolSlug}`,
     });
     if (approvalError) {
       return { authorized: false, waitingForApproval: false, reason: approvalError.message };
@@ -120,15 +123,12 @@ export interface WebSearchResult {
   resultCount: number;
 }
 
-const MAX_WEB_SEARCH_RESULTS = 5;
-const WEB_SEARCH_TIMEOUT_MS = 5000;
-
 // Real, keyless, server-side web research. DuckDuckGo's Instant Answer API
 // requires no API key/credential at all — nothing to invent, nothing to
 // expose to the browser (this module has no "use client" directive and is
-// only ever called from Server Actions / other server-only lib code). Off
-// by default: ENABLE_REAL_WEB_SEARCH must be explicitly set, so unit and
-// integration tests stay hermetic and don't depend on outbound network
+// only ever called from Server Actions / other server-only engine code).
+// Off by default: ENABLE_REAL_WEB_SEARCH must be explicitly set, so unit
+// and integration tests stay hermetic and don't depend on outbound network
 // access. A timeout and a hard cap on returned results keep this within
 // "reasonable request limits"; a network failure degrades to an explicit
 // empty result rather than failing the whole task.
@@ -152,7 +152,7 @@ async function realWebSearch(query: string): Promise<WebSearchResult> {
 }
 
 export async function webSearch(query: string): Promise<WebSearchResult> {
-  if (process.env.ENABLE_REAL_WEB_SEARCH !== "true") {
+  if (process.env[ENABLE_REAL_WEB_SEARCH_ENV_VAR] !== "true") {
     return {
       query,
       results: [`No live web access is connected yet — this is a placeholder result for: ${query}`],

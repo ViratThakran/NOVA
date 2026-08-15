@@ -1,20 +1,25 @@
-// AI provider abstraction (Phase 8D). The rest of the AI runtime never talks
-// to a specific vendor directly — it only calls `getAiProvider().complete()`,
-// so swapping or adding a provider never touches orchestration code.
+// AI provider abstraction — the engine's boundary against any one model
+// vendor. The rest of the engine never talks to a specific vendor
+// directly — it only calls `getAiProvider().complete()`, so swapping or
+// adding a provider never touches agent/orchestration code, and never
+// touches the student/company/admin applications at all.
 //
-// No provider SDK is installed as a dependency: AnthropicProvider below is a
-// plain `fetch()` call to the public Messages API, since a raw HTTPS POST is
-// all a single-turn completion needs. This keeps the dependency surface at
-// zero while still being a real, working implementation if a key is ever
-// configured.
+// No provider SDK is installed as a dependency: AnthropicProvider below is
+// a plain `fetch()` call to the public Messages API, since a raw HTTPS POST
+// is all a single-turn completion needs. This keeps the dependency surface
+// at zero while still being a real, working implementation if a key is
+// ever configured.
 //
 // Credentials: read ONLY from server-side environment variables
 // (process.env), NEVER from a database row, NEVER forwarded to the client
-// (this module has no "use client" directive and is only ever imported from
-// Server Actions / other server-only lib files). If ANTHROPIC_API_KEY is
-// absent, getAiProvider() falls back to a deterministic MockProvider rather
-// than throwing or inventing a credential — this is what every test in this
-// phase actually exercises, since no real key exists in this environment.
+// (this module has no "use client" directive and is only ever imported
+// from Server Actions / other server-only engine code). If
+// ANTHROPIC_API_KEY is absent, getAiProvider() falls back to a
+// deterministic MockProvider rather than throwing or inventing a
+// credential — this is what every test exercises, since no real key
+// exists in this environment.
+
+import { ANTHROPIC_MODEL, ANTHROPIC_MAX_TOKENS } from "../config";
 
 export type AiResponseFormat = "task_plan" | "research_result" | "website_build" | "qa_result" | "content_draft";
 
@@ -152,8 +157,8 @@ class AnthropicProvider implements AiProvider {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-5",
-        max_tokens: 2048,
+        model: ANTHROPIC_MODEL,
+        max_tokens: ANTHROPIC_MAX_TOKENS,
         system: request.systemPrompt,
         messages: [{ role: "user", content: request.userPrompt }],
       }),

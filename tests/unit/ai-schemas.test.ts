@@ -19,9 +19,9 @@ import {
   qaResultSchema,
   contentDraftSchema,
   checkWebsiteBuildStructure,
-} from "../../src/lib/ai/schemas";
-import { MockProvider, getAiProvider } from "../../src/lib/ai/provider";
-import { TOOL_CAPABILITY } from "../../src/lib/ai/tools";
+} from "../../src/lib/ai-engine/schemas";
+import { MockProvider, getAiProvider } from "../../src/lib/ai-engine/providers";
+import { TOOL_CAPABILITY } from "../../src/lib/ai-engine/tools";
 
 describe("taskPlanSchema", () => {
   const validTask = { title: "Research", description: "Do research.", agent_slug: "research-agent", capability_slugs: ["research"], depends_on_index: null };

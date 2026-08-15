@@ -19,26 +19,8 @@ import {
   runAiTaskSchema,
   decideAiApprovalSchema,
 } from "@/lib/validation";
-import { planServiceRequest } from "@/lib/ai/project-manager";
-import { runResearchTask } from "@/lib/ai/research-agent";
-import { runDevelopmentTask, runDeploymentTask } from "@/lib/ai/developer-agent";
-import { runQaTask } from "@/lib/ai/qa-agent";
-import { runContentTask } from "@/lib/ai/content-marketing-agent";
-import { advanceWorkflow } from "@/lib/ai/workflow-engine";
+import * as aiEngine from "@/lib/ai-engine/engine";
 import type { AdminActionState } from "./action-state";
-
-type AdminActionSupabase = Parameters<typeof planServiceRequest>[0];
-
-// Workflow-driven tasks carry input.workflow_key (Phase 8E) and dispatch
-// here; a task with no workflow_key falls back to the Phase 8D generic-path
-// behavior (agent slug -> runner) below. One dispatch table, not a growing
-// if/else chain — adding a new workflow step means adding one entry.
-const WORKFLOW_TASK_RUNNERS: Record<string, (supabase: AdminActionSupabase, taskId: string) => Promise<{ status: string; message?: string }>> = {
-  research: runResearchTask,
-  development: runDevelopmentTask,
-  qa: runQaTask,
-  deployment: runDeploymentTask,
-};
 
 const ADMIN_ROLES = ["admin", "super_admin"];
 
@@ -572,12 +554,12 @@ export async function planServiceRequestAction(
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
   }
 
-  // planServiceRequest() itself calls the assign_ai_task/start_agent_run/
-  // complete_agent_run RPCs — this action supplies the caller's own
-  // RLS-scoped Supabase client, the same "authorization from the session,
-  // never from a request parameter" pattern every other action already
-  // follows. No service-role key is used anywhere in this path.
-  const result = await planServiceRequest(supabase, parsed.data.request_id);
+  // The engine calls the assign_ai_task/start_agent_run/complete_agent_run
+  // RPCs internally — this action supplies the caller's own RLS-scoped
+  // Supabase client, the same "authorization from the session, never from
+  // a request parameter" pattern every other action already follows. No
+  // service-role key is used anywhere in this path.
+  const result = await aiEngine.plan(supabase, parsed.data.request_id);
 
   if (result.status === "error") {
     console.error("planServiceRequestAction:", result.message);
@@ -610,40 +592,14 @@ export async function runAiTaskAction(
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
   }
 
-  const { data: task, error: taskError } = await supabase
-    .from("ai_tasks")
-    .select("id, input, service_request_id, agent_definitions(slug)")
-    .eq("id", parsed.data.task_id)
-    .maybeSingle();
-  if (taskError || !task) {
-    return { status: "error", message: "This task could not be found." };
-  }
-
-  const input = (task.input ?? {}) as Record<string, unknown>;
-  const workflowKey = typeof input.workflow_key === "string" ? input.workflow_key : null;
-  const agentDefinition = Array.isArray(task.agent_definitions) ? task.agent_definitions[0] : task.agent_definitions;
-  const agentSlug = agentDefinition?.slug as string | undefined;
-
-  let runner = workflowKey ? WORKFLOW_TASK_RUNNERS[workflowKey] : undefined;
-  if (!runner && agentSlug === "research-agent") runner = runResearchTask;
-  if (!runner && agentSlug === "content-marketing-agent") runner = runContentTask;
-  if (!runner) {
-    return { status: "error", message: "This task cannot be run from here yet." };
-  }
-
-  const result = await runner(supabase, parsed.data.task_id);
+  // The engine resolves dispatch (workflow step vs. generic agent), runs
+  // the right agent, and continues any unblocked workflow chain — this
+  // action no longer implements any of that itself.
+  const result = await aiEngine.execute(supabase, parsed.data.task_id);
 
   if (result.status === "error") {
     console.error("runAiTaskAction:", result.message);
     return { status: "error", message: result.message ?? "We couldn't run this task. Please try again." };
-  }
-
-  if (result.status === "success" && workflowKey) {
-    // Continue the chain if this run unblocked a subsequent workflow step —
-    // relevant when this call is a manual resume (e.g. re-running the
-    // deployment task after an approval decision), not just the initial
-    // auto-advance from planServiceRequest.
-    await advanceWorkflow(supabase, task.service_request_id);
   }
 
   revalidatePath(`/admin/services/requests`);
@@ -675,13 +631,14 @@ export async function retryAiTaskAction(
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
   }
 
-  const { error } = await supabase.rpc("retry_ai_task", { task_id: parsed.data.task_id });
-  if (error) {
-    console.error("retryAiTaskAction:", error);
-    if (error.message.includes("retry limit")) {
+  const result = await aiEngine.retry(supabase, parsed.data.task_id);
+  if (result.status === "error") {
+    console.error("retryAiTaskAction:", result.message);
+    const message = result.message ?? "";
+    if (message.includes("retry limit")) {
       return { status: "error", message: "This task has reached its retry limit and cannot be retried again." };
     }
-    if (error.message.includes("Invalid State")) {
+    if (message.includes("Invalid State")) {
       return { status: "error", message: "Only a failed task can be retried." };
     }
     return { status: "error", message: "We couldn't retry this task. Please try again." };
@@ -716,10 +673,10 @@ export async function decideAiApprovalAction(
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
   }
 
-  const { error } = await supabase.rpc("decide_ai_approval", { approval_id: parsed.data.approval_id, decision: parsed.data.decision });
-  if (error) {
-    console.error("decideAiApprovalAction:", error);
-    return { status: "error", message: error.message };
+  const result = await aiEngine.decideApproval(supabase, parsed.data.approval_id, parsed.data.decision);
+  if (result.status === "error") {
+    console.error("decideAiApprovalAction:", result.message);
+    return { status: "error", message: result.message ?? "We couldn't record that decision. Please try again." };
   }
 
   revalidatePath("/admin/services/requests");

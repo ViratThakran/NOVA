@@ -1,21 +1,23 @@
-// QA Agent (Phase 8E). Independently inspects the Developer Agent's actual
-// persisted artifact — never the Developer's own in-process return value —
+// QA Agent. Independently inspects the Developer Agent's actual persisted
+// artifact — never the Developer's own in-process return value —
 // combining a deterministic structural check (checkWebsiteBuildStructure,
-// schemas.ts) with a qualitative AI judgment. The deterministic check always
-// wins: if it finds real structural issues, the QA verdict is forced to
-// "failed" regardless of what the model says, so a model that's inclined to
-// rubber-stamp its own kind of work can't override a concrete defect.
+// schemas/index.ts) with a qualitative AI judgment. The deterministic
+// check always wins: if it finds real structural issues, the QA verdict is
+// forced to "failed" regardless of what the model says, so a model that's
+// inclined to rubber-stamp its own kind of work can't override a concrete
+// defect.
 //
 // A QA task itself always completes successfully as an execution (it did
 // its job of inspecting the work) — the pass/fail VERDICT lives in the
-// task's structured output, which workflow-engine.ts reads to decide
-// whether to advance the workflow or send the work back to the Developer
-// Agent for revision.
+// task's structured output, which workflows/orchestrator.ts reads to
+// decide whether to advance the workflow or send the work back to the
+// Developer Agent for revision.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getAiProvider } from "./provider";
-import { qaResultSchema, websiteBuildSchema, checkWebsiteBuildStructure, type QaResult } from "./schemas";
-import { authorizeToolUse } from "./tools";
+import { getAiProvider } from "../providers";
+import { qaResultSchema, websiteBuildSchema, checkWebsiteBuildStructure, type QaResult } from "../schemas";
+import { authorizeToolUse } from "../tools";
+import { recordArtifact } from "../artifacts";
 
 export interface RunQaTaskResult {
   status: "success" | "waiting_for_approval" | "error";
@@ -123,10 +125,10 @@ export async function runQaTask(supabase: SupabaseClient, taskId: string): Promi
     result = { ...result, status: "failed", issues: [...issues, ...result.issues] };
   }
 
-  await supabase.from("ai_artifacts").insert({
-    service_request_id: task.service_request_id,
-    ai_task_id: taskId,
-    created_by_agent_id: agent.id,
+  await recordArtifact(supabase, {
+    serviceRequestId: task.service_request_id,
+    taskId,
+    agentId: agent.id,
     type: "qa_report",
     title: `QA report: ${result.status}`,
     content: result,

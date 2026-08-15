@@ -1,31 +1,32 @@
-// AI Project Manager (Phase 8D) — the first real orchestration agent.
-// Turns an accepted service_request into a validated set of child ai_tasks.
+// AI Project Manager — the first real orchestration agent. Turns an
+// accepted service_request into a validated set of child ai_tasks.
 //
 // The PM's own planning work is itself run through the exact same
 // assign_ai_task/start_agent_run/complete_agent_run RPC lifecycle every
-// other agent uses (Phase 8C) — it is a real, auditable agent_run, not a
-// bypass. Its structured plan becomes that run's `output`.
+// other agent uses — it is a real, auditable agent_run, not a bypass. Its
+// structured plan becomes that run's `output`.
 //
 // Every claim the model makes is independently re-verified before anything
 // is created: an agent_slug that doesn't resolve to a real, active
-// agent_definitions row fails the whole plan (no tasks are created at all,
-// see Step 4/10 of the Phase 8D spec — "never blindly execute arbitrary
-// instructions returned by the model" and "fail safely"). capability_slugs
-// are informational planning metadata only, stored in the task's own
-// `input` — the real authorization boundary is authorizeToolUse() in
-// tools.ts, checked again at execution time, not here.
+// agent_definitions row fails the whole plan (no tasks are created at all
+// — "never blindly execute arbitrary instructions returned by the model"
+// and "fail safely"). capability_slugs are informational planning metadata
+// only, stored in the task's own `input` — the real authorization boundary
+// is authorizeToolUse() in tools/index.ts, checked again at execution
+// time, not here.
 //
 // Dependencies are expressed as a backward-pointing index into the plan's
 // own task list (depends_on_index). Only the task(s) with no dependency are
 // actually started (assigned + run) here — the rest are created as
 // 'pending' children of the PM task, matching "do not start every task
-// simultaneously" (Step 12/13).
+// simultaneously".
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getAiProvider } from "./provider";
-import { taskPlanSchema, findInvalidDependencyIndex, type TaskPlan } from "./schemas";
-import { findWorkflowForService, type WorkflowDefinition } from "./workflows";
-import { advanceWorkflow } from "./workflow-engine";
+import { getAiProvider } from "../providers";
+import { taskPlanSchema, findInvalidDependencyIndex, type TaskPlan } from "../schemas";
+import { findWorkflowForService } from "../workflows/registry";
+import type { WorkflowDefinition } from "../workflows/types";
+import { advanceWorkflow } from "../workflows/orchestrator";
 
 export interface PlanServiceRequestResult {
   status: "success" | "error";
@@ -52,7 +53,7 @@ export async function planServiceRequest(supabase: SupabaseClient, serviceReques
 
   // Idempotency: refuse to create a second plan while one already exists
   // and hasn't failed/been cancelled — prevents duplicate decomposition
-  // from a double click or a retried request (Step 13).
+  // from a double click or a retried request.
   const { data: pmAgent, error: pmAgentError } = await supabase
     .from("agent_definitions")
     .select("id")
@@ -76,12 +77,12 @@ export async function planServiceRequest(supabase: SupabaseClient, serviceReques
   const service = Array.isArray(request.services) ? request.services[0] : request.services;
   const userPrompt = `Service: ${service?.name ?? "Unknown service"}\nService description: ${service?.description ?? ""}\nCustomer request details: ${request.details}`;
 
-  // Typed workflow lookup (Phase 8E) — a service with a reviewed,
-  // deterministic task graph skips the model-driven decomposition entirely
-  // (no hallucination risk, no AI call needed for planning). Any other
-  // service falls through to the original Phase 8D model-driven plan,
-  // unchanged. Adding a workflow for another service means adding an entry
-  // to workflows.ts, never a branch here.
+  // Typed workflow lookup — a service with a reviewed, deterministic task
+  // graph skips the model-driven decomposition entirely (no hallucination
+  // risk, no AI call needed for planning). Any other service falls through
+  // to the original model-driven plan, unchanged. Adding a workflow for
+  // another service means adding an entry to workflows/registry.ts, never
+  // a branch here.
   const workflow = findWorkflowForService(service?.slug ?? "");
 
   // The PM task is created and run through the real lifecycle before we
@@ -153,9 +154,9 @@ export async function planServiceRequest(supabase: SupabaseClient, serviceReques
   }
 
   // Capability claims are filtered against what each agent is actually
-  // granted (Phase 8C data) — a hallucinated capability is silently
-  // dropped from the stored plan metadata, never trusted. This is
-  // informational only; the real gate is authorizeToolUse() at execution time.
+  // granted — a hallucinated capability is silently dropped from the
+  // stored plan metadata, never trusted. This is informational only; the
+  // real gate is authorizeToolUse() at execution time.
   const { data: allGrants } = await supabase.from("agent_definition_capabilities").select("agent_definition_id, ai_capabilities(slug)");
   const grantedByAgent = new Map<string, Set<string>>();
   for (const grant of allGrants ?? []) {
@@ -212,14 +213,14 @@ export async function planServiceRequest(supabase: SupabaseClient, serviceReques
   if (workflow) {
     // A typed workflow gets full auto-advance: assign AND run the first
     // step, then keep chaining through completed steps up to the next
-    // approval gate or the end of the workflow (Phase 8E). The generic
-    // model-decomposed path below is untouched from Phase 8D.
+    // approval gate or the end of the workflow. The generic
+    // model-decomposed path below is untouched.
     await advanceWorkflow(supabase, serviceRequestId);
   } else {
     // Only the dependency-free task(s) get ASSIGNED now — everything else
     // stays 'pending' until its dependency completes, and nothing is
-    // auto-RUN. This is the original Phase 8D behavior, preserved exactly
-    // for any service without a defined workflow.
+    // auto-RUN. This is the original generic-path behavior, preserved
+    // exactly for any service without a defined workflow.
     const firstIndex = plan.tasks.findIndex((t) => t.depends_on_index === null || t.depends_on_index === undefined);
     if (firstIndex >= 0) {
       const firstTaskId = indexToTaskId[firstIndex];
@@ -235,7 +236,7 @@ export async function planServiceRequest(supabase: SupabaseClient, serviceReques
 // Builds the exact same shape the model would have returned for a typed
 // workflow, deterministically — no AI call, no hallucination risk. Run
 // through taskPlanSchema.parse() anyway as a cheap guard against a future
-// workflows.ts typo producing something structurally invalid.
+// workflows/website.ts-style typo producing something structurally invalid.
 function buildDeterministicPlan(workflow: WorkflowDefinition): TaskPlan {
   const keyToIndex = new Map(workflow.tasks.map((template, index) => [template.key, index]));
   return taskPlanSchema.parse({
