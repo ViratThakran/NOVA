@@ -2661,3 +2661,1079 @@ CREATE POLICY "Admins can update contact submissions" ON public.contact_submissi
 -- reading/triaging.
 GRANT INSERT ON public.contact_submissions TO anon, authenticated;
 GRANT SELECT, UPDATE ON public.contact_submissions TO authenticated;
+
+-- =========================================================================
+-- PHASE 10A: CONTENT DEPTH FOUNDATION
+-- =========================================================================
+-- Additive structured-depth columns for programs/courses/services, plus a
+-- full backfill of every existing row. No new tables: every field here is
+-- a plain column on an existing table, matching "prefer the smallest
+-- schema" — a related_services/related_courses/related_programs join table
+-- was deliberately NOT added; category already provides a natural
+-- same-category relation at read time, and no product behavior yet
+-- requires a persisted, manually-curated relationship beyond that.
+--
+-- courses.short_description was deliberately NOT added as a new column:
+-- the existing `description` column is already a single, short, specific
+-- sentence (see the Phase 7 seed data below) — it already serves that
+-- role. Adding a second short-form column would just duplicate it, which
+-- the same "smallest schema" principle argues against. `overview` below
+-- is the genuinely new, longer-form field.
+
+ALTER TABLE public.programs ADD COLUMN overview text NOT NULL DEFAULT '';
+ALTER TABLE public.programs ADD COLUMN prerequisites text NOT NULL DEFAULT '';
+
+ALTER TABLE public.courses ADD COLUMN overview text NOT NULL DEFAULT '';
+ALTER TABLE public.courses ADD COLUMN prerequisites text NOT NULL DEFAULT '';
+ALTER TABLE public.courses ADD COLUMN learning_outcomes text[] NOT NULL DEFAULT '{}';
+
+ALTER TABLE public.services ADD COLUMN capabilities text[] NOT NULL DEFAULT '{}';
+ALTER TABLE public.services ADD COLUMN deliverables text[] NOT NULL DEFAULT '{}';
+ALTER TABLE public.services ADD COLUMN technologies text[] NOT NULL DEFAULT '{}';
+ALTER TABLE public.services ADD COLUMN process text[] NOT NULL DEFAULT '{}';
+-- "industries" describes plausible category fit (what kind of
+-- organization this service suits), never past clients or served
+-- industries — NOVA has no verified client history to report (see the
+-- Phase 10 audit's Category C list). Named `suited_industries` rather
+-- than `industries` specifically to keep that distinction visible in the
+-- schema itself, not just in a comment.
+ALTER TABLE public.services ADD COLUMN suited_industries text[] NOT NULL DEFAULT '{}';
+ALTER TABLE public.services ADD COLUMN faqs jsonb NOT NULL DEFAULT '[]'::jsonb;
+
+-- -------------------------------------------------------------------
+-- Programs: overview + prerequisites (7 rows)
+-- -------------------------------------------------------------------
+UPDATE public.programs p SET overview = v.overview, prerequisites = v.prerequisites
+FROM (VALUES
+    ('ai-machine-learning',
+     'Structured in four stages: Python and math foundations, classical machine learning with scikit-learn, deep learning with TensorFlow and PyTorch, and generative AI/LLMs, closing with a self-directed capstone applying the full pipeline to a real dataset.',
+     'Comfort with basic programming logic. No prior machine learning or advanced math background required — the program builds both from the ground up.'),
+    ('data-analytics-data-science',
+     'Progresses from SQL and Python data handling through statistics and Power BI/Tableau visualization into applied machine learning for analysts, ending with an end-to-end capstone analysis project.',
+     'Basic spreadsheet or data familiarity is helpful but not required. No prior SQL, Python, or statistics background needed.'),
+    ('software-development',
+     'Takes a developer from core JavaScript/TypeScript programming and Git workflow through frontend development with React and backend development with Node.js, into system design and a full-stack capstone built and shipped end-to-end.',
+     'No prior programming experience required. Basic comfort using a computer is helpful.'),
+    ('cybersecurity',
+     'Builds from networking and Linux fundamentals through ethical hacking methodology and application/cloud security into security operations and incident response.',
+     'Basic familiarity with how computers and networks operate is helpful. No prior security experience required.'),
+    ('cloud-devops',
+     'Covers core cloud concepts on AWS, Linux and shell scripting, containerization with Docker and Kubernetes, and CI/CD with Terraform-based infrastructure as code, closing with a capstone deploying a real application to production infrastructure.',
+     'Basic command-line comfort is helpful. No prior cloud or DevOps experience required.'),
+    ('ui-ux-product-design',
+     'Moves from design thinking and user research through visual UI design in Figma into design systems and prototyping, closing with a full product design capstone from research to a testable prototype.',
+     'No prior design experience or design-tool knowledge required.'),
+    ('emerging-technologies',
+     'A survey-and-build path across blockchain/Web3 fundamentals, IoT and embedded systems, and AR/VR spatial computing, closing with a self-directed applied project combining one or more of these areas.',
+     'Basic programming familiarity is helpful. No prior experience with blockchain, IoT, or AR/VR required.')
+) AS v(slug, overview, prerequisites)
+WHERE p.slug = v.slug;
+
+-- -------------------------------------------------------------------
+-- Courses: overview + prerequisites + learning_outcomes (38 rows)
+-- -------------------------------------------------------------------
+UPDATE public.courses c SET overview = v.overview, prerequisites = v.prerequisites, learning_outcomes = v.learning_outcomes
+FROM (VALUES
+    ('ai-machine-learning', 'python-for-ai-data',
+     'Covers Python syntax, control flow, and functions, then applies them through NumPy arrays and Pandas DataFrames for the data manipulation used throughout the rest of the program.',
+     'None — this is the entry point to the program.',
+     ARRAY['Write and debug Python programs using core language constructs', 'Manipulate arrays and numerical data with NumPy', 'Load, clean, and transform tabular data with Pandas']),
+    ('ai-machine-learning', 'math-foundations-ml',
+     'Covers the linear algebra, calculus, and probability/statistics concepts that make machine learning algorithms interpretable rather than a black box.',
+     'Python for AI & Data, or equivalent basic Python proficiency.',
+     ARRAY['Perform vector and matrix operations relevant to ML models', 'Explain gradient descent using derivatives', 'Apply core probability and statistics concepts to model behavior']),
+    ('ai-machine-learning', 'ml-fundamentals',
+     'Covers supervised learning (regression, classification) and unsupervised learning (clustering) using scikit-learn, including model evaluation and common pitfalls like overfitting.',
+     'Mathematical Foundations for ML.',
+     ARRAY['Train and evaluate regression and classification models with scikit-learn', 'Apply clustering algorithms to unlabeled data', 'Diagnose overfitting and apply cross-validation']),
+    ('ai-machine-learning', 'deep-learning-neural-networks',
+     'Covers neural network architecture and backpropagation, building and training models with both TensorFlow and PyTorch.',
+     'Machine Learning Fundamentals.',
+     ARRAY['Build and train a neural network from scratch', 'Implement models using TensorFlow and PyTorch', 'Tune hyperparameters to improve model performance']),
+    ('ai-machine-learning', 'generative-ai-llms',
+     'Covers transformer architecture at a conceptual level, prompt engineering, and building applications on top of large language models via API.',
+     'Deep Learning with Neural Networks.',
+     ARRAY['Explain how large language models generate text', 'Design effective prompts for LLM-based applications', 'Build a working application that integrates an LLM API']),
+    ('ai-machine-learning', 'ai-systems-capstone',
+     'A self-directed project where the student selects a real dataset or problem and applies the full ML pipeline: data preparation, model training, evaluation, and a working demo.',
+     'All prior courses in the AI & Machine Learning program.',
+     ARRAY['Scope and plan an end-to-end ML project', 'Apply the full ML pipeline to a self-selected dataset', 'Present and defend model results and limitations']),
+
+    ('data-analytics-data-science', 'sql-for-data-analysis',
+     'Covers SELECT queries, joins, aggregations, and window functions used to answer real business questions directly against relational data.',
+     'None — this is the entry point to the program.',
+     ARRAY['Write SQL queries using joins and aggregations', 'Use window functions for ranking and running calculations', 'Translate a business question into a SQL query']),
+    ('data-analytics-data-science', 'python-for-data-analysis',
+     'Covers Python fundamentals and Pandas for cleaning, transforming, and exploring datasets that arrive messy or incomplete.',
+     'SQL for Data Analysis, or equivalent basic SQL proficiency.',
+     ARRAY['Clean and transform datasets with Pandas', 'Handle missing and inconsistent data', 'Perform exploratory data analysis in Python']),
+    ('data-analytics-data-science', 'statistics-for-data-science',
+     'Covers descriptive statistics, hypothesis testing, and confidence intervals — the reasoning that separates a defensible conclusion from a guess.',
+     'Python for Data Analysis.',
+     ARRAY['Apply descriptive statistics to summarize a dataset', 'Run and interpret hypothesis tests', 'Communicate statistical uncertainty using confidence intervals']),
+    ('data-analytics-data-science', 'data-viz-powerbi-tableau',
+     'Covers building interactive dashboards and visuals in both Power BI and Tableau, focused on communicating findings clearly to a non-technical audience.',
+     'Statistics for Data Science.',
+     ARRAY['Build interactive dashboards in Power BI', 'Build interactive dashboards in Tableau', 'Choose the right visualization for a given dataset and audience']),
+    ('data-analytics-data-science', 'applied-ml-for-analysts',
+     'Covers practical predictive modeling techniques aimed at analysts who need to add prediction to existing reporting, not become full-time data scientists.',
+     'Data Visualization with Power BI & Tableau.',
+     ARRAY['Build a basic predictive model using scikit-learn', 'Evaluate model accuracy in business terms', 'Decide when a predictive model is (and isn''t) the right tool']),
+    ('data-analytics-data-science', 'data-science-capstone',
+     'An end-to-end analysis project: pulling raw data with SQL, cleaning and analyzing it in Python, and delivering a decision-ready report.',
+     'All prior courses in the Data Analytics & Data Science program.',
+     ARRAY['Scope a real analysis question end-to-end', 'Combine SQL, Python, and visualization in one project', 'Deliver a decision-ready report to a non-technical stakeholder']),
+
+    ('software-development', 'programming-foundations-js',
+     'Covers variables, control flow, functions, and objects in JavaScript, plus the HTML/CSS needed to build a real web page.',
+     'None — this is the entry point to the program.',
+     ARRAY['Write JavaScript programs using core language constructs', 'Structure a web page with semantic HTML and CSS', 'Debug JavaScript code using browser developer tools']),
+    ('software-development', 'git-github-workflow',
+     'Covers commits, branches, merges, and pull requests — the collaborative development workflow used on every real engineering team.',
+     'Programming Foundations with JavaScript.',
+     ARRAY['Use Git for version control on a real project', 'Collaborate through branches and pull requests on GitHub', 'Resolve merge conflicts']),
+    ('software-development', 'frontend-react',
+     'Covers components, state, props, and hooks in React, using TypeScript for type safety, to build interactive user interfaces.',
+     'Git, GitHub & Developer Workflow.',
+     ARRAY['Build interactive UIs with React components and hooks', 'Manage application state effectively', 'Write type-safe React code with TypeScript']),
+    ('software-development', 'backend-nodejs',
+     'Covers building REST APIs with Node.js, connecting to a SQL database, and handling authentication and error cases.',
+     'Frontend Development with React.',
+     ARRAY['Build a REST API with Node.js', 'Connect an API to a SQL database', 'Implement basic authentication and error handling']),
+    ('software-development', 'system-design-fundamentals',
+     'Covers reasoning about scale, reliability, and architecture trade-offs — how to design a system that survives real load and failure, not just a demo.',
+     'Backend Development with Node.js.',
+     ARRAY['Reason about scalability and reliability trade-offs', 'Design a basic system architecture diagram', 'Identify single points of failure in a system design']),
+    ('software-development', 'fullstack-capstone',
+     'A self-directed project designing and building a complete full-stack application from scratch, applying frontend, backend, and system design skills together.',
+     'All prior courses in the Software Development program.',
+     ARRAY['Design and build a complete full-stack application', 'Integrate a React frontend with a Node.js backend', 'Apply system design principles to a real project']),
+
+    ('cybersecurity', 'cybersecurity-foundations-course',
+     'Covers core security principles: the CIA triad, common threat types, vulnerabilities, and the defense-in-depth mindset that shapes every later course.',
+     'None — this is the entry point to the program.',
+     ARRAY['Explain core security principles including the CIA triad', 'Identify common threat and vulnerability types', 'Apply a defense-in-depth mindset to a basic system']),
+    ('cybersecurity', 'networking-linux-essentials',
+     'Covers the networking fundamentals (TCP/IP, DNS, routing) and Linux command-line skills that every later security topic assumes.',
+     'Cybersecurity Fundamentals.',
+     ARRAY['Explain core networking concepts (TCP/IP, DNS, routing)', 'Navigate and administer a Linux system from the command line', 'Use Linux tools to inspect network activity']),
+    ('cybersecurity', 'ethical-hacking-pentest',
+     'Covers offensive security methodology used to find and responsibly report vulnerabilities, following a structured reconnaissance-to-reporting process.',
+     'Networking & Linux Essentials.',
+     ARRAY['Follow a structured penetration testing methodology', 'Identify common web and network vulnerabilities', 'Write a professional, responsible vulnerability report']),
+    ('cybersecurity', 'app-cloud-security',
+     'Covers securing modern applications and cloud infrastructure against common misconfiguration and attack paths.',
+     'Ethical Hacking & Penetration Testing.',
+     ARRAY['Identify common application security vulnerabilities', 'Apply secure coding and configuration practices', 'Recognize common cloud security misconfigurations']),
+    ('cybersecurity', 'security-ops-incident-response',
+     'Covers monitoring for and detecting security incidents, and the structured response process used to contain and recover from a real incident.',
+     'Application & Cloud Security.',
+     ARRAY['Monitor systems for signs of a security incident', 'Follow a structured incident response process', 'Document and communicate an incident post-mortem']),
+
+    ('cloud-devops', 'cloud-computing-fundamentals',
+     'Covers core cloud concepts — compute, storage, networking — using AWS as the primary reference platform.',
+     'None — this is the entry point to the program.',
+     ARRAY['Explain core cloud computing concepts', 'Provision basic compute and storage resources on AWS', 'Navigate the AWS console and CLI']),
+    ('cloud-devops', 'linux-shell-scripting',
+     'Covers the Linux command line and shell scripting skills behind every DevOps workflow, from file management to automating repetitive tasks.',
+     'Cloud Computing Fundamentals.',
+     ARRAY['Navigate and administer a Linux system from the command line', 'Write shell scripts to automate repetitive tasks', 'Manage processes and permissions on Linux']),
+    ('cloud-devops', 'containers-docker-kubernetes',
+     'Covers packaging applications into Docker containers and orchestrating them at scale with Kubernetes.',
+     'Linux & Shell Scripting.',
+     ARRAY['Package an application as a Docker container', 'Deploy and manage containers with Kubernetes', 'Debug a failing containerized application']),
+    ('cloud-devops', 'cicd-infra-as-code',
+     'Covers automating build-and-deploy pipelines and provisioning infrastructure as code with Terraform, rather than manual server configuration.',
+     'Containers with Docker & Kubernetes.',
+     ARRAY['Build a CI/CD pipeline that tests and deploys automatically', 'Provision infrastructure using Terraform', 'Apply infrastructure-as-code principles to a real project']),
+    ('cloud-devops', 'cloud-devops-capstone',
+     'A capstone project deploying and operating a real application on cloud infrastructure end-to-end, from container build through CI/CD to a live environment.',
+     'All prior courses in the Cloud & DevOps program.',
+     ARRAY['Deploy a real application to cloud infrastructure', 'Operate a CI/CD pipeline for continuous delivery', 'Apply infrastructure-as-code and container orchestration together']),
+
+    ('ui-ux-product-design', 'design-fundamentals-thinking',
+     'Covers core design principles and the design-thinking process for framing a real user problem before jumping to a solution.',
+     'None — this is the entry point to the program.',
+     ARRAY['Apply core visual design principles', 'Follow a design-thinking process to frame a problem', 'Critique a design against usability heuristics']),
+    ('ui-ux-product-design', 'ux-research-methods',
+     'Covers techniques for understanding real user needs — interviews, surveys, and usability testing — before designing a solution.',
+     'Design Fundamentals & Design Thinking.',
+     ARRAY['Plan and conduct a user interview', 'Synthesize research findings into actionable insights', 'Run a basic usability test']),
+    ('ui-ux-product-design', 'ui-design-figma',
+     'Covers visual interface design and hands-on Figma craft: layout, typography, color, and component-based design.',
+     'UX Research Methods.',
+     ARRAY['Design a high-fidelity interface in Figma', 'Apply typography, color, and layout principles', 'Build reusable Figma components']),
+    ('ui-ux-product-design', 'design-systems-prototyping',
+     'Covers building reusable design systems and interactive prototypes that communicate real product behavior, not just static screens.',
+     'UI Design with Figma.',
+     ARRAY['Build a small, reusable design system', 'Create an interactive prototype in Figma', 'Document design system components for handoff to developers']),
+    ('ui-ux-product-design', 'product-design-capstone',
+     'A capstone project taking a real product problem from user research through a polished, testable high-fidelity prototype.',
+     'All prior courses in the UI/UX & Product Design program.',
+     ARRAY['Take a product problem from research to prototype', 'Apply UX research findings to design decisions', 'Present and defend design decisions to stakeholders']),
+
+    ('emerging-technologies', 'intro-emerging-tech',
+     'An orientation to blockchain, IoT, and AR/VR — what each technology actually does and where it''s genuinely being applied today.',
+     'None — this is the entry point to the program.',
+     ARRAY['Explain the core concepts behind blockchain, IoT, and AR/VR', 'Identify realistic current applications of each technology', 'Choose which area to specialize in for the rest of the program']),
+    ('emerging-technologies', 'blockchain-web3-fundamentals',
+     'Covers how blockchain systems work — consensus, transactions, smart contracts — and the basics of building on them.',
+     'Introduction to Emerging Tech Landscape.',
+     ARRAY['Explain how blockchain consensus and transactions work', 'Write and deploy a basic smart contract', 'Identify common blockchain use cases and limitations']),
+    ('emerging-technologies', 'iot-embedded-systems',
+     'Covers connecting physical devices and sensors into working IoT systems, from hardware basics to sending sensor data to the cloud.',
+     'Introduction to Emerging Tech Landscape.',
+     ARRAY['Connect a sensor to a microcontroller and read data', 'Send device data to a cloud endpoint', 'Design a basic IoT system architecture']),
+    ('emerging-technologies', 'ar-vr-spatial-computing',
+     'Covers the fundamentals of building augmented and virtual reality experiences, including spatial interaction design.',
+     'Introduction to Emerging Tech Landscape.',
+     ARRAY['Build a basic AR or VR experience', 'Apply spatial interaction design principles', 'Identify hardware and platform constraints for AR/VR projects']),
+    ('emerging-technologies', 'emerging-tech-applied-project',
+     'A self-directed project combining blockchain, IoT, or AR/VR into a working demo that reflects the student''s chosen specialization.',
+     'At least one of Blockchain & Web3 Fundamentals, IoT & Embedded Systems, or AR/VR & Spatial Computing.',
+     ARRAY['Scope and plan an applied project in a chosen emerging-tech area', 'Build a working demo of the chosen technology', 'Present the project and its real-world relevance'])
+) AS v(program_slug, course_slug, overview, prerequisites, learning_outcomes)
+JOIN public.programs p ON p.slug = v.program_slug
+WHERE c.program_id = p.id AND c.slug = v.course_slug;
+
+-- -------------------------------------------------------------------
+-- Services: capabilities, deliverables, technologies, process,
+-- suited_industries, faqs (40 rows)
+--
+-- "process" describes NOVA's real, already-built AI Engine pipeline
+-- (research/requirements -> AI-driven build or drafting -> automated QA
+-- -> a human approval step ONLY when automation_level is
+-- approval_required -> delivery). It varies by category (build/design
+-- work vs. content/marketing drafting vs. infrastructure/ops
+-- configuration vs. research/analysis) because that is what the engine
+-- actually does differently for each, not as decorative variation.
+--
+-- "suited_industries" intentionally describes forward-looking category
+-- fit ("suited for", "typical fit"), never claimed past clients or
+-- served industries — NOVA has no verified client history to report.
+--
+-- Every approval_required service's faqs includes the same
+-- automation_level-derived question ("Does a human review this before it
+-- goes live?"), answered honestly from the real approval-gated
+-- architecture, paired with one genuinely service-specific question.
+-- -------------------------------------------------------------------
+UPDATE public.services s SET
+    capabilities = v.capabilities,
+    deliverables = v.deliverables,
+    technologies = v.technologies,
+    process = v.process,
+    suited_industries = v.suited_industries,
+    faqs = v.faqs
+FROM (VALUES
+    ('ai-website-creation',
+     ARRAY['Site structure and information architecture', 'On-brand copywriting for every page', 'Responsive visual design and layout'],
+     ARRAY['A complete, deployed-ready website', 'All page copy and content', 'A short walkthrough of the site structure'],
+     ARRAY['Next.js', 'Tailwind CSS', 'Responsive design'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Small businesses and startups launching a first website', 'Service businesses needing an online presence', 'Product teams needing a fast marketing site'],
+     '[{"question":"Do I need to provide design assets to get started?","answer":"No, a project brief describing your business, goals, and audience is enough. NOVA AI produces the copy and visual design together."},{"question":"Can I request changes after the site is generated?","answer":"Yes. You review the finished site before anything is considered final, and can request specific revisions."}]'::jsonb),
+    ('landing-page-creation',
+     ARRAY['Conversion-focused page structure', 'Persuasive, goal-specific copywriting', 'Responsive layout and visual design'],
+     ARRAY['One complete, publish-ready landing page', 'Page copy aligned to your stated goal', 'Mobile and desktop layouts'],
+     ARRAY['Next.js', 'Tailwind CSS', 'Responsive design'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Product launches needing a dedicated signup page', 'Campaigns driving traffic to one conversion goal', 'Event or offer promotions'],
+     '[{"question":"What counts as one landing page?","answer":"A single page built around one primary goal, such as signups, purchases, or bookings."},{"question":"Can the page connect to my existing signup form or email tool?","answer":"Yes, provided you share the integration details in your brief."}]'::jsonb),
+    ('website-redesign',
+     ARRAY['Modernized visual design applied to an existing structure', 'Content and SEO equity preservation', 'Responsive layout rebuild'],
+     ARRAY['A redesigned version of your existing site', 'A before/after comparison for review', 'Preserved page content and URLs'],
+     ARRAY['Next.js', 'Tailwind CSS', 'Responsive design'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Human review & approval', 'Delivery'],
+     ARRAY['Established businesses with an outdated site', 'Sites needing a visual refresh without losing SEO ranking', 'Brands updating their visual identity'],
+     '[{"question":"Does a human review this before it goes live?","answer":"Yes. Because a redesign replaces something already live, the finished result is reviewed against your brand before deployment."},{"question":"Will my existing SEO rankings be affected?","answer":"The redesign is built specifically to preserve your existing content and SEO equity, not replace it."}]'::jsonb),
+    ('website-content-generation',
+     ARRAY['On-brand copywriting from existing source material', 'Product and service description writing', 'Page-by-page content structuring'],
+     ARRAY['Finished page copy for the pages you specify', 'Product or service descriptions', 'Content matched to your existing brand voice'],
+     ARRAY['Content generation', 'Brand voice matching'],
+     ARRAY['Research & briefing', 'AI-driven drafting', 'Quality review', 'Delivery'],
+     ARRAY['Businesses with existing brochures or docs but no web copy', 'Product catalogs needing consistent descriptions', 'Sites undergoing a content refresh'],
+     '[{"question":"What source material do you need from me?","answer":"Existing brochures, docs, notes, or even rough bullet points, anything that captures what you would otherwise have to write from scratch."},{"question":"Will the copy match my existing brand voice?","answer":"Yes. Matching your existing voice, rather than generating generic copy, is the core of this service."}]'::jsonb),
+    ('website-seo-optimization',
+     ARRAY['Technical SEO auditing', 'On-page metadata and structure improvements', 'Direct implementation of fixes, not just a report'],
+     ARRAY['SEO improvements applied directly to your site', 'A summary of what was changed and why', 'Updated metadata and page structure'],
+     ARRAY['Technical SEO', 'Metadata optimization'],
+     ARRAY['Assessment', 'Configuration & implementation', 'Validation & testing', 'Delivery'],
+     ARRAY['Existing sites with declining or stagnant search visibility', 'Sites that have never had a technical SEO pass', 'Content-heavy sites competing for organic traffic'],
+     '[{"question":"Do you just give me a report, or actually fix things?","answer":"NOVA AI applies the improvements directly to your site rather than only producing an audit report."},{"question":"Will this guarantee a ranking increase?","answer":"No legitimate service can guarantee rankings. This service fixes real technical and on-page issues that commonly hold sites back."}]'::jsonb),
+
+    ('ai-chatbot-development',
+     ARRAY['Conversational flow design', 'Training on your own content and FAQs', 'Website and product embed integration'],
+     ARRAY['A trained, deployable chatbot', 'Integration instructions for your site or app', 'A summary of what the bot can and cannot answer'],
+     ARRAY['LLM-based conversational AI', 'Retrieval-grounded responses'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Support-heavy websites with repetitive FAQs', 'Product sites wanting an interactive assistant', 'Teams wanting to deflect common questions from a human queue'],
+     '[{"question":"What does the chatbot get trained on?","answer":"Your own content and FAQs, so its answers are grounded in your real material rather than generic responses."},{"question":"Can it be embedded in an existing website?","answer":"Yes. Integration instructions are included as part of delivery."}]'::jsonb),
+    ('ai-customer-support-agents',
+     ARRAY['Multi-channel support conversation handling', 'Ticket resolution for common request types', 'Training on real support history and policies'],
+     ARRAY['A deployed support agent for your channels', 'A review period before unsupervised operation begins', 'A summary of ticket types it can resolve'],
+     ARRAY['LLM-based conversational AI', 'Support ticket integration'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Human review & approval', 'Delivery'],
+     ARRAY['Businesses with high support ticket volume', 'Teams wanting to triage or resolve common tickets automatically', 'Products with well-documented support policies'],
+     '[{"question":"Does a human review this before it goes live?","answer":"Yes. Because this agent interacts with real customers, its initial responses are reviewed before it operates unsupervised."},{"question":"What happens with requests it cannot handle?","answer":"Requests outside its trained scope are escalated rather than guessed at; the exact escalation path is defined in your brief."}]'::jsonb),
+    ('workflow-automation',
+     ARRAY['Multi-step workflow design', 'Data syncing and notification automation', 'End-to-end testing of the automated workflow'],
+     ARRAY['A working, deployed n8n workflow', 'Documentation of each automated step', 'Test results confirming the workflow runs reliably'],
+     ARRAY['n8n', 'Workflow automation'],
+     ARRAY['Assessment', 'Configuration & implementation', 'Validation & testing', 'Delivery'],
+     ARRAY['Teams with repetitive manual, multi-step processes', 'Operations relying on manual data syncing between tools', 'Approval or notification chains handled manually today'],
+     '[{"question":"What tools can this connect to?","answer":"n8n supports a wide range of integrations; share the tools involved in your process and NOVA AI will confirm compatibility."},{"question":"What happens if a step in the workflow fails?","answer":"The workflow is tested end-to-end before delivery, and failure handling for each step is built in rather than assumed."}]'::jsonb),
+    ('ai-document-processing',
+     ARRAY['Automated data extraction from documents', 'Structuring unstructured content into usable data', 'Handling common document formats like invoices and forms'],
+     ARRAY['Structured, usable data extracted from your documents', 'A defined output format such as spreadsheet, database, or API', 'A summary of extraction accuracy on your sample set'],
+     ARRAY['Document extraction', 'Structured data output'],
+     ARRAY['Assessment', 'Configuration & implementation', 'Validation & testing', 'Delivery'],
+     ARRAY['Teams manually re-typing data from invoices or forms', 'Operations processing high volumes of similar documents', 'Businesses digitizing paper-based records'],
+     '[{"question":"What document formats are supported?","answer":"Common formats like PDFs, scanned forms, and invoices; share a sample set and NOVA AI will confirm fit before starting."},{"question":"How accurate is the extraction?","answer":"Accuracy is validated against your own sample documents as part of delivery, not just claimed generically."}]'::jsonb),
+    ('ai-knowledge-base-rag',
+     ARRAY['Retrieval-augmented generation over your own content', 'Indexing internal docs, wikis, or product content', 'Question-answering grounded in your real material'],
+     ARRAY['A searchable AI assistant trained on your docs', 'An indexed, queryable knowledge base', 'Integration instructions for your team or product'],
+     ARRAY['Retrieval-augmented generation (RAG)', 'Vector search'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Teams with large, hard-to-search internal documentation', 'Support teams needing accurate, grounded answers', 'Products wanting an in-app help assistant'],
+     '[{"question":"Does it answer from general internet knowledge?","answer":"No. Answers are grounded in your own indexed documentation, not generic web knowledge."},{"question":"How current does my documentation need to be?","answer":"The system is only as current as the documents it is given; outdated source docs will produce outdated answers."}]'::jsonb),
+
+    ('seo-audit-strategy',
+     ARRAY['Technical SEO review', 'Content and structure analysis', 'Prioritized action planning'],
+     ARRAY['A full technical and content SEO audit', 'A prioritized action plan', 'Specific, actionable recommendations'],
+     ARRAY['Technical SEO', 'Content analysis'],
+     ARRAY['Data intake & scoping', 'Analysis', 'Validation', 'Delivery'],
+     ARRAY['Sites planning an SEO investment but unsure where to start', 'Businesses with declining organic traffic', 'Teams needing a prioritized roadmap, not just raw data'],
+     '[{"question":"Is this just a generic checklist?","answer":"No. The audit is run against your actual site structure, content, and technical setup, not a generic template."},{"question":"Do you also apply the fixes?","answer":"This service delivers the audit and plan; Website SEO Optimization applies the fixes directly if you want that done as well."}]'::jsonb),
+    ('keyword-competitor-research',
+     ARRAY['Real keyword search volume and intent research', 'Competitor ranking analysis', 'Structured reference document delivery'],
+     ARRAY['A structured keyword research document', 'Competitor ranking comparisons', 'Prioritized keyword targets'],
+     ARRAY['Keyword research', 'Competitor analysis'],
+     ARRAY['Data intake & scoping', 'Analysis', 'Validation', 'Delivery'],
+     ARRAY['Teams planning a content strategy from scratch', 'Businesses entering a new market or niche', 'Marketing teams needing real data instead of guesswork'],
+     '[{"question":"Is this raw data or something I can actually use?","answer":"It is delivered as a usable reference document, not a raw data dump."},{"question":"How many competitors can be included?","answer":"Share your key competitors in your brief; the research is scoped to the ones that matter to you."}]'::jsonb),
+    ('blog-article-generation',
+     ARRAY['SEO-aware article writing', 'Topic and keyword research grounding', 'On-brand tone matching'],
+     ARRAY['Complete, publish-ready articles', 'Target keyword integration', 'Content matched to your brand voice'],
+     ARRAY['Content generation', 'SEO writing'],
+     ARRAY['Research & briefing', 'AI-driven drafting', 'Quality review', 'Delivery'],
+     ARRAY['Businesses maintaining a content or blog calendar', 'Sites building organic search authority', 'Teams without in-house writing capacity'],
+     '[{"question":"How many articles come with this service?","answer":"Scope, meaning article count and length, is defined per your brief; share your content calendar needs."},{"question":"Do the articles need editing before I publish them?","answer":"They are ready for publishing or light editorial review, whichever your team prefers."}]'::jsonb),
+    ('social-media-content-generation',
+     ARRAY['Multi-platform post copywriting', 'Content calendar-aligned batch generation', 'Brand voice and posting cadence matching'],
+     ARRAY['A batch of ready-to-post social content', 'Captions and post copy across platforms', 'Content aligned to your posting cadence'],
+     ARRAY['Content generation', 'Multi-platform copywriting'],
+     ARRAY['Research & briefing', 'AI-driven drafting', 'Quality review', 'Delivery'],
+     ARRAY['Businesses maintaining an active social presence', 'Teams needing a content batch ahead of a campaign', 'Brands wanting consistent voice across platforms'],
+     '[{"question":"Which platforms are supported?","answer":"Copy is generated to match the format norms of the platforms you specify in your brief."},{"question":"Can this include visuals as well as captions?","answer":"This service covers post copy; Social Media Graphics covers the accompanying visual assets."}]'::jsonb),
+    ('email-campaign-automation',
+     ARRAY['Full email sequence drafting', 'Campaign scheduling setup', 'Audience-aligned messaging'],
+     ARRAY['A written, sequenced email campaign', 'A scheduled send plan', 'A review step before the campaign sends'],
+     ARRAY['Email campaign drafting', 'Sequencing and scheduling'],
+     ARRAY['Research & briefing', 'AI-driven drafting', 'Quality review', 'Human review & approval', 'Delivery'],
+     ARRAY['Businesses running lifecycle or promotional email campaigns', 'Product launches needing a coordinated email sequence', 'Teams wanting drafted copy without writing it themselves'],
+     '[{"question":"Does a human review this before it goes live?","answer":"Yes. Because sending reaches real recipients, the final campaign is reviewed before it goes out."},{"question":"Which email platforms are supported?","answer":"Share your email platform in the brief; the campaign is drafted and sequenced to fit it."}]'::jsonb),
+
+    ('ui-ux-wireframes',
+     ARRAY['User flow mapping', 'Low-to-mid fidelity layout design', 'Feature-requirement-driven structuring'],
+     ARRAY['A complete set of wireframes', 'Mapped user flows', 'Structure ready for visual design handoff'],
+     ARRAY['Wireframing', 'UX flow design'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Product teams starting a new feature or product', 'Teams needing structure before visual design begins', 'Early-stage product planning'],
+     '[{"question":"What fidelity are the wireframes?","answer":"Low-to-mid fidelity, focused on layout and flow rather than final visual styling."},{"question":"Can these be handed directly to a designer?","answer":"Yes. They are built specifically to be a starting point for visual design work."}]'::jsonb),
+    ('figma-design-generation',
+     ARRAY['Component-based Figma design', 'Layout and visual design from a brief or wireframe', 'Editable, handoff-ready file structure'],
+     ARRAY['A working Figma file', 'Real, reusable components', 'A structure ready for developer handoff'],
+     ARRAY['Figma', 'Component-based design'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Product teams needing a design file, not just static images', 'Teams handing designs off to development', 'Startups needing a first design pass'],
+     '[{"question":"Is the file editable or just static exports?","answer":"It is a real, editable Figma file with structured components, not flat images."},{"question":"Can you work from an existing wireframe?","answer":"Yes. Provide your wireframe or brief and the visual design is built from it."}]'::jsonb),
+    ('presentation-generation',
+     ARRAY['Slide structure and narrative flow', 'Visual consistency across a full deck', 'Content-to-slide translation from your talking points'],
+     ARRAY['A complete, polished slide deck', 'Consistent visual styling throughout', 'Content structured from your outline'],
+     ARRAY['Presentation design'],
+     ARRAY['Research & briefing', 'AI-driven drafting', 'Quality review', 'Delivery'],
+     ARRAY['Teams preparing a pitch or investor deck', 'Internal reporting needing a polished format', 'Sales teams needing a consistent deck template'],
+     '[{"question":"Do I need a full script, or just an outline?","answer":"Talking points or a rough outline is enough; the deck structure is built from that."},{"question":"Can the deck match our existing brand style?","answer":"Yes, provided you share your brand guidelines or existing materials."}]'::jsonb),
+    ('social-media-graphics',
+     ARRAY['Platform-sized visual asset generation', 'Brand-consistent visual styling', 'Batch generation across formats'],
+     ARRAY['A batch of ready-to-post graphics', 'Assets sized for your target platforms', 'Visuals matched to your existing brand identity'],
+     ARRAY['Visual asset generation'],
+     ARRAY['Research & briefing', 'AI-driven drafting', 'Quality review', 'Delivery'],
+     ARRAY['Brands maintaining a consistent visual social presence', 'Campaigns needing a batch of assets quickly', 'Teams without in-house design capacity'],
+     '[{"question":"Which platforms are the graphics sized for?","answer":"Specify your target platforms in the brief and assets are sized accordingly."},{"question":"Can you match our existing brand style?","answer":"Yes. Share your existing visual identity and the graphics are generated to match it."}]'::jsonb),
+    ('brand-content-generation',
+     ARRAY['Taglines and brand messaging', 'Consistent-voice content across formats', 'Description and copy generation for multiple uses'],
+     ARRAY['A set of brand messaging and copy', 'Content usable across website, marketing, and product', 'Consistent voice across all delivered pieces'],
+     ARRAY['Brand content generation'],
+     ARRAY['Research & briefing', 'AI-driven drafting', 'Quality review', 'Delivery'],
+     ARRAY['New brands defining their messaging for the first time', 'Businesses needing consistent copy across channels', 'Rebrands needing updated messaging'],
+     '[{"question":"What formats does this cover?","answer":"Taglines, descriptions, and messaging usable across your website, marketing, and product."},{"question":"How is consistency maintained across pieces?","answer":"All content is generated against the same brand voice definition, established at the start of the project."}]'::jsonb),
+
+    ('data-cleaning-transformation',
+     ARRAY['Duplicate and inconsistency detection', 'Data structuring and normalization', 'Format conversion for analysis readiness'],
+     ARRAY['A cleaned, structured dataset', 'A summary of issues found and corrected', 'Data ready for direct analysis or reporting'],
+     ARRAY['Data cleaning', 'Data transformation'],
+     ARRAY['Data intake & scoping', 'Processing', 'Validation', 'Delivery'],
+     ARRAY['Teams with messy or inconsistent source data', 'Businesses preparing data for a reporting project', 'Operations merging data from multiple sources'],
+     '[{"question":"What data formats can you work with?","answer":"Common formats like CSV, spreadsheets, and database exports; share your source format and NOVA AI will confirm fit."},{"question":"Will I get a report of what was changed?","answer":"Yes. A summary of issues found and corrected is included with the cleaned dataset."}]'::jsonb),
+    ('sql-data-analysis',
+     ARRAY['SQL query writing against your real schema', 'Business-question-driven analysis', 'Findings delivered as answers, not raw queries'],
+     ARRAY['Written findings answering your specific questions', 'The underlying SQL queries used', 'A summary suitable for non-technical stakeholders'],
+     ARRAY['SQL'],
+     ARRAY['Data intake & scoping', 'Analysis', 'Validation', 'Delivery'],
+     ARRAY['Teams with a database but no dedicated analyst', 'Businesses needing specific answers, not a dashboard', 'One-off analysis requests'],
+     '[{"question":"Do I need to know SQL myself?","answer":"No. Findings are delivered in plain language, with the underlying queries included for reference."},{"question":"Can you work with any database?","answer":"Share your database type and access details in the brief and NOVA AI will confirm compatibility."}]'::jsonb),
+    ('power-bi-dashboards',
+     ARRAY['Data source connection and modeling', 'Dashboard layout matched to real reporting needs', 'Metric and view configuration'],
+     ARRAY['A working Power BI dashboard', 'Connected, live data views', 'Metrics matched to what your team actually tracks'],
+     ARRAY['Power BI'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Teams needing recurring visibility into a data source', 'Operations tracking KPIs across a team', 'Businesses standardizing on Power BI for reporting'],
+     '[{"question":"Does the dashboard update automatically?","answer":"Yes. It is connected to your live data source rather than built from a static snapshot."},{"question":"What data sources are supported?","answer":"Share your data source in the brief and NOVA AI will confirm Power BI compatibility."}]'::jsonb),
+    ('automated-business-reports',
+     ARRAY['Recurring report scheduling', 'Live data source connection', 'Defined-format report generation'],
+     ARRAY['A scheduled, automatically generated report', 'Connection to your live data source', 'No manual compilation required going forward'],
+     ARRAY['Automated reporting'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Teams currently compiling reports manually on a schedule', 'Operations, sales, or performance reporting needs', 'Businesses wanting consistent recurring visibility'],
+     '[{"question":"How often can the report run?","answer":"On whatever schedule you define, such as daily, weekly, or monthly."},{"question":"What happens if the underlying data changes format?","answer":"Share this risk in your brief so the report can be scoped to your actual data source''s stability."}]'::jsonb),
+    ('competitive-market-research',
+     ARRAY['Competitor positioning and pricing research', 'Market trend synthesis', 'Public-source-grounded reference documents'],
+     ARRAY['A synthesized competitor and market research document', 'Positioning and pricing comparisons', 'A usable reference, not a raw data dump'],
+     ARRAY['Market research'],
+     ARRAY['Data intake & scoping', 'Analysis', 'Validation', 'Delivery'],
+     ARRAY['Businesses planning market entry or expansion', 'Teams needing a current competitive landscape view', 'Product and pricing strategy decisions'],
+     '[{"question":"What sources is this research based on?","answer":"Real public sources; the document is built to be a synthesized, usable reference rather than raw scraped data."},{"question":"Can this focus on specific competitors I name?","answer":"Yes. Name your key competitors in the brief and research is scoped accordingly."}]'::jsonb),
+
+    ('mvp-development',
+     ARRAY['End-to-end product build from requirements', 'Milestone-based progress delivery', 'Functional, working first version'],
+     ARRAY['A working MVP matching your requirements', 'Milestone check-ins throughout the build', 'Source code and deployment-ready output'],
+     ARRAY['Next.js', 'TypeScript', 'PostgreSQL'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Human review & approval', 'Delivery'],
+     ARRAY['Startups needing a first functional product version', 'Founders validating a product idea', 'Teams needing to move from spec to working software'],
+     '[{"question":"Does a human review this before it goes live?","answer":"Given the scope and cost of a full build, milestones are reviewed with you along the way rather than delivered all at once."},{"question":"What happens if requirements change mid-build?","answer":"Milestone reviews are the point at which scope changes can be raised and incorporated."}]'::jsonb),
+    ('api-development',
+     ARRAY['REST API implementation to specification', 'Endpoint and data model testing', 'Integration-ready delivery'],
+     ARRAY['A working, tested REST API', 'Documentation of endpoints and data model', 'Code ready to integrate into your application'],
+     ARRAY['Node.js', 'REST', 'PostgreSQL'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Products needing a backend for a new feature', 'Teams integrating with an existing system', 'Applications needing a defined, testable API layer'],
+     '[{"question":"Do you need a full spec to start?","answer":"A defined set of endpoints and data model is ideal, but NOVA AI can help shape a rough spec into a concrete one."},{"question":"Is the API tested before delivery?","answer":"Yes. It is implemented and tested against your defined endpoints and data model."}]'::jsonb),
+    ('internal-tool-development',
+     ARRAY['Admin panel and dashboard building', 'Workflow-specific tool development', 'Deployment for internal team use'],
+     ARRAY['A deployed internal tool', 'Functionality matched to your specific operational need', 'Access ready for your team to use immediately'],
+     ARRAY['Next.js', 'TypeScript', 'PostgreSQL'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Teams with a specific, well-defined internal process gap', 'Operations needing a lightweight admin tool', 'Businesses replacing a manual spreadsheet-based process'],
+     '[{"question":"How well-defined does the problem need to be?","answer":"A specific, well-defined internal problem works best; vague or open-ended requests are harder to scope well."},{"question":"Who can access the finished tool?","answer":"Access is scoped to your team as part of deployment."}]'::jsonb),
+    ('bug-fixing-code-refactoring',
+     ARRAY['Bug diagnosis and root-cause investigation', 'Fix implementation and code cleanup', 'Verification against your existing test suite'],
+     ARRAY['A verified fix for the reported issue', 'Cleaned-up related code where relevant', 'Confirmation against your existing tests'],
+     ARRAY['Matched to your existing codebase'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Teams with a specific reported bug needing investigation', 'Codebases accumulating quality issues over time', 'Projects with an existing test suite to verify against'],
+     '[{"question":"Do I need an existing test suite for this?","answer":"It is not required, but if you have one, the fix is verified against it directly."},{"question":"Can this include broader refactoring beyond the reported bug?","answer":"Scope is defined in your brief, from a single targeted fix to broader related cleanup."}]'::jsonb),
+    ('automated-testing-setup',
+     ARRAY['Unit and integration test writing', 'Test coverage aligned to your existing codebase', 'A reusable safety net for future changes'],
+     ARRAY['A working test suite added to your codebase', 'Coverage of key existing functionality', 'A safety net for future changes'],
+     ARRAY['Matched to your existing stack'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Codebases with little or no existing test coverage', 'Teams about to undertake a larger refactor', 'Projects wanting more confidence before shipping changes'],
+     '[{"question":"Do you test my entire codebase?","answer":"Coverage is scoped to the areas you specify in your brief, not assumed to be the entire codebase."},{"question":"What testing framework is used?","answer":"Matched to your existing stack and conventions where possible."}]'::jsonb),
+
+    ('website-deployment',
+     ARRAY['Hosting and domain configuration', 'Production deployment setup', 'Pre-launch review of the live configuration'],
+     ARRAY['Your website live in a production environment', 'Configured hosting and domain setup', 'A review step before the final go-live'],
+     ARRAY['Hosting configuration', 'DNS configuration'],
+     ARRAY['Assessment', 'Configuration & implementation', 'Validation & testing', 'Human review & approval', 'Delivery'],
+     ARRAY['Businesses launching a new site to production', 'Teams migrating from an old host', 'Sites needing a properly configured domain and hosting setup'],
+     '[{"question":"Does a human review this before it goes live?","answer":"Yes. Because this affects a live production environment, the final deployment step is reviewed before it goes live."},{"question":"Do I need to already own a domain?","answer":"Either works; an existing domain can be connected, or guidance is provided for acquiring one."}]'::jsonb),
+    ('docker-containerization',
+     ARRAY['Dockerfile and container configuration', 'Environment consistency setup', 'Build and run testing'],
+     ARRAY['A working Dockerfile and container configuration', 'A tested, runnable container setup', 'Documentation for running it locally or in production'],
+     ARRAY['Docker'],
+     ARRAY['Assessment', 'Configuration & implementation', 'Validation & testing', 'Delivery'],
+     ARRAY['Applications needing consistent environments across machines', 'Teams preparing for containerized deployment', 'Projects standardizing their runtime setup'],
+     '[{"question":"Does this work with my existing application as-is?","answer":"NOVA AI configures containerization around your existing application; unusual setups may need details shared upfront."},{"question":"Is the container tested before delivery?","answer":"Yes. Build and run are tested as part of delivery, not just configured."}]'::jsonb),
+    ('ci-cd-pipeline-setup',
+     ARRAY['Automated build and test pipeline configuration', 'Deploy-on-change automation', 'Pipeline testing against your repository'],
+     ARRAY['A working CI/CD pipeline configured for your repository', 'Automated test-and-deploy on every change', 'Documentation of the pipeline stages'],
+     ARRAY['CI/CD tooling'],
+     ARRAY['Assessment', 'Configuration & implementation', 'Validation & testing', 'Delivery'],
+     ARRAY['Teams currently deploying manually', 'Projects wanting automated testing on every change', 'Repositories preparing for more frequent releases'],
+     '[{"question":"Which CI/CD platform is used?","answer":"Typically matched to where your repository already lives; share your setup and NOVA AI will confirm fit."},{"question":"Does this include the tests themselves?","answer":"This service configures the pipeline; Automated Testing Setup covers writing the tests it runs."}]'::jsonb),
+    ('server-monitoring-setup',
+     ARRAY['Uptime and performance monitoring configuration', 'Error tracking setup', 'Real alerting connected to your team'],
+     ARRAY['Configured monitoring for your infrastructure', 'Connected, working alerts', 'A summary of what is being tracked and why'],
+     ARRAY['Monitoring and alerting tooling'],
+     ARRAY['Assessment', 'Configuration & implementation', 'Validation & testing', 'Delivery'],
+     ARRAY['Infrastructure running in production without visibility today', 'Teams that find out about outages from users first', 'Operations wanting proactive issue detection'],
+     '[{"question":"Where do alerts get sent?","answer":"Configured to your preferred channel, such as email or a team messaging tool, per your brief."},{"question":"Does this monitor the application or just the server?","answer":"Scope, meaning server, application, or both, is defined in your brief."}]'::jsonb),
+    ('backup-configuration',
+     ARRAY['Scheduled backup system configuration', 'Database and file backup coverage', 'Review before activation on production data'],
+     ARRAY['A scheduled, working backup system', 'Coverage of your defined data and files', 'A review step before activation'],
+     ARRAY['Backup and restore tooling'],
+     ARRAY['Assessment', 'Configuration & implementation', 'Validation & testing', 'Human review & approval', 'Delivery'],
+     ARRAY['Production systems without a current backup strategy', 'Databases holding business-critical data', 'Teams wanting a tested restore path, not just backups'],
+     '[{"question":"Does a human review this before it goes live?","answer":"Yes. Because backup and restore touch production data directly, the configuration is reviewed before activation."},{"question":"Is the restore process tested, not just the backup?","answer":"Validation is part of setup; a backup that cannot be restored is not a real backup."}]'::jsonb),
+
+    ('security-header-configuration',
+     ARRAY['HTTP security header review', 'CSP and HSTS configuration', 'Best-practice alignment for your site'],
+     ARRAY['Configured security headers for your site', 'A summary of what was changed and why', 'Verification that headers are correctly applied'],
+     ARRAY['CSP', 'HSTS', 'HTTP security headers'],
+     ARRAY['Assessment', 'Configuration & implementation', 'Validation & testing', 'Delivery'],
+     ARRAY['Sites that have never had a security header review', 'Businesses meeting basic security compliance expectations', 'Sites handling any user-submitted data'],
+     '[{"question":"Will this break anything on my existing site?","answer":"Headers are configured and validated against your actual site before being considered complete."},{"question":"What headers are typically included?","answer":"Standard current best practice, including CSP and HSTS, scoped to what fits your site."}]'::jsonb),
+    ('ssl-security-configuration',
+     ARRAY['Certificate configuration', 'Transport security setup', 'Review before changes affect live traffic'],
+     ARRAY['Correctly configured SSL and transport security', 'A review step before changes go live', 'Verification against your live domain'],
+     ARRAY['SSL/TLS'],
+     ARRAY['Assessment', 'Configuration & implementation', 'Validation & testing', 'Human review & approval', 'Delivery'],
+     ARRAY['Domains with misconfigured or expiring certificates', 'Sites needing transport security brought up to current standards', 'Businesses preparing for a security review or audit'],
+     '[{"question":"Does a human review this before it goes live?","answer":"Yes. Because this affects live traffic to a production site, changes are reviewed before they go live."},{"question":"Will there be downtime during configuration?","answer":"Configuration is validated before being applied specifically to avoid unnecessary downtime."}]'::jsonb),
+    ('dependency-vulnerability-scanning',
+     ARRAY['Automated dependency scanning', 'Known-vulnerability database checking', 'Clear, prioritized reporting'],
+     ARRAY['A full dependency vulnerability scan report', 'A prioritized list of what needs updating', 'Severity context for each finding'],
+     ARRAY['Dependency scanning'],
+     ARRAY['Data intake & scoping', 'Analysis', 'Validation', 'Delivery'],
+     ARRAY['Projects that have never had a dependency audit', 'Codebases with many third-party packages', 'Teams preparing for a security review'],
+     '[{"question":"Does this fix the vulnerabilities, or just report them?","answer":"This service reports findings with clear prioritization; Bug Fixing & Code Refactoring can apply the actual updates."},{"question":"How current is the vulnerability database used?","answer":"Scanning checks against current known-vulnerability databases at the time the scan runs."}]'::jsonb),
+    ('configuration-security-audit',
+     ARRAY['Server and application configuration review', 'Access control review', 'Misconfiguration identification against common patterns'],
+     ARRAY['A configuration security audit report', 'Findings mapped to common misconfiguration patterns', 'Prioritized recommendations'],
+     ARRAY['Configuration review'],
+     ARRAY['Data intake & scoping', 'Analysis', 'Validation', 'Delivery'],
+     ARRAY['Infrastructure that has grown without a formal security review', 'Teams preparing for a compliance check', 'Businesses wanting a second set of eyes on access controls'],
+     '[{"question":"What gets reviewed in this audit?","answer":"Server, application, and access configuration, checked against common security misconfiguration patterns."},{"question":"Do you also apply the fixes?","answer":"This service delivers the audit; specific fixes can be scoped as a follow-up based on findings."}]'::jsonb),
+    ('wordpress-security-hardening',
+     ARRAY['Plugin and permission review', 'Configuration hardening for common attack vectors', 'Review before changes apply to a live site'],
+     ARRAY['A hardened WordPress configuration', 'A summary of vulnerabilities addressed', 'A review step before changes are applied'],
+     ARRAY['WordPress'],
+     ARRAY['Assessment', 'Configuration & implementation', 'Validation & testing', 'Human review & approval', 'Delivery'],
+     ARRAY['Existing WordPress sites with default or outdated configuration', 'Sites using many third-party plugins', 'Businesses that have experienced a prior security incident'],
+     '[{"question":"Does a human review this before it goes live?","answer":"Yes. Because this modifies a live site''s security posture, changes are reviewed before being applied."},{"question":"Will this affect my existing plugins?","answer":"Plugin review is part of the hardening process; anything flagged is reported before any change is applied."}]'::jsonb)
+) AS v(slug, capabilities, deliverables, technologies, process, suited_industries, faqs)
+WHERE s.slug = v.slug;
+
+-- =========================================================================
+-- PHASE 10B: INTERNSHIP PROGRAMS + REAL INTERNSHIP CATALOG
+-- =========================================================================
+-- internship_programs is a new, minimal catalog table (mirrors
+-- programs/courses/services' existing published-content pattern) — one row
+-- per subject area, linked to the matching learning program via
+-- program_id. It deliberately does NOT duplicate the skills relationship:
+-- "skills you'll use" for an internship program is read at query time via
+-- its linked programs.program_skills, the same table already used for the
+-- learning program itself. No internship_program_skills join table was
+-- added — nothing today needs a skill set that differs from the linked
+-- program's own.
+--
+-- internships gains two nullable columns: internship_program_id (which
+-- catalog track this posting belongs to) and duration_weeks (4/12/24,
+-- i.e. the 1/3/6-month tracks). Both are nullable specifically so every
+-- existing row — including seed.sql's two test-only fixtures, and any
+-- future company-posted internship that isn't part of NOVA's own catalog
+-- tracks — keeps working unchanged with no backfill required.
+CREATE TABLE public.internship_programs (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    program_id uuid NOT NULL REFERENCES public.programs(id) ON DELETE RESTRICT,
+    slug text NOT NULL UNIQUE,
+    name text NOT NULL,
+    short_description text NOT NULL,
+    long_description text NOT NULL,
+    status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'archived')),
+    display_order integer NOT NULL DEFAULT 0,
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX idx_internship_programs_program_id ON public.internship_programs(program_id);
+CREATE INDEX idx_internship_programs_status ON public.internship_programs(status);
+
+CREATE TRIGGER update_internship_programs_modtime BEFORE UPDATE ON public.internship_programs
+    FOR EACH ROW EXECUTE FUNCTION public.update_modified_column();
+
+ALTER TABLE public.internship_programs ENABLE ROW LEVEL SECURITY;
+
+-- Same two-policy-per-role split already used for programs/courses/services/
+-- internships: an anon-scoped policy that never calls is_current_user_admin()
+-- (anon has no EXECUTE grant on it), and an authenticated-scoped policy that
+-- ORs in admin. Postgres combines multiple PERMISSIVE policies on the same
+-- table with OR, so each role only ever needs its own policy to apply.
+CREATE POLICY "Anonymous can read published internship programs" ON public.internship_programs
+    FOR SELECT TO anon
+    USING (status = 'published');
+
+CREATE POLICY "Anyone can read published internship programs OR admin can read all" ON public.internship_programs
+    FOR SELECT TO authenticated
+    USING (status = 'published' OR public.is_current_user_admin());
+
+CREATE POLICY "Admins can insert internship programs" ON public.internship_programs
+    FOR INSERT TO authenticated
+    WITH CHECK (public.is_current_user_admin());
+
+CREATE POLICY "Admins can update internship programs" ON public.internship_programs
+    FOR UPDATE TO authenticated
+    USING (public.is_current_user_admin())
+    WITH CHECK (public.is_current_user_admin());
+
+GRANT SELECT ON public.internship_programs TO anon;
+GRANT SELECT, INSERT, UPDATE ON public.internship_programs TO authenticated;
+
+ALTER TABLE public.internships ADD COLUMN internship_program_id uuid NULL REFERENCES public.internship_programs(id) ON DELETE SET NULL;
+ALTER TABLE public.internships ADD COLUMN duration_weeks integer NULL CHECK (duration_weeks IN (4, 12, 24));
+
+CREATE INDEX idx_internships_internship_program_id ON public.internships(internship_program_id);
+
+-- -------------------------------------------------------------------
+-- Seed: 7 internship programs (one per existing learning program)
+-- -------------------------------------------------------------------
+INSERT INTO public.internship_programs (program_id, slug, name, short_description, long_description, status, display_order)
+SELECT p.id, v.slug, v.name, v.short_description, v.long_description, 'published', v.display_order
+FROM (VALUES
+    ('ai-machine-learning', 'ai-machine-learning-internship', 'AI & Machine Learning Internship Program',
+     'Hands-on internship work applying real machine learning and AI systems skills to NOVA projects.',
+     'For students who have built a foundation in Python, machine learning, or deep learning and want to apply it to real NOVA project work rather than course exercises alone. Interns work alongside NOVA''s AI Engine team on genuine data preparation, model development, and applied AI tasks, at a track length that matches how much time they can commit.',
+     1),
+    ('data-analytics-data-science', 'data-analytics-internship', 'Data Analytics & Data Science Internship Program',
+     'Hands-on internship work turning real data into decision-ready analysis for NOVA.',
+     'For students with SQL, Python, or data visualization skills who want to work with real datasets and real business questions instead of course exercises alone. Interns work on genuine data cleaning, analysis, and reporting tasks that feed directly into NOVA''s own operations, at a track length that matches how much time they can commit.',
+     2),
+    ('software-development', 'software-development-internship', 'Software Development Internship Program',
+     'Hands-on internship work building real features on NOVA''s own platform.',
+     'For students with JavaScript/TypeScript, React, or Node.js experience who want to contribute real, shipped code rather than course exercises alone. Interns work on genuine frontend and backend tasks on NOVA''s own product, at a track length that matches how much time they can commit.',
+     3),
+    ('cybersecurity', 'cybersecurity-internship', 'Cybersecurity Internship Program',
+     'Hands-on internship work hardening and auditing real NOVA systems.',
+     'For students with networking, Linux, or security fundamentals who want to apply them to real infrastructure rather than course exercises alone. Interns work on genuine configuration review, vulnerability scanning, and hardening tasks across NOVA''s own systems, at a track length that matches how much time they can commit.',
+     4),
+    ('cloud-devops', 'cloud-devops-internship', 'Cloud & DevOps Internship Program',
+     'Hands-on internship work operating and automating real NOVA infrastructure.',
+     'For students with cloud, Linux, or container fundamentals who want to work on real production infrastructure rather than course exercises alone. Interns work on genuine deployment, monitoring, and automation tasks for NOVA''s own systems, at a track length that matches how much time they can commit.',
+     5),
+    ('ui-ux-product-design', 'ui-ux-internship', 'UI/UX & Product Design Internship Program',
+     'Hands-on internship work designing real interfaces and product flows for NOVA.',
+     'For students with design fundamentals, research, or Figma skills who want to design real product surfaces rather than course exercises alone. Interns work on genuine wireframing, UI design, and usability tasks for NOVA''s own platform, at a track length that matches how much time they can commit.',
+     6),
+    ('emerging-technologies', 'emerging-tech-internship', 'Emerging Technologies Internship Program',
+     'Hands-on internship work exploring and applying blockchain, IoT, or AR/VR at NOVA.',
+     'For students with blockchain, IoT, or AR/VR fundamentals who want to apply them to a real applied project rather than course exercises alone. Interns work on genuine exploratory and applied tasks in an emerging-technology area, at a track length that matches how much time they can commit.',
+     7)
+) AS v(program_slug, slug, name, short_description, long_description, display_order)
+JOIN public.programs p ON p.slug = v.program_slug;
+
+-- -------------------------------------------------------------------
+-- Seed: 21 real internship postings (3 duration tracks x 7 programs),
+-- all platform-owned (company_id NULL) since these are NOVA's own
+-- internship program, not third-party company postings.
+-- -------------------------------------------------------------------
+INSERT INTO public.internships (internship_program_id, title, description, requirements, eligibility, status, duration_weeks)
+SELECT ip.id, v.title, v.description, v.requirements, v.eligibility, 'open', v.duration_weeks
+FROM (VALUES
+    ('ai-machine-learning-internship', 'AI & ML Exploration Internship', 4,
+     'A one-month, guided introduction to real AI/ML project work at NOVA. You will shadow the AI Engine team and complete one small, well-scoped task, such as cleaning a dataset or evaluating a model against a defined benchmark.',
+     'Working Python proficiency and completion of, or current enrollment in, Machine Learning Fundamentals or an equivalent course.',
+     'Open to current NOVA students. No prior internship experience required.'),
+    ('ai-machine-learning-internship', 'Applied Machine Learning Internship', 12,
+     'A three-month internship building and evaluating a real machine learning model end-to-end, from data preparation through evaluation, applied to an actual NOVA use case.',
+     'Completion of Machine Learning Fundamentals and Deep Learning with Neural Networks, or demonstrated equivalent experience.',
+     'Open to current NOVA students who have completed the AI & Machine Learning program''s core courses.'),
+    ('ai-machine-learning-internship', 'AI Systems Development Internship', 24,
+     'A six-month internship extending the capstone experience into real product work: building, testing, and helping deploy an AI-powered feature as part of NOVA''s own AI Engine.',
+     'Completion of the AI & Machine Learning program, or equivalent demonstrated proficiency across Python, classical ML, and deep learning.',
+     'Open to current NOVA students who have completed or are finishing the AI & Machine Learning program.'),
+
+    ('data-analytics-internship', 'Data Analytics Foundations Internship', 4,
+     'A one-month, guided introduction to real analytics work at NOVA. You will complete one small, well-scoped task, such as cleaning a real dataset or answering a defined business question in SQL.',
+     'Working SQL proficiency and completion of, or current enrollment in, SQL for Data Analysis or an equivalent course.',
+     'Open to current NOVA students. No prior internship experience required.'),
+    ('data-analytics-internship', 'Applied Data Analysis Internship', 12,
+     'A three-month internship performing a real end-to-end analysis for NOVA: pulling data with SQL, analyzing it in Python, and delivering a decision-ready report.',
+     'Completion of SQL for Data Analysis and Python for Data Analysis, or demonstrated equivalent experience.',
+     'Open to current NOVA students who have completed the Data Analytics & Data Science program''s core courses.'),
+    ('data-analytics-internship', 'Data Science Project Internship', 24,
+     'A six-month internship extending the capstone experience into real product work: building and maintaining a live analysis or predictive-modeling project used by NOVA''s own operations.',
+     'Completion of the Data Analytics & Data Science program, or equivalent demonstrated proficiency across SQL, Python, and statistics.',
+     'Open to current NOVA students who have completed or are finishing the Data Analytics & Data Science program.'),
+
+    ('software-development-internship', 'Software Development Foundations Internship', 4,
+     'A one-month, guided introduction to real engineering work at NOVA. You will complete one small, well-scoped task on NOVA''s own codebase under review from an experienced engineer.',
+     'Working JavaScript proficiency and completion of, or current enrollment in, Programming Foundations with JavaScript or an equivalent course.',
+     'Open to current NOVA students. No prior internship experience required.'),
+    ('software-development-internship', 'Full-Stack Development Internship', 12,
+     'A three-month internship building a real feature end-to-end on NOVA''s own platform, from a React frontend through a Node.js backend, with code review from NOVA engineers.',
+     'Completion of Frontend Development with React and Backend Development with Node.js, or demonstrated equivalent experience.',
+     'Open to current NOVA students who have completed the Software Development program''s core courses.'),
+    ('software-development-internship', 'Software Engineering Internship', 24,
+     'A six-month internship extending the capstone experience into real product work: owning a meaningful feature area on NOVA''s own platform from design through deployment.',
+     'Completion of the Software Development program, or equivalent demonstrated proficiency across JavaScript/TypeScript, React, and Node.js.',
+     'Open to current NOVA students who have completed or are finishing the Software Development program.'),
+
+    ('cybersecurity-internship', 'Cybersecurity Foundations Internship', 4,
+     'A one-month, guided introduction to real security work at NOVA. You will complete one small, well-scoped task, such as a dependency scan or a configuration review against a defined checklist.',
+     'Working knowledge of networking fundamentals and completion of, or current enrollment in, Cybersecurity Fundamentals or an equivalent course.',
+     'Open to current NOVA students. No prior internship experience required.'),
+    ('cybersecurity-internship', 'Security Operations Internship', 12,
+     'A three-month internship performing real security work for NOVA: vulnerability scanning, configuration hardening, and monitoring, under review from NOVA''s security team.',
+     'Completion of Networking & Linux Essentials and Ethical Hacking & Penetration Testing, or demonstrated equivalent experience.',
+     'Open to current NOVA students who have completed the Cybersecurity program''s core courses.'),
+    ('cybersecurity-internship', 'Applied Cybersecurity Internship', 24,
+     'A six-month internship extending the capstone experience into real product work: an extended security hardening and incident-response readiness project across NOVA''s own systems.',
+     'Completion of the Cybersecurity program, or equivalent demonstrated proficiency across networking, ethical hacking, and application security.',
+     'Open to current NOVA students who have completed or are finishing the Cybersecurity program.'),
+
+    ('cloud-devops-internship', 'Cloud Fundamentals Internship', 4,
+     'A one-month, guided introduction to real cloud and DevOps work at NOVA. You will complete one small, well-scoped task, such as containerizing a service or configuring monitoring for one component.',
+     'Working knowledge of Linux fundamentals and completion of, or current enrollment in, Cloud Computing Fundamentals or an equivalent course.',
+     'Open to current NOVA students. No prior internship experience required.'),
+    ('cloud-devops-internship', 'DevOps Engineering Internship', 12,
+     'A three-month internship performing real DevOps work for NOVA: containerization, CI/CD pipeline work, and infrastructure-as-code, under review from NOVA''s infrastructure team.',
+     'Completion of Linux & Shell Scripting and Containers with Docker & Kubernetes, or demonstrated equivalent experience.',
+     'Open to current NOVA students who have completed the Cloud & DevOps program''s core courses.'),
+    ('cloud-devops-internship', 'Cloud Infrastructure Internship', 24,
+     'A six-month internship extending the capstone experience into real product work: operating and improving a real piece of NOVA''s own cloud infrastructure end-to-end.',
+     'Completion of the Cloud & DevOps program, or equivalent demonstrated proficiency across cloud fundamentals, containers, and CI/CD.',
+     'Open to current NOVA students who have completed or are finishing the Cloud & DevOps program.'),
+
+    ('ui-ux-internship', 'Design Foundations Internship', 4,
+     'A one-month, guided introduction to real product design work at NOVA. You will complete one small, well-scoped task, such as a set of wireframes for a defined feature.',
+     'Working knowledge of design fundamentals and completion of, or current enrollment in, Design Fundamentals & Design Thinking or an equivalent course.',
+     'Open to current NOVA students. No prior internship experience required.'),
+    ('ui-ux-internship', 'Product Design Internship', 12,
+     'A three-month internship performing real design work for NOVA: user research, wireframes, and a working Figma design file for an actual product surface, under review from NOVA''s design team.',
+     'Completion of UX Research Methods and UI Design with Figma, or demonstrated equivalent experience.',
+     'Open to current NOVA students who have completed the UI/UX & Product Design program''s core courses.'),
+    ('ui-ux-internship', 'UX Research & Design Internship', 24,
+     'A six-month internship extending the capstone experience into real product work: taking a real NOVA product problem from research through a shipped design.',
+     'Completion of the UI/UX & Product Design program, or equivalent demonstrated proficiency across research, UI design, and prototyping.',
+     'Open to current NOVA students who have completed or are finishing the UI/UX & Product Design program.'),
+
+    ('emerging-tech-internship', 'Emerging Tech Exploration Internship', 4,
+     'A one-month, guided introduction to a chosen emerging-technology area at NOVA. You will complete one small, well-scoped exploratory task in blockchain, IoT, or AR/VR.',
+     'Completion of, or current enrollment in, Introduction to Emerging Tech Landscape or an equivalent course.',
+     'Open to current NOVA students. No prior internship experience required.'),
+    ('emerging-tech-internship', 'Applied Emerging Tech Internship', 12,
+     'A three-month internship building a real applied project in a chosen emerging-technology area, under review from NOVA''s emerging technologies team.',
+     'Completion of at least one of Blockchain & Web3 Fundamentals, IoT & Embedded Systems, or AR/VR & Spatial Computing, or demonstrated equivalent experience.',
+     'Open to current NOVA students who have completed at least one specialization course in the Emerging Technologies program.'),
+    ('emerging-tech-internship', 'Emerging Tech Development Internship', 24,
+     'A six-month internship extending the capstone experience into real product work: an extended applied project in a chosen emerging-technology area, from prototype through a working demo.',
+     'Completion of the Emerging Technologies program, or equivalent demonstrated proficiency in at least one specialization area.',
+     'Open to current NOVA students who have completed or are finishing the Emerging Technologies program.')
+) AS v(internship_program_slug, title, duration_weeks, description, requirements, eligibility)
+JOIN public.internship_programs ip ON ip.slug = v.internship_program_slug;
+
+-- =========================================================================
+-- PHASE 10C: CATALOG EXPANSION — COURSES
+-- =========================================================================
+-- 7 new courses (38 -> 45), each filling a real, specific curriculum gap
+-- rather than padding toward a numeric target: production ML deployment,
+-- ETL/data engineering, Next.js specifically (React alone doesn't cover
+-- it), a missing Cybersecurity capstone, multi-cloud beyond AWS,
+-- accessibility, and computer vision. Programs stay at 7 — none of these
+-- warranted a new flagship program of their own.
+--
+-- Four of the seven deliberately resolve a real orphaned skill from the
+-- Phase 10 content audit (apache-spark, nextjs, azure, computer-vision) by
+-- building a genuine course around it, using ONLY existing skills — no new
+-- skill rows invented. java, cpp, go, technical-communication, and
+-- problem-solving remain intentionally unconnected: NOVA's actual
+-- curriculum direction is JS/TS for web and Python for data/AI, so a
+-- Java/C++/Go course would not reflect real curriculum content, and the
+-- two soft skills are deliberately cross-cutting rather than tied to one
+-- course.
+--
+-- Each program's former last course (capstone/applied-project) is bumped
+-- to display_order + 1 so the new course lands immediately before it,
+-- preserving the "capstone comes last" convention. Cybersecurity had no
+-- capstone at all — its new course fills that real gap directly at the
+-- next order with no bump needed.
+UPDATE public.courses c SET display_order = 7
+FROM public.programs p WHERE c.program_id = p.id AND p.slug = 'ai-machine-learning' AND c.slug = 'ai-systems-capstone';
+UPDATE public.courses c SET display_order = 7
+FROM public.programs p WHERE c.program_id = p.id AND p.slug = 'data-analytics-data-science' AND c.slug = 'data-science-capstone';
+UPDATE public.courses c SET display_order = 7
+FROM public.programs p WHERE c.program_id = p.id AND p.slug = 'software-development' AND c.slug = 'fullstack-capstone';
+UPDATE public.courses c SET display_order = 6
+FROM public.programs p WHERE c.program_id = p.id AND p.slug = 'cloud-devops' AND c.slug = 'cloud-devops-capstone';
+UPDATE public.courses c SET display_order = 6
+FROM public.programs p WHERE c.program_id = p.id AND p.slug = 'ui-ux-product-design' AND c.slug = 'product-design-capstone';
+UPDATE public.courses c SET display_order = 6
+FROM public.programs p WHERE c.program_id = p.id AND p.slug = 'emerging-technologies' AND c.slug = 'emerging-tech-applied-project';
+
+INSERT INTO public.courses (program_id, slug, title, description, level, duration_hours, display_order, status, overview, prerequisites, learning_outcomes)
+SELECT p.id, v.slug, v.title, v.description, v.level, v.duration_hours, v.display_order, 'published', v.overview, v.prerequisites, v.learning_outcomes
+FROM (VALUES
+    ('ai-machine-learning', 'mlops-model-deployment', 'MLOps & Model Deployment',
+     'Taking a trained model from a notebook to a reliable, monitored service in production.', 'advanced', 20, 6,
+     'Covers containerizing a trained model, deploying it behind an API, and setting up a CI/CD pipeline to retrain and redeploy it as new data arrives, plus basic monitoring for model drift.',
+     'Deep Learning with Neural Networks.',
+     ARRAY['Package a trained model into a deployable service', 'Build a CI/CD pipeline for retraining and redeployment', 'Monitor a deployed model for performance and drift']),
+    ('data-analytics-data-science', 'data-engineering-fundamentals', 'Data Engineering Fundamentals',
+     'Building the ETL pipelines that get raw data into a state analysts can actually use.', 'intermediate', 22, 6,
+     'Covers designing and building ETL pipelines, working with larger-than-memory datasets using Apache Spark, and scheduling recurring data jobs reliably.',
+     'Python for Data Analysis.',
+     ARRAY['Design and build a basic ETL pipeline', 'Process larger-than-memory datasets with Apache Spark', 'Schedule and monitor a recurring data pipeline']),
+    ('software-development', 'nextjs-fullstack-frameworks', 'Next.js & Full-Stack Frameworks',
+     'Extending React into a full-stack framework with server-side rendering, routing, and API routes built in.', 'intermediate', 22, 6,
+     'Covers building a full-stack application in Next.js: file-based routing, server-side rendering and static generation, and API routes, as a production-grade alternative to hand-wiring a separate React frontend and Node.js backend.',
+     'Frontend Development with React.',
+     ARRAY['Build a full-stack application with Next.js', 'Choose between server-side rendering and static generation appropriately', 'Implement API routes within a Next.js application']),
+    ('cybersecurity', 'cybersecurity-capstone', 'Cybersecurity Capstone Project',
+     'A self-directed project assessing and hardening a real system end-to-end.', 'advanced', 20, 6,
+     'A capstone project applying the full security lifecycle covered in this program to one system: assessment, exploitation testing within a defined scope, hardening, and incident-response readiness documentation.',
+     'All prior courses in the Cybersecurity program.',
+     ARRAY['Apply a full security assessment lifecycle to a real system', 'Harden a system based on assessment findings', 'Document incident-response readiness for the system']),
+    ('cloud-devops', 'multi-cloud-azure-gcp', 'Multi-Cloud Fundamentals: Azure & GCP',
+     'Applying the same core cloud concepts on Azure and GCP after learning them on AWS.', 'intermediate', 16, 5,
+     'Covers the core compute, storage, and networking services on Microsoft Azure and Google Cloud Platform, mapped directly against the AWS equivalents from Cloud Computing Fundamentals, so the underlying concepts transfer rather than needing to be relearned per cloud.',
+     'Cloud Computing Fundamentals.',
+     ARRAY['Provision core compute and storage resources on Azure', 'Provision core compute and storage resources on GCP', 'Map cloud concepts across AWS, Azure, and GCP']),
+    ('ui-ux-product-design', 'accessibility-inclusive-design', 'Accessibility & Inclusive Design',
+     'Designing interfaces that work for users with different abilities, not as an afterthought.', 'intermediate', 14, 5,
+     'Covers WCAG accessibility guidelines, designing for screen readers and keyboard navigation, and auditing an existing interface for accessibility gaps, building accessibility into the design process rather than retrofitting it.',
+     'UI Design with Figma.',
+     ARRAY['Apply WCAG accessibility guidelines to an interface design', 'Design for screen reader and keyboard-only navigation', 'Audit an existing interface for accessibility gaps']),
+    ('emerging-technologies', 'computer-vision-applications', 'Computer Vision Applications',
+     'Building real image classification and object detection systems, not just describing how they work.', 'intermediate', 20, 5,
+     'Covers image classification and object detection using deep learning, applied to real image datasets, as a specialization within the emerging-technology landscape alongside blockchain, IoT, and AR/VR.',
+     'Introduction to Emerging Tech Landscape.',
+     ARRAY['Build an image classification model', 'Build a basic object detection pipeline', 'Evaluate a computer vision model against real image data'])
+) AS v(program_slug, slug, title, description, level, duration_hours, display_order, overview, prerequisites, learning_outcomes)
+JOIN public.programs p ON p.slug = v.program_slug
+ON CONFLICT (program_id, slug) DO NOTHING;
+
+INSERT INTO public.course_skills (course_id, skill_id)
+SELECT c.id, s.id FROM (VALUES
+    ('ai-machine-learning', 'mlops-model-deployment', 'machine-learning'), ('ai-machine-learning', 'mlops-model-deployment', 'docker'), ('ai-machine-learning', 'mlops-model-deployment', 'ci-cd'),
+    ('data-analytics-data-science', 'data-engineering-fundamentals', 'sql'), ('data-analytics-data-science', 'data-engineering-fundamentals', 'apache-spark'), ('data-analytics-data-science', 'data-engineering-fundamentals', 'python'),
+    ('software-development', 'nextjs-fullstack-frameworks', 'nextjs'), ('software-development', 'nextjs-fullstack-frameworks', 'react'), ('software-development', 'nextjs-fullstack-frameworks', 'typescript'),
+    ('cybersecurity', 'cybersecurity-capstone', 'cybersecurity-fundamentals'), ('cybersecurity', 'cybersecurity-capstone', 'ethical-hacking'), ('cybersecurity', 'cybersecurity-capstone', 'incident-response'),
+    ('cloud-devops', 'multi-cloud-azure-gcp', 'azure'), ('cloud-devops', 'multi-cloud-azure-gcp', 'cloud-architecture'),
+    ('ui-ux-product-design', 'accessibility-inclusive-design', 'ui-design'), ('ui-ux-product-design', 'accessibility-inclusive-design', 'ux-research'),
+    ('emerging-technologies', 'computer-vision-applications', 'computer-vision'), ('emerging-technologies', 'computer-vision-applications', 'python'), ('emerging-technologies', 'computer-vision-applications', 'deep-learning')
+) AS v(program_slug, course_slug, skill_slug)
+JOIN public.programs p ON p.slug = v.program_slug
+JOIN public.courses c ON c.program_id = p.id AND c.slug = v.course_slug
+JOIN public.skills s ON s.slug = v.skill_slug
+ON CONFLICT DO NOTHING;
+
+-- =========================================================================
+-- PHASE 10C: CATALOG EXPANSION — SERVICES
+-- =========================================================================
+-- 24 new services (40 -> 64), 3 genuinely distinct new offerings per
+-- existing category — never a rename or minor variant of an existing
+-- service. Several deliberately follow directly from the new Phase 10C
+-- courses (data-pipeline-automation from Data Engineering Fundamentals,
+-- nextjs-application-development from Next.js & Full-Stack Frameworks,
+-- multi-cloud-migration-assessment from Multi-Cloud Fundamentals,
+-- website-accessibility-audit / accessibility-design-review from
+-- Accessibility & Inclusive Design, incident-response-readiness-review
+-- from the new Cybersecurity Capstone) — real coherence with the
+-- curriculum, not coincidence. All 8 categories held at their existing
+-- taxonomy; no new category was needed.
+INSERT INTO public.services (category_id, slug, name, short_description, description, automation_level, published, display_order, capabilities, deliverables, technologies, process, suited_industries, faqs)
+SELECT sc.id, v.slug, v.name, v.short_description, v.description, v.automation_level, true, v.display_order, v.capabilities, v.deliverables, v.technologies, v.process, v.suited_industries, v.faqs
+FROM (VALUES
+    ('websites-web', 'e-commerce-store-setup', 'E-Commerce Store Setup', 'A working online store built from your product catalog.',
+     'NOVA AI builds a functional e-commerce storefront, product listings, cart, and checkout, from your product catalog and brand details.', 'autonomous', 6,
+     ARRAY['Product catalog import and listing setup', 'Cart and checkout flow configuration', 'Responsive storefront design'],
+     ARRAY['A working online store', 'Configured product listings', 'A functional cart and checkout flow'],
+     ARRAY['Next.js', 'Tailwind CSS', 'Payment gateway integration'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Businesses selling physical or digital products online', 'Brands moving from marketplace-only to their own store', 'Small retailers launching their first online store'],
+     '[{"question":"Do I need a payment processor account already?","answer":"Either works; the store can be configured against an existing account or you can set one up during the build."},{"question":"Can I add or remove products after launch?","answer":"Yes. The catalog is set up so your team can manage listings going forward."}]'::jsonb),
+    ('websites-web', 'website-accessibility-audit', 'Website Accessibility Audit', 'A WCAG accessibility audit with fixes applied directly.',
+     'NOVA AI reviews your site against WCAG accessibility guidelines and applies the fixes directly, covering screen reader support, keyboard navigation, and color contrast.', 'autonomous', 7,
+     ARRAY['WCAG guideline review', 'Screen reader and keyboard navigation fixes', 'Color contrast and markup corrections'],
+     ARRAY['An accessibility audit with findings', 'Fixes applied directly to your site', 'A summary of remaining manual-review items'],
+     ARRAY['WCAG', 'Semantic HTML'],
+     ARRAY['Assessment', 'Configuration & implementation', 'Validation & testing', 'Delivery'],
+     ARRAY['Sites that have never had an accessibility review', 'Organizations with accessibility compliance requirements', 'Public-facing sites serving a broad audience'],
+     '[{"question":"Does this guarantee full compliance?","answer":"It fixes what can be verified and corrected automatically; some items genuinely require manual legal or expert review, and those are flagged rather than silently skipped."},{"question":"Will this change how my site looks?","answer":"Only where a visual change is required for accessibility, such as contrast; layout and branding are otherwise preserved."}]'::jsonb),
+    ('websites-web', 'website-translation', 'Multi-Page Website Translation', 'Your existing site''s content translated into additional languages.',
+     'Existing page content translated into the languages you specify, preserving your site''s structure and formatting.', 'autonomous', 8,
+     ARRAY['Page content translation', 'Structure and formatting preservation', 'Multi-language content delivery'],
+     ARRAY['Translated page content in your specified languages', 'Content matched to your existing page structure'],
+     ARRAY['Content translation'],
+     ARRAY['Research & briefing', 'AI-driven drafting', 'Quality review', 'Delivery'],
+     ARRAY['Businesses expanding into new-language markets', 'Sites serving a multilingual audience', 'Organizations localizing existing content'],
+     '[{"question":"How many languages can be included?","answer":"Specify the languages you need in your brief; scope is set per project."},{"question":"Does this include setting up language switching on the site?","answer":"Translated content is delivered ready to publish; wiring up a language switcher is scoped separately if your site does not already support it."}]'::jsonb),
+
+    ('ai-automation', 'ai-meeting-notes-summarization', 'AI Meeting Notes & Summarization', 'Automated transcription and summarization of your meetings.',
+     'Meeting recordings turned into structured notes: a summary, key decisions, and action items, without manual note-taking.', 'autonomous', 6,
+     ARRAY['Meeting transcription', 'Summary and key-decision extraction', 'Action item identification'],
+     ARRAY['A structured meeting summary', 'A list of extracted action items', 'The full transcript for reference'],
+     ARRAY['Speech-to-text', 'LLM-based summarization'],
+     ARRAY['Data intake & scoping', 'Analysis', 'Validation', 'Delivery'],
+     ARRAY['Teams running frequent recurring meetings', 'Organizations needing a reliable meeting record', 'Distributed teams needing shared meeting summaries'],
+     '[{"question":"What meeting platforms are supported?","answer":"Share your platform and recording format in the brief and NOVA AI will confirm compatibility."},{"question":"How accurate is the transcription?","answer":"Accuracy depends on recording quality; the full transcript is included so you can verify against the summary."}]'::jsonb),
+    ('ai-automation', 'ai-email-triage-routing', 'AI Email Triage & Routing', 'Incoming email automatically categorized and routed to the right team.',
+     'NOVA AI classifies incoming email by topic and urgency and routes it to the right team or queue. Because this affects real incoming communications, initial routing rules are reviewed before running unsupervised.', 'approval_required', 7,
+     ARRAY['Email classification by topic and urgency', 'Automated routing to the right team or queue', 'Routing rule configuration'],
+     ARRAY['A working email triage and routing system', 'Configured routing rules', 'A review period before unsupervised operation'],
+     ARRAY['LLM-based classification', 'Email integration'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Human review & approval', 'Delivery'],
+     ARRAY['Teams receiving high volumes of incoming email', 'Support or sales inboxes needing faster routing', 'Organizations with multiple team queues'],
+     '[{"question":"Does a human review this before it goes live?","answer":"Yes. Because this affects real incoming communications, initial routing rules are reviewed before the system runs unsupervised."},{"question":"What happens to emails that do not match any category?","answer":"Unmatched emails fall back to a default queue you define, rather than being dropped."}]'::jsonb),
+    ('ai-automation', 'custom-ai-integration', 'Custom AI Integration (API/Webhook)', 'An existing AI capability connected into your own application.',
+     'NOVA AI connects a defined AI capability, such as a chatbot or document processor, into your own application via API or webhook, so it runs inside your existing product rather than as a separate tool.', 'autonomous', 8,
+     ARRAY['API and webhook integration', 'Connecting an AI capability into an existing application', 'Integration testing against your app'],
+     ARRAY['A working integration into your application', 'Documentation of the integration setup', 'Verification that the integration works against your app'],
+     ARRAY['REST APIs', 'Webhooks'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Products wanting to embed an AI capability directly', 'Teams integrating with an existing internal system', 'Businesses extending an existing app rather than building a new one'],
+     '[{"question":"Which AI capability can be integrated?","answer":"Any NOVA AI capability already offered as a service, such as a chatbot or document processor, connected into your application."},{"question":"Do you need access to my codebase?","answer":"Read access to the relevant integration points is typically enough; scope is confirmed in your brief."}]'::jsonb),
+
+    ('digital-marketing', 'ab-copy-variants', 'Landing Page A/B Copy Variants', 'Multiple tested copy variants for an existing landing page.',
+     'NOVA AI generates several distinct copy variants for an existing landing page, ready to run as an A/B test to find what converts best.', 'autonomous', 6,
+     ARRAY['Multiple distinct copy variant generation', 'Conversion-focused messaging angles', 'Variant structuring for A/B testing'],
+     ARRAY['Several distinct copy variants for your page', 'Variants ready to load into your A/B testing tool'],
+     ARRAY['Content generation', 'Conversion copywriting'],
+     ARRAY['Research & briefing', 'AI-driven drafting', 'Quality review', 'Delivery'],
+     ARRAY['Teams wanting to test messaging before committing', 'Pages with underperforming conversion rates', 'Campaigns with a defined testing budget'],
+     '[{"question":"How many variants are included?","answer":"Scope is defined in your brief; a small set of genuinely distinct variants works better than many minor tweaks."},{"question":"Do you run the A/B test itself?","answer":"This service delivers the variants; running the test uses your own analytics or testing tool."}]'::jsonb),
+    ('digital-marketing', 'local-seo-gbp', 'Local SEO & Google Business Profile Optimization', 'Your Google Business Profile and local search presence optimized.',
+     'NOVA AI reviews and optimizes your Google Business Profile listing and local on-page SEO signals to improve visibility in local search results.', 'autonomous', 7,
+     ARRAY['Google Business Profile optimization', 'Local on-page SEO review', 'Local search visibility improvements'],
+     ARRAY['An optimized Google Business Profile listing', 'Local SEO improvements applied to your site', 'A summary of changes made'],
+     ARRAY['Local SEO', 'Google Business Profile'],
+     ARRAY['Assessment', 'Configuration & implementation', 'Validation & testing', 'Delivery'],
+     ARRAY['Local businesses serving a specific geographic area', 'Service businesses relying on local search traffic', 'Businesses with an underused or outdated listing'],
+     '[{"question":"Do I need to already have a Google Business Profile?","answer":"Either works; an existing listing can be optimized, or a new one can be set up as part of this service."},{"question":"Does this guarantee a top local ranking?","answer":"No legitimate service can guarantee rankings; this service applies real, current best-practice optimizations."}]'::jsonb),
+    ('digital-marketing', 'video-script-generation', 'Video Script Generation', 'Scripts for marketing or explainer videos generated from your content.',
+     'Well-structured scripts for marketing or explainer videos, generated from your product details and target audience, ready for production.', 'autonomous', 8,
+     ARRAY['Video script structuring', 'Audience-targeted messaging', 'Production-ready script formatting'],
+     ARRAY['A complete, production-ready video script', 'Content structured for the video''s intended length'],
+     ARRAY['Content generation', 'Script writing'],
+     ARRAY['Research & briefing', 'AI-driven drafting', 'Quality review', 'Delivery'],
+     ARRAY['Teams producing marketing or explainer videos', 'Product launches needing a video component', 'Businesses without in-house scriptwriting capacity'],
+     '[{"question":"What video length can this support?","answer":"Specify your target length in the brief; the script is structured to fit it."},{"question":"Do you also produce the video?","answer":"This service delivers the script; production and filming are handled by your own team or a separate vendor."}]'::jsonb),
+
+    ('design-creative', 'icon-illustration-set', 'Icon & Illustration Set Generation', 'A cohesive custom icon or illustration set matched to your brand.',
+     'A set of custom icons or illustrations generated in a consistent style, matched to your brand''s existing visual identity.', 'autonomous', 6,
+     ARRAY['Custom icon and illustration generation', 'Consistent visual style across a full set', 'Brand-matched styling'],
+     ARRAY['A complete icon or illustration set', 'Consistent styling across every asset', 'Files ready for use across your product or site'],
+     ARRAY['Visual asset generation'],
+     ARRAY['Research & briefing', 'AI-driven drafting', 'Quality review', 'Delivery'],
+     ARRAY['Products needing a consistent icon system', 'Brands wanting custom illustrations over stock art', 'Sites and apps standardizing their visual language'],
+     '[{"question":"How many icons or illustrations are included?","answer":"Scope is defined in your brief based on your actual needs."},{"question":"What file formats are delivered?","answer":"Standard formats such as SVG and PNG, suited for web and product use."}]'::jsonb),
+    ('design-creative', 'email-newsletter-template', 'Email Newsletter Template Design', 'A reusable, branded email newsletter template.',
+     'A reusable email template designed to your brand, ready to drop new content into for each send without redesigning from scratch.', 'autonomous', 7,
+     ARRAY['Reusable email template design', 'Brand-matched styling', 'Cross-client email compatibility'],
+     ARRAY['A reusable, branded email template', 'A template ready to use in your email platform'],
+     ARRAY['Email template design', 'Responsive email markup'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Businesses sending a recurring newsletter', 'Teams currently redesigning each email from scratch', 'Brands wanting consistent email visual identity'],
+     '[{"question":"Which email platforms are supported?","answer":"Share your email platform in the brief and the template is built to import cleanly into it."},{"question":"Will it display consistently across email clients?","answer":"Yes, it is built and tested against common email client rendering differences."}]'::jsonb),
+    ('design-creative', 'accessibility-design-review', 'Accessibility-Focused Design Review', 'An existing design reviewed against accessibility standards.',
+     'NOVA AI reviews an existing design, contrast, type sizing, interaction patterns, against accessibility standards and recommends specific fixes.', 'autonomous', 8,
+     ARRAY['Contrast and type-sizing review', 'Interaction pattern accessibility review', 'Specific, actionable fix recommendations'],
+     ARRAY['An accessibility review report', 'Specific, prioritized fix recommendations'],
+     ARRAY['WCAG'],
+     ARRAY['Data intake & scoping', 'Analysis', 'Validation', 'Delivery'],
+     ARRAY['Design teams wanting an accessibility check before build', 'Products preparing for an accessibility compliance review', 'Teams retrofitting accessibility into an existing design'],
+     '[{"question":"What design formats can you review?","answer":"Figma files or equivalent design-tool exports; share your file and NOVA AI will confirm fit."},{"question":"Do you also implement the fixes?","answer":"This service delivers the review and recommendations; implementation is scoped separately or covered by Website Accessibility Audit for a live site."}]'::jsonb),
+
+    ('data-business', 'data-pipeline-automation', 'Data Pipeline Automation', 'A recurring ETL pipeline built and scheduled for your data sources.',
+     'NOVA AI builds a recurring pipeline that pulls, cleans, and loads your data on a schedule, removing manual data-wrangling from your workflow.', 'autonomous', 6,
+     ARRAY['ETL pipeline design and build', 'Scheduled, recurring data processing', 'Pipeline monitoring and error handling'],
+     ARRAY['A working, scheduled data pipeline', 'Monitoring for pipeline failures', 'Documentation of the pipeline stages'],
+     ARRAY['ETL', 'Apache Spark'],
+     ARRAY['Assessment', 'Configuration & implementation', 'Validation & testing', 'Delivery'],
+     ARRAY['Teams manually re-running data imports on a schedule', 'Operations combining data from multiple recurring sources', 'Businesses scaling past manual spreadsheet workflows'],
+     '[{"question":"What data sources can this pull from?","answer":"Share your sources in the brief and NOVA AI will confirm compatibility."},{"question":"What happens if a pipeline run fails?","answer":"Monitoring and error handling are built in, so failures are visible rather than silent."}]'::jsonb),
+    ('data-business', 'survey-feedback-analysis', 'Survey & Feedback Analysis', 'Open-ended survey and feedback responses turned into structured insights.',
+     'NOVA AI analyzes open-ended survey or feedback responses and structures them into clear themes and sentiment, rather than leaving them as an unreadable pile of text.', 'autonomous', 7,
+     ARRAY['Open-ended response theme extraction', 'Sentiment analysis', 'Structured insight reporting'],
+     ARRAY['A structured summary of themes and sentiment', 'Representative quotes supporting each theme'],
+     ARRAY['NLP', 'Sentiment analysis'],
+     ARRAY['Data intake & scoping', 'Analysis', 'Validation', 'Delivery'],
+     ARRAY['Teams running customer or employee feedback surveys', 'Product teams with a backlog of unread open-ended responses', 'Businesses wanting recurring feedback analysis'],
+     '[{"question":"What survey formats can you work with?","answer":"Common formats like CSV exports from survey tools; share your format and NOVA AI will confirm fit."},{"question":"How is sentiment measured?","answer":"Responses are analyzed for overall tone alongside the extracted themes, not scored in isolation."}]'::jsonb),
+    ('data-business', 'financial-reporting-dashboard', 'Financial Reporting Dashboard', 'A dashboard built specifically for your financial metrics.',
+     'A working dashboard connected to your financial data source, tracking the metrics your team actually reviews: revenue, expenses, and cash flow.', 'autonomous', 8,
+     ARRAY['Financial data source connection', 'Revenue, expense, and cash flow tracking', 'Dashboard layout matched to real reporting needs'],
+     ARRAY['A working financial reporting dashboard', 'Connected, live financial data views'],
+     ARRAY['Power BI', 'Financial reporting'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Finance teams tracking metrics manually today', 'Businesses wanting recurring visibility into cash flow', 'Operations needing a single source of financial truth'],
+     '[{"question":"What financial data sources are supported?","answer":"Share your accounting or finance data source in the brief and NOVA AI will confirm compatibility."},{"question":"Does the dashboard update automatically?","answer":"Yes, it is connected to your live data source rather than built from a static snapshot."}]'::jsonb),
+
+    ('software-development', 'nextjs-application-development', 'Next.js Application Development', 'A full application built specifically in Next.js.',
+     'NOVA AI builds a complete application in Next.js, combining frontend, server-side rendering, and API routes in a single production-grade framework.', 'autonomous', 6,
+     ARRAY['Full-stack Next.js application build', 'Server-side rendering and static generation', 'API route implementation'],
+     ARRAY['A complete, working Next.js application', 'Source code ready for deployment'],
+     ARRAY['Next.js', 'TypeScript'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Teams standardizing on Next.js for new projects', 'Products needing SEO-friendly server-rendered pages', 'Startups wanting a single framework for frontend and backend'],
+     '[{"question":"How is this different from MVP Development?","answer":"This service is specifically a Next.js build; MVP Development covers broader product scope and may use a different stack depending on your requirements."},{"question":"Is the application tested before delivery?","answer":"Yes, it is built and tested against your defined requirements before delivery."}]'::jsonb),
+    ('software-development', 'third-party-api-integration', 'Third-Party API Integration', 'An external API (payments, messaging, etc.) integrated into your existing app.',
+     'NOVA AI integrates a defined third-party API, such as a payment processor or messaging service, into your existing application, including error handling for real-world failure cases.', 'autonomous', 7,
+     ARRAY['Third-party API integration', 'Error and failure-case handling', 'Integration testing against your existing app'],
+     ARRAY['A working integration with the specified third-party API', 'Error handling for common failure cases', 'Verification against your existing application'],
+     ARRAY['REST APIs', 'Webhooks'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Products needing payments, messaging, or another third-party capability', 'Teams without bandwidth to research and implement a new API themselves', 'Applications extending existing functionality'],
+     '[{"question":"Which third-party APIs can be integrated?","answer":"Share the specific API in your brief and NOVA AI will confirm compatibility and scope."},{"question":"Do you handle the third-party account setup too?","answer":"Account setup with the third party is your responsibility; NOVA AI handles the integration once credentials are available."}]'::jsonb),
+    ('software-development', 'database-schema-design-migration', 'Database Schema Design & Migration', 'A database schema designed or migrated for your application''s real data needs.',
+     'NOVA AI designs a new database schema, or migrates an existing one, based on your application''s actual data and query patterns.', 'autonomous', 8,
+     ARRAY['Database schema design', 'Migration planning and execution', 'Query-pattern-informed structure'],
+     ARRAY['A designed or migrated database schema', 'Migration scripts', 'Verification against your existing data'],
+     ARRAY['PostgreSQL', 'SQL'],
+     ARRAY['Requirements & research', 'AI-driven build', 'Automated QA & review', 'Delivery'],
+     ARRAY['Applications outgrowing their original schema', 'New projects needing a schema designed from real requirements', 'Teams migrating between database structures'],
+     '[{"question":"Will this affect my existing data?","answer":"Migration scripts are built and verified against your existing data before being considered complete."},{"question":"What database systems are supported?","answer":"Share your database system in the brief and NOVA AI will confirm compatibility."}]'::jsonb),
+
+    ('cloud-infrastructure', 'multi-cloud-migration-assessment', 'Multi-Cloud Migration Assessment', 'An assessment of your application''s readiness to migrate to Azure or GCP.',
+     'NOVA AI reviews your current application and infrastructure and produces a concrete assessment of what migrating to Azure or GCP would involve, including effort and compatibility gaps.', 'autonomous', 6,
+     ARRAY['Migration readiness assessment', 'Cross-cloud compatibility review', 'Effort and gap analysis'],
+     ARRAY['A migration readiness assessment report', 'A concrete list of compatibility gaps', 'An effort estimate for the migration'],
+     ARRAY['Azure', 'Google Cloud Platform'],
+     ARRAY['Data intake & scoping', 'Analysis', 'Validation', 'Delivery'],
+     ARRAY['Businesses considering a move off their current cloud provider', 'Teams evaluating multi-cloud or cloud-diversification strategy', 'Organizations with compliance-driven cloud requirements'],
+     '[{"question":"Does this include the actual migration?","answer":"This service delivers the assessment; the migration itself is scoped separately once you have decided to proceed."},{"question":"Which cloud providers can this assess?","answer":"Azure and GCP are covered directly; share your current provider in the brief."}]'::jsonb),
+    ('cloud-infrastructure', 'auto-scaling-configuration', 'Auto-Scaling Configuration', 'Auto-scaling configured for your infrastructure to handle variable load.',
+     'NOVA AI configures auto-scaling rules so your infrastructure grows and shrinks with real traffic. Because this affects how live production infrastructure behaves under load, the configuration is reviewed before activation.', 'approval_required', 7,
+     ARRAY['Auto-scaling rule configuration', 'Load-based scaling policy design', 'Review before activation on production traffic'],
+     ARRAY['Configured auto-scaling for your infrastructure', 'A review step before activation', 'Documentation of the scaling rules'],
+     ARRAY['Cloud auto-scaling'],
+     ARRAY['Assessment', 'Configuration & implementation', 'Validation & testing', 'Human review & approval', 'Delivery'],
+     ARRAY['Applications with variable or unpredictable traffic', 'Teams currently over-provisioning to handle peak load manually', 'Infrastructure preparing for a traffic-heavy launch'],
+     '[{"question":"Does a human review this before it goes live?","answer":"Yes. Because this affects how live production infrastructure behaves under load, the configuration is reviewed before activation."},{"question":"Will this reduce my infrastructure costs?","answer":"It typically reduces over-provisioning costs during low-traffic periods, though exact savings depend on your traffic pattern."}]'::jsonb),
+    ('cloud-infrastructure', 'cost-optimization-review', 'Cost Optimization Review', 'A review of your cloud spend with savings applied directly.',
+     'NOVA AI reviews your cloud spend for over-provisioned or unused resources and applies the safe optimizations directly, rather than just producing a report.', 'autonomous', 8,
+     ARRAY['Cloud spend analysis', 'Over-provisioned resource identification', 'Direct application of safe optimizations'],
+     ARRAY['A cloud cost review with findings', 'Safe optimizations applied directly', 'An estimated savings summary'],
+     ARRAY['Cloud cost analysis'],
+     ARRAY['Assessment', 'Configuration & implementation', 'Validation & testing', 'Delivery'],
+     ARRAY['Teams with cloud spend that has grown without regular review', 'Businesses wanting cost accountability on infrastructure', 'Organizations preparing for a budget review'],
+     '[{"question":"Will this risk breaking anything in production?","answer":"Only safe, verified optimizations are applied directly; anything with real risk is flagged for your review instead."},{"question":"How much can I expect to save?","answer":"Savings depend entirely on your actual usage; the review includes a concrete estimate based on what is found."}]'::jsonb),
+
+    ('defensive-cybersecurity', 'api-security-review', 'API Security Review', 'Your API reviewed for common security issues.',
+     'NOVA AI reviews your API for common security issues such as broken authentication, excessive data exposure, and missing rate limiting, and reports what it finds.', 'autonomous', 6,
+     ARRAY['Authentication and authorization review', 'Data exposure review', 'Rate limiting and abuse-prevention review'],
+     ARRAY['An API security review report', 'Prioritized findings and recommendations'],
+     ARRAY['API security'],
+     ARRAY['Data intake & scoping', 'Analysis', 'Validation', 'Delivery'],
+     ARRAY['APIs that have never had a dedicated security review', 'Teams exposing new endpoints to external consumers', 'Businesses preparing for a security audit'],
+     '[{"question":"Do you need production access to review the API?","answer":"API documentation and a test or staging environment are typically enough; production access is not required."},{"question":"Do you also fix the issues found?","answer":"This service delivers the review; Bug Fixing & Code Refactoring can apply the fixes as a follow-up."}]'::jsonb),
+    ('defensive-cybersecurity', 'access-control-permissions-audit', 'Access Control & Permissions Audit', 'User and role permissions across your system reviewed for over-privileged access.',
+     'NOVA AI reviews user and role permissions across your system to identify over-privileged accounts and unused access, and reports what it finds.', 'autonomous', 7,
+     ARRAY['Role and permission mapping', 'Over-privileged account identification', 'Unused access identification'],
+     ARRAY['An access control audit report', 'A list of over-privileged or unused accounts', 'Prioritized recommendations'],
+     ARRAY['Access control review'],
+     ARRAY['Data intake & scoping', 'Analysis', 'Validation', 'Delivery'],
+     ARRAY['Systems with permissions that have grown unmanaged over time', 'Teams preparing for a compliance or security review', 'Businesses with employee turnover requiring access cleanup'],
+     '[{"question":"What systems can this review?","answer":"Share the systems and how roles/permissions are managed in your brief and NOVA AI will confirm fit."},{"question":"Do you remove the access directly?","answer":"This service delivers findings and recommendations; removing access is a decision for your own team to action."}]'::jsonb),
+    ('defensive-cybersecurity', 'incident-response-readiness-review', 'Incident Response Readiness Review', 'A review of how ready your team is to respond to a real security incident.',
+     'NOVA AI reviews your existing monitoring, alerting, and response documentation against a real incident-response readiness checklist, and reports the gaps.', 'autonomous', 8,
+     ARRAY['Monitoring and alerting coverage review', 'Response documentation review', 'Gap analysis against a readiness checklist'],
+     ARRAY['An incident response readiness report', 'A prioritized list of gaps', 'Recommendations for closing each gap'],
+     ARRAY['Incident response'],
+     ARRAY['Data intake & scoping', 'Analysis', 'Validation', 'Delivery'],
+     ARRAY['Teams that have never tested their incident response process', 'Businesses preparing for a compliance requirement', 'Organizations after a near-miss security event'],
+     '[{"question":"Does this include running a real incident drill?","answer":"This service reviews your existing readiness against a checklist; a live drill can be scoped as a separate follow-up."},{"question":"What if we do not have any documented process yet?","answer":"That is a common and useful finding in itself; the review will recommend where to start."}]'::jsonb)
+) AS v(category_slug, slug, name, short_description, description, automation_level, display_order, capabilities, deliverables, technologies, process, suited_industries, faqs)
+JOIN public.service_categories sc ON sc.slug = v.category_slug
+ON CONFLICT (slug) DO NOTHING;

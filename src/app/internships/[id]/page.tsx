@@ -6,18 +6,23 @@ import { PageHeader } from "@/components/app/page-header";
 import { EmptyState } from "@/components/app/empty-state";
 import { ErrorState } from "@/components/app/error-state";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { createServerSideClient } from "@/lib/supabase";
 import { getAuthenticatedUser } from "@/lib/auth";
 
 const idSchema = z.string().uuid();
 
+const DURATION_LABELS: Record<number, string> = { 4: "1-month", 12: "3-month", 24: "6-month" };
+
 interface InternshipRow {
   title: string;
   description: string;
   requirements: string;
   eligibility: string;
+  duration_weeks: number | null;
   created_at: string;
+  internship_programs: { slug: string; name: string } | null;
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -51,7 +56,7 @@ export default async function InternshipDetailPage({ params }: { params: Promise
 
   const { data: internship, error } = await supabase
     .from("internships")
-    .select("title, description, requirements, eligibility, created_at")
+    .select("title, description, requirements, eligibility, duration_weeks, created_at, internship_programs(slug, name)")
     .eq("id", id)
     .eq("status", "open")
     .maybeSingle();
@@ -69,12 +74,15 @@ export default async function InternshipDetailPage({ params }: { params: Promise
     return notFoundState;
   }
 
-  const row = internship as InternshipRow;
+  const row = internship as unknown as InternshipRow;
   const auth = await getAuthenticatedUser();
   const isStudent = Boolean(auth?.roles.includes("student"));
 
   return (
     <PublicPageShell>
+      <div className="flex flex-wrap items-center gap-2">
+        {row.duration_weeks && <Badge variant="default">{DURATION_LABELS[row.duration_weeks] ?? `${row.duration_weeks} weeks`}</Badge>}
+      </div>
       <PageHeader title={row.title} description={`Posted ${new Date(row.created_at).toLocaleDateString()}`} />
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -89,6 +97,16 @@ export default async function InternshipDetailPage({ params }: { params: Promise
         </div>
 
         <div className="flex flex-col gap-4">
+          {row.internship_programs && (
+            <Card>
+              <CardContent className="flex flex-col gap-3 p-6">
+                <p className="text-small font-medium text-text">Part of {row.internship_programs.name}</p>
+                <Link href={`/internship-programs/${row.internship_programs.slug}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  View internship program
+                </Link>
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardContent className="flex flex-col gap-3 p-6">
               {isStudent ? (

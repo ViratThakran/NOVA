@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { EmptyState } from "@/components/app/empty-state";
 import { ErrorState } from "@/components/app/error-state";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { createServerSideClient } from "@/lib/supabase";
@@ -15,10 +16,13 @@ export const metadata: Metadata = {
   description: "Browse open internships with NOVA and NOVA's partner companies.",
 };
 
+const DURATION_LABELS: Record<number, string> = { 4: "1-month", 12: "3-month", 24: "6-month" };
+
 interface InternshipListRow {
   id: string;
   title: string;
   description: string;
+  duration_weeks: number | null;
   created_at: string;
 }
 
@@ -33,7 +37,7 @@ export default async function InternshipsPage({ searchParams }: { searchParams: 
 
   let query = supabase
     .from("internships")
-    .select("id, title, description, created_at")
+    .select("id, title, description, duration_weeks, created_at")
     .eq("status", "open")
     .order("created_at", { ascending: false });
 
@@ -46,6 +50,14 @@ export default async function InternshipsPage({ searchParams }: { searchParams: 
   return (
     <PublicPageShell>
       <PageHeader title="Internships" description="Real, open internships — with NOVA and NOVA's partner companies." />
+
+      <p className="text-small text-text-muted">
+        Looking for a structured 1, 3, or 6-month track instead?{" "}
+        <Link href="/internship-programs" className="font-medium text-primary hover:underline">
+          Browse internship programs
+        </Link>
+        .
+      </p>
 
       <form method="get" className="flex max-w-md gap-2">
         <Input type="search" name="q" defaultValue={search ?? ""} placeholder="Search by title..." aria-label="Search internships by title" />
@@ -66,7 +78,10 @@ export default async function InternshipsPage({ searchParams }: { searchParams: 
           {(internships as InternshipListRow[]).map((internship) => (
             <Link key={internship.id} href={`/internships/${internship.id}`}>
               <Card className="h-full transition-colors hover:border-primary/40">
-                <CardHeader>
+                <CardHeader className="flex flex-col gap-2">
+                  {internship.duration_weeks && (
+                    <Badge variant="default">{DURATION_LABELS[internship.duration_weeks] ?? `${internship.duration_weeks} weeks`}</Badge>
+                  )}
                   <CardTitle as="h2">{internship.title}</CardTitle>
                   <CardDescription className="line-clamp-3">{internship.description}</CardDescription>
                 </CardHeader>

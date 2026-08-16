@@ -19,6 +19,9 @@ interface CourseRow {
   id: string;
   title: string;
   description: string;
+  overview: string;
+  prerequisites: string;
+  learning_outcomes: string[];
   level: string;
   duration_hours: number;
   display_order: number;
@@ -60,7 +63,9 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
 
   const { data: course, error } = await supabase
     .from("courses")
-    .select("id, title, description, level, duration_hours, display_order, program_id, programs(slug, name, short_description), course_skills(skills(name))")
+    .select(
+      "id, title, description, overview, prerequisites, learning_outcomes, level, duration_hours, display_order, program_id, programs(slug, name, short_description), course_skills(skills(name))"
+    )
     .eq("id", id)
     .eq("status", "published")
     .maybeSingle();
@@ -97,16 +102,37 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ i
         <Badge variant="default">{row.level}</Badge>
         <Badge variant="default">{row.duration_hours} hours</Badge>
       </div>
-      <PageHeader title={row.title} />
+      <PageHeader title={row.title} description={row.description} />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-2">
           <Card>
             <CardContent className="flex flex-col gap-4 p-6">
-              <div className="flex flex-col gap-1.5">
-                <h3 className="text-small font-semibold text-text">Overview</h3>
-                <p className="whitespace-pre-line text-body text-text-muted">{row.description}</p>
-              </div>
+              {row.overview && (
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="text-small font-semibold text-text">Overview</h3>
+                  <p className="whitespace-pre-line text-body text-text-muted">{row.overview}</p>
+                </div>
+              )}
+              {row.prerequisites && (
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="text-small font-semibold text-text">Prerequisites</h3>
+                  <p className="whitespace-pre-line text-body text-text-muted">{row.prerequisites}</p>
+                </div>
+              )}
+              {row.learning_outcomes.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="text-small font-semibold text-text">What you'll learn</h3>
+                  <ul className="flex flex-col gap-1 text-body text-text-muted">
+                    {row.learning_outcomes.map((outcome) => (
+                      <li key={outcome} className="flex gap-2">
+                        <span aria-hidden="true">•</span>
+                        <span>{outcome}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {skills.length > 0 && (
                 <div className="flex flex-col gap-1.5">
                   <h3 className="text-small font-semibold text-text">Skills covered</h3>

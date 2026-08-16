@@ -15,6 +15,11 @@ const AUTOMATION_LABELS: Record<string, string> = {
   approval_required: "AI-executed, approval required",
 };
 
+interface ServiceFaq {
+  question: string;
+  answer: string;
+}
+
 interface ServiceRow {
   id: string;
   category_id: string;
@@ -22,6 +27,12 @@ interface ServiceRow {
   short_description: string;
   description: string;
   automation_level: string;
+  capabilities: string[];
+  deliverables: string[];
+  technologies: string[];
+  process: string[];
+  suited_industries: string[];
+  faqs: ServiceFaq[];
   service_categories: { slug: string; name: string } | null;
 }
 
@@ -48,7 +59,9 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
 
   const { data: service, error } = await supabase
     .from("services")
-    .select("id, category_id, name, short_description, description, automation_level, service_categories(slug, name)")
+    .select(
+      "id, category_id, name, short_description, description, automation_level, capabilities, deliverables, technologies, process, suited_industries, faqs, service_categories(slug, name)"
+    )
     .eq("slug", slug)
     .eq("published", true)
     .maybeSingle();
@@ -103,8 +116,89 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
                 <h3 className="text-small font-semibold text-text">What NOVA delivers</h3>
                 <p className="whitespace-pre-line text-body text-text-muted">{row.description}</p>
               </div>
+              {row.capabilities.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="text-small font-semibold text-text">Capabilities</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {row.capabilities.map((item) => (
+                      <Badge key={item} variant="default">
+                        {item}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {row.deliverables.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="text-small font-semibold text-text">What you get</h3>
+                  <ul className="flex flex-col gap-1 text-body text-text-muted">
+                    {row.deliverables.map((item) => (
+                      <li key={item} className="flex gap-2">
+                        <span aria-hidden="true">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {row.technologies.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="text-small font-semibold text-text">Technologies</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {row.technologies.map((item) => (
+                      <Badge key={item} variant="info">
+                        {item}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {row.process.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="text-small font-semibold text-text">How it works</h3>
+                  <ol className="flex flex-col gap-1 text-body text-text-muted">
+                    {row.process.map((step, index) => (
+                      <li key={step} className="flex gap-2">
+                        <span aria-hidden="true" className="font-medium text-text">
+                          {index + 1}.
+                        </span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+              {row.suited_industries.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="text-small font-semibold text-text">Typical fit</h3>
+                  <ul className="flex flex-col gap-1 text-body text-text-muted">
+                    {row.suited_industries.map((item) => (
+                      <li key={item} className="flex gap-2">
+                        <span aria-hidden="true">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </CardContent>
           </Card>
+
+          {row.faqs.length > 0 && (
+            <Card>
+              <CardContent className="flex flex-col gap-4 p-6">
+                <h3 className="text-small font-semibold text-text">Frequently asked questions</h3>
+                <div className="flex flex-col gap-3">
+                  {row.faqs.map((faq) => (
+                    <div key={faq.question} className="flex flex-col gap-1">
+                      <p className="text-small font-medium text-text">{faq.question}</p>
+                      <p className="text-small text-text-muted">{faq.answer}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="flex flex-col gap-4">

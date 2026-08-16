@@ -25,6 +25,8 @@ interface ProgramRow {
   name: string;
   short_description: string;
   long_description: string;
+  overview: string;
+  prerequisites: string;
   category: string;
   difficulty: string;
   duration_weeks: number;
@@ -62,7 +64,7 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
   const { data: program, error: programError } = await supabase
     .from("programs")
     .select(
-      "id, slug, name, short_description, long_description, category, difficulty, duration_weeks, career_outcomes, program_skills(skills(name))"
+      "id, slug, name, short_description, long_description, overview, prerequisites, category, difficulty, duration_weeks, career_outcomes, program_skills(skills(name))"
     )
     .eq("slug", slug)
     .eq("status", "published")
@@ -119,6 +121,8 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
           <Card>
             <CardContent className="flex flex-col gap-4 p-6">
               <Section title="About this program" body={row.long_description} />
+              {row.overview && <Section title="How it's structured" body={row.overview} />}
+              {row.prerequisites && <Section title="Prerequisites" body={row.prerequisites} />}
               {row.career_outcomes.length > 0 && (
                 <div className="flex flex-col gap-1.5">
                   <h3 className="text-small font-semibold text-text">Career outcomes</h3>
