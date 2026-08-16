@@ -162,3 +162,218 @@ export async function decideApproval(supabase: SupabaseClient, approvalId: strin
   if (error) return { status: "error", message: error.message };
   return { status: "success" };
 }
+
+// ---------------------------------------------------------------------
+// Operations overview — cross-request internal visibility (Phase 9.5).
+// ---------------------------------------------------------------------
+// A platform admin already has full SELECT on ai_tasks/agent_runs/
+// ai_approvals/ai_artifacts via the "OR is_current_user_admin()" branch on
+// every one of those tables' existing RLS policies — this reads exactly
+// what an admin's own session is already allowed to see, scoped and
+// shaped for a dashboard. No new RLS/grant, no second AI-tables querying
+// path: this is the one place that layer of reads lives, so no UI code
+// ever queries ai_tasks/agent_runs/ai_approvals/ai_artifacts directly.
+
+const OVERVIEW_LIMIT = 20;
+
+interface RelatedAgent {
+  name: string | null;
+}
+interface RelatedService {
+  id: string;
+  services: { name: string } | { name: string }[] | null;
+}
+
+function firstOf<T>(value: T | T[] | null): T | null {
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
+function serviceLabel(row: RelatedService | RelatedService[] | null): { serviceRequestId: string; serviceName: string | null } | null {
+  const request = firstOf(row);
+  if (!request) return null;
+  const service = firstOf(request.services);
+  return { serviceRequestId: request.id, serviceName: service?.name ?? null };
+}
+
+export interface OperationsApproval {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  reason: string;
+  resourceDescription: string | null;
+  agentName: string | null;
+  serviceRequestId: string | null;
+  serviceName: string | null;
+  createdAt: string;
+}
+
+export interface OperationsTask {
+  id: string;
+  title: string;
+  status: string;
+  agentName: string | null;
+  serviceRequestId: string | null;
+  serviceName: string | null;
+  retryCount: number;
+  maxRetries: number;
+  error: string | null;
+  updatedAt: string;
+}
+
+export interface OperationsRun {
+  id: string;
+  taskId: string;
+  taskTitle: string | null;
+  agentName: string | null;
+  status: string;
+  summary: string | null;
+  startedAt: string;
+  completedAt: string | null;
+}
+
+export interface OperationsArtifact {
+  id: string;
+  taskId: string;
+  serviceRequestId: string;
+  serviceName: string | null;
+  type: string;
+  title: string;
+  agentName: string | null;
+  createdAt: string;
+}
+
+export interface OperationsOverview {
+  pendingApprovals: OperationsApproval[];
+  runningTasks: OperationsTask[];
+  failedTasks: OperationsTask[];
+  recentlyCompletedTasks: OperationsTask[];
+  recentAgentRuns: OperationsRun[];
+  recentArtifacts: OperationsArtifact[];
+  waitingForInterventionTasks: OperationsTask[];
+}
+
+function mapTaskRow(row: {
+  id: string;
+  title: string;
+  status: string;
+  retry_count: number;
+  max_retries: number;
+  error: string | null;
+  updated_at: string;
+  agent_definitions: RelatedAgent | RelatedAgent[] | null;
+  service_requests: RelatedService | RelatedService[] | null;
+}): OperationsTask {
+  const agent = firstOf(row.agent_definitions);
+  const service = serviceLabel(row.service_requests);
+  return {
+    id: row.id,
+    title: row.title,
+    status: row.status,
+    agentName: agent?.name ?? null,
+    serviceRequestId: service?.serviceRequestId ?? null,
+    serviceName: service?.serviceName ?? null,
+    retryCount: row.retry_count,
+    maxRetries: row.max_retries,
+    error: row.error,
+    updatedAt: row.updated_at,
+  };
+}
+
+const TASK_OVERVIEW_SELECT =
+  "id, title, status, retry_count, max_retries, error, updated_at, agent_definitions(name), service_requests(id, services(name))";
+
+// getOperationsOverview() — the one cross-request read the internal AI
+// Operations dashboard needs. Never returns provider names, prompts, or
+// raw tool/capability internals — only what an operator needs to answer
+// "what's running, what failed, what's waiting, what needs me."
+export async function getOperationsOverview(supabase: SupabaseClient): Promise<OperationsOverview> {
+  const [approvalsRes, runningRes, failedRes, completedRes, runsRes, artifactsRes, waitingRes] = await Promise.all([
+    supabase
+      .from("ai_approvals")
+      .select("id, ai_task_id, reason, resource_description, created_at, agent_definitions(name), ai_tasks(title, service_requests(id, services(name)))")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(OVERVIEW_LIMIT),
+    supabase.from("ai_tasks").select(TASK_OVERVIEW_SELECT).eq("status", "running").order("updated_at", { ascending: false }).limit(OVERVIEW_LIMIT),
+    supabase.from("ai_tasks").select(TASK_OVERVIEW_SELECT).eq("status", "failed").order("updated_at", { ascending: false }).limit(OVERVIEW_LIMIT),
+    supabase.from("ai_tasks").select(TASK_OVERVIEW_SELECT).eq("status", "completed").order("updated_at", { ascending: false }).limit(OVERVIEW_LIMIT),
+    supabase
+      .from("agent_runs")
+      .select("id, ai_task_id, status, summary, started_at, completed_at, agent_definitions(name), ai_tasks(title)")
+      .order("started_at", { ascending: false })
+      .limit(OVERVIEW_LIMIT),
+    supabase
+      .from("ai_artifacts")
+      .select("id, ai_task_id, service_request_id, type, title, created_at, agent_definitions(name), service_requests(id, services(name))")
+      .order("created_at", { ascending: false })
+      .limit(OVERVIEW_LIMIT),
+    supabase.from("ai_tasks").select(TASK_OVERVIEW_SELECT).eq("status", "waiting_for_approval").order("updated_at", { ascending: false }).limit(OVERVIEW_LIMIT),
+  ]);
+
+  const pendingApprovals: OperationsApproval[] = (approvalsRes.data ?? []).map((row) => {
+    const agent = firstOf(row.agent_definitions as RelatedAgent | RelatedAgent[] | null);
+    const task = firstOf(row.ai_tasks as ({ title: string; service_requests: RelatedService | RelatedService[] | null }) | Array<{ title: string; service_requests: RelatedService | RelatedService[] | null }> | null);
+    const service = serviceLabel(task?.service_requests ?? null);
+    return {
+      id: row.id,
+      taskId: row.ai_task_id,
+      taskTitle: task?.title ?? "AI task",
+      reason: row.reason,
+      resourceDescription: row.resource_description,
+      agentName: agent?.name ?? null,
+      serviceRequestId: service?.serviceRequestId ?? null,
+      serviceName: service?.serviceName ?? null,
+      createdAt: row.created_at,
+    };
+  });
+
+  const runningTasks = (runningRes.data ?? []).map(mapTaskRow);
+  const failedTasks = (failedRes.data ?? []).map(mapTaskRow);
+  const recentlyCompletedTasks = (completedRes.data ?? []).map(mapTaskRow);
+  const waitingApprovalTasks = (waitingRes.data ?? []).map(mapTaskRow);
+
+  // "Needs a human" = already waiting on an approval decision, or a
+  // failure that has exhausted its retry budget and can't self-heal.
+  const stuckFailedTasks = failedTasks.filter((task) => task.retryCount >= task.maxRetries);
+  const waitingForInterventionTasks = [...waitingApprovalTasks, ...stuckFailedTasks];
+
+  const recentAgentRuns: OperationsRun[] = (runsRes.data ?? []).map((row) => {
+    const agent = firstOf(row.agent_definitions as RelatedAgent | RelatedAgent[] | null);
+    const task = firstOf(row.ai_tasks as { title: string } | { title: string }[] | null);
+    return {
+      id: row.id,
+      taskId: row.ai_task_id,
+      taskTitle: task?.title ?? null,
+      agentName: agent?.name ?? null,
+      status: row.status,
+      summary: row.summary,
+      startedAt: row.started_at,
+      completedAt: row.completed_at,
+    };
+  });
+
+  const recentArtifacts: OperationsArtifact[] = (artifactsRes.data ?? []).map((row) => {
+    const agent = firstOf(row.agent_definitions as RelatedAgent | RelatedAgent[] | null);
+    const service = serviceLabel(row.service_requests as RelatedService | RelatedService[] | null);
+    return {
+      id: row.id,
+      taskId: row.ai_task_id,
+      serviceRequestId: row.service_request_id,
+      serviceName: service?.serviceName ?? null,
+      type: row.type,
+      title: row.title,
+      agentName: agent?.name ?? null,
+      createdAt: row.created_at,
+    };
+  });
+
+  return {
+    pendingApprovals,
+    runningTasks,
+    failedTasks,
+    recentlyCompletedTasks,
+    recentAgentRuns,
+    recentArtifacts,
+    waitingForInterventionTasks,
+  };
+}

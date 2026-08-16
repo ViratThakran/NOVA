@@ -38,6 +38,7 @@ export const ADMIN_NAV_ITEMS: readonly DashboardNavItem[] = [
   { href: "/admin/internships", label: "Internships" },
   { href: "/admin/services", label: "Services" },
   { href: "/admin/services/requests", label: "Service Requests" },
+  { href: "/admin/ai-operations", label: "AI Operations" },
   { href: "/admin/applications", label: "Applications" },
   { href: "/admin/enrollments", label: "Enrollments" },
   { href: "/admin/audit-logs", label: "Audit Logs" },
