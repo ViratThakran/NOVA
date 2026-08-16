@@ -77,6 +77,16 @@ export const internshipStatusSchema = z.object({
   status: z.enum(["draft", "open", "closed", "archived"]),
 });
 
+// Schema for creating a new company via create_company() — same name/
+// description shape as companyProfileSchema below, but with no company_id
+// since none exists yet. Deliberately collects nothing beyond what the
+// companies table itself has columns for (see the migration's `companies`
+// table: id, name, description, timestamps only).
+export const createCompanySchema = z.object({
+  name: z.string().min(1, "Company name is required").max(200),
+  description: z.string().max(2000).optional(),
+});
+
 // Schema for updating a company's profile fields
 export const companyProfileSchema = z.object({
   company_id: z.string().uuid("Invalid company ID"),
@@ -104,15 +114,110 @@ export const removeCompanyMemberSchema = z.object({
   member_user_id: z.string().uuid("Invalid user ID"),
 });
 
-// -----------------------------------------------------------------------
-// Service catalog schemas (Phase 8A)
-// -----------------------------------------------------------------------
-
 const slugSchema = z
   .string()
   .min(1, "Slug is required")
   .max(100)
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Slug must be lowercase letters, numbers, and hyphens only");
+
+// -----------------------------------------------------------------------
+// Program/course catalog management schemas (Phase 10D.1)
+// -----------------------------------------------------------------------
+// Mirrors every column the programs/courses tables actually have (see the
+// migration's `programs`/`courses` CREATE TABLE) — no invented fields.
+// category/difficulty/level enums match the tables' own CHECK constraints
+// exactly, the same discipline serviceSchema's automation_level follows.
+
+export const programSchema = z.object({
+  slug: slugSchema,
+  name: z.string().min(1, "Name is required").max(200),
+  short_description: z.string().min(1, "Short description is required").max(300),
+  long_description: z.string().min(1, "Long description is required").max(5000),
+  overview: z.string().max(5000).optional(),
+  prerequisites: z.string().max(2000).optional(),
+  category: z.enum([
+    "ai_ml",
+    "data_analytics",
+    "software_development",
+    "cybersecurity",
+    "cloud_devops",
+    "design",
+    "emerging_tech",
+  ]),
+  difficulty: z.enum(["beginner", "intermediate", "advanced"]),
+  duration_weeks: z.coerce.number().int().min(1, "Duration must be at least 1 week"),
+  // Submitted as a single newline-separated textarea field and split here —
+  // matches how onboarding's comma-separated skills field is parsed in
+  // completeOnboardingAction, same "one plain-text field, split server-side"
+  // convention rather than a dynamic array-of-inputs form.
+  career_outcomes: z
+    .string()
+    .max(2000)
+    .optional()
+    .transform((value) =>
+      (value ?? "")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+    ),
+  display_order: z.coerce.number().int().min(0).default(0),
+});
+
+export const editProgramSchema = programSchema.extend({
+  program_id: z.string().uuid("Invalid program ID"),
+});
+
+// Mirrors the programs.status CHECK constraint exactly — no invented states.
+export const programStatusSchema = z.object({
+  program_id: z.string().uuid("Invalid program ID"),
+  status: z.enum(["draft", "published", "archived"]),
+});
+
+export const programSkillsSchema = z.object({
+  program_id: z.string().uuid("Invalid program ID"),
+  skill_ids: z.array(z.string().uuid()),
+});
+
+export const courseSchema = z.object({
+  program_id: z.string().uuid("Invalid program"),
+  slug: slugSchema,
+  title: z.string().min(1, "Title is required").max(200),
+  description: z.string().min(1, "Description is required").max(2000),
+  overview: z.string().max(5000).optional(),
+  prerequisites: z.string().max(2000).optional(),
+  learning_outcomes: z
+    .string()
+    .max(2000)
+    .optional()
+    .transform((value) =>
+      (value ?? "")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+    ),
+  level: z.enum(["beginner", "intermediate", "advanced"]),
+  duration_hours: z.coerce.number().int().min(1, "Duration must be at least 1 hour"),
+  display_order: z.coerce.number().int().min(0).default(0),
+});
+
+export const editCourseSchema = courseSchema.extend({
+  course_id: z.string().uuid("Invalid course ID"),
+});
+
+// Mirrors the courses.status CHECK constraint exactly.
+export const courseStatusSchema = z.object({
+  course_id: z.string().uuid("Invalid course ID"),
+  status: z.enum(["draft", "published", "archived"]),
+});
+
+export const courseSkillsSchema = z.object({
+  course_id: z.string().uuid("Invalid course ID"),
+  skill_ids: z.array(z.string().uuid()),
+});
+
+// -----------------------------------------------------------------------
+// Service catalog schemas (Phase 8A)
+// -----------------------------------------------------------------------
 
 // Schema for creating a service — content fields shared with editServiceSchema.
 export const serviceSchema = z.object({

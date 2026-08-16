@@ -24,6 +24,7 @@ interface InternshipListRow {
   description: string;
   duration_weeks: number | null;
   created_at: string;
+  companies: { name: string } | null;
 }
 
 // Public page — anon reads this directly under the new "open internships"
@@ -37,7 +38,7 @@ export default async function InternshipsPage({ searchParams }: { searchParams: 
 
   let query = supabase
     .from("internships")
-    .select("id, title, description, duration_weeks, created_at")
+    .select("id, title, description, duration_weeks, created_at, companies(name)")
     .eq("status", "open")
     .order("created_at", { ascending: false });
 
@@ -75,13 +76,16 @@ export default async function InternshipsPage({ searchParams }: { searchParams: 
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {(internships as InternshipListRow[]).map((internship) => (
+          {(internships as unknown as InternshipListRow[]).map((internship) => (
             <Link key={internship.id} href={`/internships/${internship.id}`}>
               <Card className="h-full transition-colors hover:border-primary/40">
                 <CardHeader className="flex flex-col gap-2">
-                  {internship.duration_weeks && (
-                    <Badge variant="default">{DURATION_LABELS[internship.duration_weeks] ?? `${internship.duration_weeks} weeks`}</Badge>
-                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {internship.duration_weeks && (
+                      <Badge variant="default">{DURATION_LABELS[internship.duration_weeks] ?? `${internship.duration_weeks} weeks`}</Badge>
+                    )}
+                    {internship.companies?.name && <Badge variant="primary">{internship.companies.name}</Badge>}
+                  </div>
                   <CardTitle as="h2">{internship.title}</CardTitle>
                   <CardDescription className="line-clamp-3">{internship.description}</CardDescription>
                 </CardHeader>

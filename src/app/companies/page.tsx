@@ -21,9 +21,14 @@ export default function CompaniesPage() {
         title="Post internships and review applicants"
         description="Companies can manage a profile, post internships, and review applicants from the company platform."
         action={
-          <Link href="/login" className={buttonVariants({ variant: "primary", size: "sm" })}>
-            Sign in to the company platform
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/company/new" className={buttonVariants({ variant: "primary", size: "sm" })}>
+              Create a company account
+            </Link>
+            <Link href="/login" className={buttonVariants({ variant: "outline", size: "sm" })}>
+              Sign in
+            </Link>
+          </div>
         }
       />
     </PublicPageShell>

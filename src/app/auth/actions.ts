@@ -136,6 +136,27 @@ export async function loginAction(
 
   const { data: roleRows } = await supabase.from("user_roles").select("role").eq("user_id", data.user.id);
   const roles = (roleRows ?? []).map((row) => row.role);
+
+  // Every signup gets `role: 'student'` by default (see handle_new_user())
+  // regardless of intent — company_members membership, not user_roles, is
+  // what actually makes someone a company user (see requireCompanyAccess()).
+  // getDashboardPathForRoles() only ever sees the student role for these
+  // users and would send them to /student/dashboard; checked here, before
+  // falling back to that, so an admin's own login still isn't affected
+  // (admin keeps priority, same as the existing student-vs-admin rule).
+  const isAdmin = roles.some((role) => role === "admin" || role === "super_admin");
+  if (!isAdmin) {
+    const { data: membership } = await supabase
+      .from("company_members")
+      .select("company_id")
+      .eq("user_id", data.user.id)
+      .limit(1)
+      .maybeSingle();
+    if (membership) {
+      redirect("/company");
+    }
+  }
+
   const dashboardPath = getDashboardPathForRoles(roles);
 
   // A student who hasn't finished onboarding lands there directly instead

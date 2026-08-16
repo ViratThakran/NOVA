@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getAuthenticatedUser } from "@/lib/auth";
 import {
+  createCompanySchema,
   companyProfileSchema,
   addCompanyMemberSchema,
   updateCompanyMemberRoleSchema,
@@ -41,6 +42,44 @@ function friendlyRpcError(error: { message?: string } | null): string {
     return "Invalid review decision.";
   }
   return "Something went wrong. Please try again.";
+}
+
+// Creates a brand-new company and makes the caller its owner, via the
+// existing create_company() RPC — the sole path into companies/
+// company_members (no INSERT policy exists on either table for a direct
+// client write; see the migration's "no direct client INSERT path"
+// comment). The RPC itself does both inserts in one transaction and derives
+// the actor from auth.uid() server-side, so there is nothing here to
+// double-check beyond "is this caller authenticated" and "is the input
+// well-formed" — the RPC re-validates both anyway.
+export async function createCompanyAction(
+  _prevState: CompanyActionState,
+  formData: FormData
+): Promise<CompanyActionState> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase } = auth;
+
+  const parsed = createCompanySchema.safeParse({
+    name: formData.get("name"),
+    description: formData.get("description") || undefined,
+  });
+  if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
+
+  const { data: companyId, error } = await supabase.rpc("create_company", {
+    company_name: parsed.data.name,
+    company_description: parsed.data.description ?? null,
+  });
+
+  if (error || !companyId) {
+    console.error("createCompanyAction:", error);
+    if (error?.message.includes("Invalid Input")) {
+      return { status: "error", message: "Company name is required." };
+    }
+    return { status: "error", message: "We couldn't create this company. Please try again." };
+  }
+
+  redirect("/company");
 }
 
 export async function updateCompanyProfileAction(

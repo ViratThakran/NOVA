@@ -10,6 +10,14 @@ import {
   internshipSchema,
   editInternshipSchema,
   internshipStatusSchema,
+  programSchema,
+  editProgramSchema,
+  programStatusSchema,
+  programSkillsSchema,
+  courseSchema,
+  editCourseSchema,
+  courseStatusSchema,
+  courseSkillsSchema,
   serviceSchema,
   editServiceSchema,
   serviceStatusSchema,
@@ -256,6 +264,368 @@ export async function updateInternshipStatusAction(
   revalidatePath("/admin/internships");
 
   return { status: "success", message: "Status updated." };
+}
+
+// -----------------------------------------------------------------------
+// Program catalog management (Phase 10D.1)
+// -----------------------------------------------------------------------
+// Same shape as the service actions above: direct table writes gated by a
+// redundant role check plus the real boundary, the "Admins can
+// insert/update programs" RLS policies already defined in the migration
+// (Phase 7) — no new RPC or policy was needed for any of this.
+
+export async function createProgramAction(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase, roles } = auth;
+
+  if (!roles.some((role) => ADMIN_ROLES.includes(role))) {
+    return { status: "error", message: "You don't have permission to create programs." };
+  }
+
+  const parsed = programSchema.safeParse({
+    slug: formData.get("slug"),
+    name: formData.get("name"),
+    short_description: formData.get("short_description"),
+    long_description: formData.get("long_description"),
+    overview: formData.get("overview") || undefined,
+    prerequisites: formData.get("prerequisites") || undefined,
+    category: formData.get("category"),
+    difficulty: formData.get("difficulty"),
+    duration_weeks: formData.get("duration_weeks"),
+    career_outcomes: formData.get("career_outcomes") || undefined,
+    display_order: formData.get("display_order"),
+  });
+
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
+  }
+
+  // published is never set here — new programs default to 'draft' via the
+  // column's own DEFAULT, same "create unpublished, publish explicitly"
+  // pattern createServiceAction uses.
+  const { data, error } = await supabase.from("programs").insert(parsed.data).select("id").single();
+
+  if (error) {
+    console.error("createProgramAction:", error);
+    if (error.code === "23505") return { status: "error", message: "A program with this slug already exists." };
+    return { status: "error", message: "We couldn't create this program. Please try again." };
+  }
+
+  revalidatePath("/admin/programs");
+  redirect(`/admin/programs/${data.id}`);
+}
+
+export async function updateProgramAction(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase, roles } = auth;
+
+  if (!roles.some((role) => ADMIN_ROLES.includes(role))) {
+    return { status: "error", message: "You don't have permission to edit programs." };
+  }
+
+  const parsed = editProgramSchema.safeParse({
+    program_id: formData.get("program_id"),
+    slug: formData.get("slug"),
+    name: formData.get("name"),
+    short_description: formData.get("short_description"),
+    long_description: formData.get("long_description"),
+    overview: formData.get("overview") || undefined,
+    prerequisites: formData.get("prerequisites") || undefined,
+    category: formData.get("category"),
+    difficulty: formData.get("difficulty"),
+    duration_weeks: formData.get("duration_weeks"),
+    career_outcomes: formData.get("career_outcomes") || undefined,
+    display_order: formData.get("display_order"),
+  });
+
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
+  }
+
+  const { program_id, ...fields } = parsed.data;
+
+  // Publish state goes through updateProgramStatusAction below, kept
+  // separate the same way updateServiceStatusAction stays separate from
+  // updateServiceAction.
+  const { error } = await supabase.from("programs").update(fields).eq("id", program_id);
+
+  if (error) {
+    console.error("updateProgramAction:", error);
+    if (error.code === "23505") return { status: "error", message: "A program with this slug already exists." };
+    return { status: "error", message: "We couldn't save these changes. Please try again." };
+  }
+
+  revalidatePath(`/admin/programs/${program_id}`);
+  revalidatePath("/admin/programs");
+  revalidatePath("/programs");
+
+  return { status: "success", message: "Program updated." };
+}
+
+export async function updateProgramStatusAction(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase, roles } = auth;
+
+  if (!roles.some((role) => ADMIN_ROLES.includes(role))) {
+    return { status: "error", message: "You don't have permission to change program status." };
+  }
+
+  const parsed = programStatusSchema.safeParse({
+    program_id: formData.get("program_id"),
+    status: formData.get("status"),
+  });
+
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
+  }
+
+  const { error } = await supabase.from("programs").update({ status: parsed.data.status }).eq("id", parsed.data.program_id);
+
+  if (error) {
+    console.error("updateProgramStatusAction:", error);
+    return { status: "error", message: "We couldn't update the status. Please try again." };
+  }
+
+  revalidatePath(`/admin/programs/${parsed.data.program_id}`);
+  revalidatePath("/admin/programs");
+  revalidatePath("/programs");
+
+  return { status: "success", message: "Status updated." };
+}
+
+// Replaces a program's full skill set in one action rather than exposing
+// add/remove-one endpoints — program_skills is a pure junction table with
+// no content of its own (see the migration), so "the set the admin just
+// submitted" is the only state that matters; there is nothing else on a
+// row to preserve across a partial update.
+export async function updateProgramSkillsAction(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase, roles } = auth;
+
+  if (!roles.some((role) => ADMIN_ROLES.includes(role))) {
+    return { status: "error", message: "You don't have permission to manage program skills." };
+  }
+
+  const parsed = programSkillsSchema.safeParse({
+    program_id: formData.get("program_id"),
+    skill_ids: formData.getAll("skill_ids"),
+  });
+
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
+  }
+
+  const { program_id, skill_ids } = parsed.data;
+
+  const { error: deleteError } = await supabase.from("program_skills").delete().eq("program_id", program_id);
+  if (deleteError) {
+    console.error("updateProgramSkillsAction (delete):", deleteError);
+    return { status: "error", message: "We couldn't update the skills. Please try again." };
+  }
+
+  if (skill_ids.length > 0) {
+    const { error: insertError } = await supabase
+      .from("program_skills")
+      .insert(skill_ids.map((skill_id) => ({ program_id, skill_id })));
+    if (insertError) {
+      console.error("updateProgramSkillsAction (insert):", insertError);
+      return { status: "error", message: "We couldn't update the skills. Please try again." };
+    }
+  }
+
+  revalidatePath(`/admin/programs/${program_id}`);
+  revalidatePath("/programs");
+
+  return { status: "success", message: "Skills updated." };
+}
+
+// -----------------------------------------------------------------------
+// Course catalog management (Phase 10D.1)
+// -----------------------------------------------------------------------
+
+export async function createCourseAction(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase, roles } = auth;
+
+  if (!roles.some((role) => ADMIN_ROLES.includes(role))) {
+    return { status: "error", message: "You don't have permission to create courses." };
+  }
+
+  const parsed = courseSchema.safeParse({
+    program_id: formData.get("program_id"),
+    slug: formData.get("slug"),
+    title: formData.get("title"),
+    description: formData.get("description"),
+    overview: formData.get("overview") || undefined,
+    prerequisites: formData.get("prerequisites") || undefined,
+    learning_outcomes: formData.get("learning_outcomes") || undefined,
+    level: formData.get("level"),
+    duration_hours: formData.get("duration_hours"),
+    display_order: formData.get("display_order"),
+  });
+
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
+  }
+
+  const { data, error } = await supabase.from("courses").insert(parsed.data).select("id").single();
+
+  if (error) {
+    console.error("createCourseAction:", error);
+    // courses' unique constraint is (program_id, slug), not slug alone.
+    if (error.code === "23505") return { status: "error", message: "A course with this slug already exists in this program." };
+    return { status: "error", message: "We couldn't create this course. Please try again." };
+  }
+
+  revalidatePath("/admin/courses");
+  redirect(`/admin/courses/${data.id}`);
+}
+
+export async function updateCourseAction(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase, roles } = auth;
+
+  if (!roles.some((role) => ADMIN_ROLES.includes(role))) {
+    return { status: "error", message: "You don't have permission to edit courses." };
+  }
+
+  const parsed = editCourseSchema.safeParse({
+    course_id: formData.get("course_id"),
+    program_id: formData.get("program_id"),
+    slug: formData.get("slug"),
+    title: formData.get("title"),
+    description: formData.get("description"),
+    overview: formData.get("overview") || undefined,
+    prerequisites: formData.get("prerequisites") || undefined,
+    learning_outcomes: formData.get("learning_outcomes") || undefined,
+    level: formData.get("level"),
+    duration_hours: formData.get("duration_hours"),
+    display_order: formData.get("display_order"),
+  });
+
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
+  }
+
+  const { course_id, ...fields } = parsed.data;
+
+  const { error } = await supabase.from("courses").update(fields).eq("id", course_id);
+
+  if (error) {
+    console.error("updateCourseAction:", error);
+    if (error.code === "23505") return { status: "error", message: "A course with this slug already exists in this program." };
+    return { status: "error", message: "We couldn't save these changes. Please try again." };
+  }
+
+  revalidatePath(`/admin/courses/${course_id}`);
+  revalidatePath("/admin/courses");
+  revalidatePath("/courses");
+
+  return { status: "success", message: "Course updated." };
+}
+
+export async function updateCourseStatusAction(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase, roles } = auth;
+
+  if (!roles.some((role) => ADMIN_ROLES.includes(role))) {
+    return { status: "error", message: "You don't have permission to change course status." };
+  }
+
+  const parsed = courseStatusSchema.safeParse({
+    course_id: formData.get("course_id"),
+    status: formData.get("status"),
+  });
+
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
+  }
+
+  const { error } = await supabase.from("courses").update({ status: parsed.data.status }).eq("id", parsed.data.course_id);
+
+  if (error) {
+    console.error("updateCourseStatusAction:", error);
+    return { status: "error", message: "We couldn't update the status. Please try again." };
+  }
+
+  revalidatePath(`/admin/courses/${parsed.data.course_id}`);
+  revalidatePath("/admin/courses");
+  revalidatePath("/courses");
+
+  return { status: "success", message: "Status updated." };
+}
+
+export async function updateCourseSkillsAction(
+  _prevState: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase, roles } = auth;
+
+  if (!roles.some((role) => ADMIN_ROLES.includes(role))) {
+    return { status: "error", message: "You don't have permission to manage course skills." };
+  }
+
+  const parsed = courseSkillsSchema.safeParse({
+    course_id: formData.get("course_id"),
+    skill_ids: formData.getAll("skill_ids"),
+  });
+
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your details." };
+  }
+
+  const { course_id, skill_ids } = parsed.data;
+
+  const { error: deleteError } = await supabase.from("course_skills").delete().eq("course_id", course_id);
+  if (deleteError) {
+    console.error("updateCourseSkillsAction (delete):", deleteError);
+    return { status: "error", message: "We couldn't update the skills. Please try again." };
+  }
+
+  if (skill_ids.length > 0) {
+    const { error: insertError } = await supabase
+      .from("course_skills")
+      .insert(skill_ids.map((skill_id) => ({ course_id, skill_id })));
+    if (insertError) {
+      console.error("updateCourseSkillsAction (insert):", insertError);
+      return { status: "error", message: "We couldn't update the skills. Please try again." };
+    }
+  }
+
+  revalidatePath(`/admin/courses/${course_id}`);
+  revalidatePath("/courses");
+
+  return { status: "success", message: "Skills updated." };
 }
 
 export async function createServiceAction(

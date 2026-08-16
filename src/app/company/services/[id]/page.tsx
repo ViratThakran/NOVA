@@ -6,6 +6,7 @@ import { ErrorState } from "@/components/app/error-state";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { requireCompanyAccess } from "@/lib/auth";
+import { customerDeliverableLabel } from "@/lib/deliverable-labels";
 import { CancelRequestButton } from "../cancel-request-button";
 
 export const metadata: Metadata = { title: "Service request — NOVA Company" };
@@ -101,11 +102,13 @@ export default async function CompanyServiceRequestDetailPage({ params }: { para
             <Card>
               <CardContent className="flex flex-col gap-3 p-6">
                 <h3 className="text-small font-semibold text-text">Deliverables</h3>
+                {/* Customer-facing: see src/lib/deliverable-labels.ts — never
+                    artifact.title or the raw type, both AI-Engine-authored. */}
                 <ul className="flex flex-col gap-2">
                   {(artifacts as ArtifactRow[]).map((artifact) => (
                     <li key={artifact.id} className="flex items-center justify-between gap-2 border-t border-border pt-2 first:border-t-0 first:pt-0">
-                      <span className="text-small text-text">{artifact.title}</span>
-                      <Badge variant="default">{artifact.type.replace(/_/g, " ")}</Badge>
+                      <span className="text-small text-text">{customerDeliverableLabel(artifact.type)}</span>
+                      <span className="text-caption text-text-muted">{new Date(artifact.created_at).toLocaleDateString()}</span>
                     </li>
                   ))}
                 </ul>

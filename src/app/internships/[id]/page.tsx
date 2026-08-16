@@ -23,6 +23,7 @@ interface InternshipRow {
   duration_weeks: number | null;
   created_at: string;
   internship_programs: { slug: string; name: string } | null;
+  companies: { name: string } | null;
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -56,7 +57,7 @@ export default async function InternshipDetailPage({ params }: { params: Promise
 
   const { data: internship, error } = await supabase
     .from("internships")
-    .select("title, description, requirements, eligibility, duration_weeks, created_at, internship_programs(slug, name)")
+    .select("title, description, requirements, eligibility, duration_weeks, created_at, internship_programs(slug, name), companies(name)")
     .eq("id", id)
     .eq("status", "open")
     .maybeSingle();
@@ -78,10 +79,27 @@ export default async function InternshipDetailPage({ params }: { params: Promise
   const auth = await getAuthenticatedUser();
   const isStudent = Boolean(auth?.roles.includes("student"));
 
+  // Auth-state-aware CTA (Part 2 spec): anonymous -> sign in/apply,
+  // authenticated student with no prior application -> apply, already
+  // applied -> view application. This is the one query beyond the
+  // internship row itself, scoped to the caller's own id — applications
+  // RLS already restricts a student to their own rows regardless.
+  let existingApplicationId: string | null = null;
+  if (isStudent && auth) {
+    const { data: existingApplication } = await auth.supabase
+      .from("applications")
+      .select("id")
+      .eq("internship_id", id)
+      .eq("student_id", auth.user.id)
+      .maybeSingle();
+    existingApplicationId = existingApplication?.id ?? null;
+  }
+
   return (
     <PublicPageShell>
       <div className="flex flex-wrap items-center gap-2">
         {row.duration_weeks && <Badge variant="default">{DURATION_LABELS[row.duration_weeks] ?? `${row.duration_weeks} weeks`}</Badge>}
+        {row.companies?.name && <Badge variant="primary">{row.companies.name}</Badge>}
       </div>
       <PageHeader title={row.title} description={`Posted ${new Date(row.created_at).toLocaleDateString()}`} />
 
@@ -109,7 +127,14 @@ export default async function InternshipDetailPage({ params }: { params: Promise
           )}
           <Card>
             <CardContent className="flex flex-col gap-3 p-6">
-              {isStudent ? (
+              {isStudent && existingApplicationId ? (
+                <>
+                  <p className="text-small font-medium text-text">You've already applied</p>
+                  <Link href={`/student/applications/${existingApplicationId}`} className={buttonVariants({ variant: "primary", size: "sm" })}>
+                    View application
+                  </Link>
+                </>
+              ) : isStudent ? (
                 <>
                   <p className="text-small font-medium text-text">Ready to apply?</p>
                   <Link href={`/student/internships/${id}`} className={buttonVariants({ variant: "primary", size: "sm" })}>

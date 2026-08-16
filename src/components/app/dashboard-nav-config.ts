@@ -14,6 +14,7 @@ export const STUDENT_NAV_ITEMS: readonly DashboardNavItem[] = [
   { href: "/student/applications", label: "Applications" },
   { href: "/student/enrollments", label: "Enrollments" },
   { href: "/student/services", label: "Services" },
+  { href: "/student/services/requests", label: "My Requests" },
   { href: "/student/programs", label: "Programs" },
   { href: "/student/learning", label: "Learning" },
   { href: "/student/projects", label: "Projects" },
@@ -29,12 +30,15 @@ export const COMPANY_NAV_ITEMS: readonly DashboardNavItem[] = [
   { href: "/company/internships", label: "Internships" },
   { href: "/company/applications", label: "Applications" },
   { href: "/company/services", label: "Services" },
+  { href: "/company/services/requests", label: "My Requests" },
 ];
 
 export const ADMIN_NAV_ITEMS: readonly DashboardNavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard" },
   { href: "/admin/students", label: "Students" },
   { href: "/admin/companies", label: "Companies" },
+  { href: "/admin/programs", label: "Programs" },
+  { href: "/admin/courses", label: "Courses" },
   { href: "/admin/internships", label: "Internships" },
   { href: "/admin/services", label: "Services" },
   { href: "/admin/services/requests", label: "Service Requests" },

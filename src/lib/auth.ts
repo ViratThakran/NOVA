@@ -110,7 +110,14 @@ export async function requireCompanyAccess() {
     .order("created_at", { ascending: false });
 
   if (!memberships || memberships.length === 0) {
-    redirect(getDashboardPathForRoles(roles));
+    // Admin priority is preserved exactly as getDashboardPathForRoles()
+    // already defines it — an admin visiting a company-only page still
+    // lands on their own dashboard, never offered company creation. A
+    // non-admin with no company yet is sent to create one instead of
+    // silently bouncing to /student, since /company/new is the real next
+    // step for someone who ended up here with company intent.
+    const isAdmin = roles.some((role) => ADMIN_ROLES.includes(role as AppRole));
+    redirect(isAdmin ? getDashboardPathForRoles(roles) : "/company/new");
   }
 
   const active = memberships[0];

@@ -5,25 +5,15 @@ import { EmptyState } from "@/components/app/empty-state";
 import { ErrorState } from "@/components/app/error-state";
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { requireCompanyAccess } from "@/lib/auth";
 import { RequestServiceForm } from "./request-service-form";
-import { CancelRequestButton } from "./cancel-request-button";
 
 export const metadata: Metadata = { title: "Services — NOVA Company" };
 
 const AUTOMATION_LABELS: Record<string, string> = {
   autonomous: "AI-executed",
   approval_required: "AI-executed, approval required",
-};
-
-const STATUS_VARIANTS: Record<string, "default" | "primary" | "success" | "warning" | "error" | "info"> = {
-  pending: "warning",
-  accepted: "info",
-  rejected: "error",
-  in_progress: "primary",
-  delivered: "success",
-  completed: "success",
-  cancelled: "default",
 };
 
 interface ServiceRow {
@@ -34,35 +24,26 @@ interface ServiceRow {
   service_categories: { name: string } | null;
 }
 
-interface RequestRow {
-  id: string;
-  status: string;
-  deliverable_notes: string | null;
-  created_at: string;
-  services: { name: string } | null;
-}
-
 export default async function CompanyServicesPage() {
-  const { supabase, companyId, companyRole } = await requireCompanyAccess();
+  const { supabase, companyId } = await requireCompanyAccess();
 
-  const [{ data: services, error: servicesError }, { data: requests, error: requestsError }] = await Promise.all([
-    supabase
-      .from("services")
-      .select("id, name, short_description, automation_level, service_categories(name)")
-      .eq("published", true)
-      .order("display_order", { ascending: true }),
-    // Company members share visibility into their own company's requests
-    // (Phase 8B RLS), same "any member can see" split as internships/applications.
-    supabase
-      .from("service_requests")
-      .select("id, status, deliverable_notes, created_at, services(name)")
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: false }),
-  ]);
+  // Discovery only — see /company/services/requests for tracking, kept
+  // structurally separate for the same reason documented in
+  // src/app/student/services/page.tsx.
+  const { data: services, error: servicesError } = await supabase
+    .from("services")
+    .select("id, name, short_description, automation_level, service_categories(name)")
+    .eq("published", true)
+    .order("display_order", { ascending: true });
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Services" description="Request AI-executed work from NOVA's service catalog on behalf of your company." />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <PageHeader title="Services" description="Request AI-executed work from NOVA's service catalog on behalf of your company." />
+        <Link href="/company/services/requests" className={buttonVariants({ variant: "outline", size: "sm" })}>
+          My requests
+        </Link>
+      </div>
 
       {servicesError ? (
         <ErrorState title="Couldn't load services" description="Something went wrong. Please try again." />
@@ -91,41 +72,6 @@ export default async function CompanyServicesPage() {
           ))}
         </div>
       )}
-
-      <div className="flex flex-col gap-4">
-        <h2 className="text-h3 text-text">Company requests</h2>
-        {requestsError ? (
-          <ErrorState title="Couldn't load requests" description="Something went wrong. Please try again." />
-        ) : !requests || requests.length === 0 ? (
-          <EmptyState title="No requests yet" description="Services your company requests will appear here." />
-        ) : (
-          <div className="flex flex-col gap-3">
-            {(requests as unknown as RequestRow[]).map((request) => (
-              <Card key={request.id}>
-                <CardContent className="flex flex-wrap items-center justify-between gap-4 p-6">
-                  <div className="flex flex-col gap-1">
-                    <Link href={`/company/services/${request.id}`} className="text-small font-medium text-text hover:text-primary">
-                      {request.services?.name ?? "Service"}
-                    </Link>
-                    <span className="text-caption text-text-muted">
-                      Requested {new Date(request.created_at).toLocaleDateString()}
-                    </span>
-                    {request.deliverable_notes && (
-                      <span className="text-caption text-text-muted">Delivery notes: {request.deliverable_notes}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={STATUS_VARIANTS[request.status] ?? "default"}>{request.status}</Badge>
-                    {request.status === "pending" && (companyRole === "owner" || companyRole === "admin") && (
-                      <CancelRequestButton requestId={request.id} />
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
