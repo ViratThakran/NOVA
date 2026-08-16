@@ -63,8 +63,14 @@ async function createFreshCompanyOwner(prefix = "ai-owner") {
   return { client, userId, companyId: companyId as string };
 }
 
+// Excludes 'ai-website-creation' — the one service with a typed, deterministic
+// AI workflow (Phase 8E). Picking it here would silently trigger the full
+// mock research -> development -> QA -> deployment pipeline as a side effect
+// of a plain service-request/task RPC call, which this file never expects
+// and never asserts on. Matches the same guard already used in
+// ai-engine.test.ts / ai-orchestration.test.ts / ai-workflow.test.ts.
 async function getPublishedService() {
-  const { data, error } = await admin.from("services").select("id").eq("published", true).limit(1).single();
+  const { data, error } = await admin.from("services").select("id").eq("published", true).neq("slug", "ai-website-creation").limit(1).single();
   if (error || !data) throw new Error(`Setup failure: ${error?.message}`);
   return data.id as string;
 }
