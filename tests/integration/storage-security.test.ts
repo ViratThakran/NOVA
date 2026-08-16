@@ -17,10 +17,6 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 
-const STUDENT_A_EMAIL = "student-a@test.nova";
-const STUDENT_A_PASSWORD = "TestPassword123!";
-const STUDENT_B_EMAIL = "student-b@test.nova";
-const STUDENT_B_PASSWORD = "TestPassword123!";
 const ADMIN_EMAIL = "admin@test.nova";
 const ADMIN_PASSWORD = "TestPassword123!";
 
@@ -42,31 +38,29 @@ const makeNonPdfBlob = () =>
 
 const makeLargePdfBlob = () => makePdfBlob(6 * 1024 * 1024); // 6MB
 
+function unique(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+}
+
+// Freshly signed-up students rather than the shared seeded
+// student-a@test.nova / student-b@test.nova pair — several other
+// integration test files also authenticate as those literal accounts
+// concurrently (Vitest runs test files in parallel). This file is the only
+// one that writes to `${studentAId}/...` / `${studentBId}/...` in the
+// resumes bucket, so there was no live collision, but signing up a fresh
+// pair here removes the dependency entirely.
+async function signUpStudent() {
+  const email = `${unique("storage-security-student")}@test.nova`;
+  const client = createClient(SUPABASE_URL, PUBLISHABLE_KEY);
+  const { data, error } = await client.auth.signUp({ email, password: "correcthorse1" });
+  if (error || !data.user) {
+    throw new Error(`Setup failure: could not sign up a fresh student: ${error?.message}`);
+  }
+  return { client, userId: data.user.id };
+}
+
 beforeAll(async () => {
-  studentA = createClient(SUPABASE_URL, PUBLISHABLE_KEY);
-  studentB = createClient(SUPABASE_URL, PUBLISHABLE_KEY);
   admin = createClient(SUPABASE_URL, PUBLISHABLE_KEY);
-
-  const { data: dataA, error: errorA } = await studentA.auth.signInWithPassword({
-    email: STUDENT_A_EMAIL,
-    password: STUDENT_A_PASSWORD,
-  });
-  if (errorA || !dataA.user) {
-    throw new Error(
-      `Setup failed: could not authenticate ${STUDENT_A_EMAIL}: ${errorA?.message ?? "no user returned"}`
-    );
-  }
-
-  const { data: dataB, error: errorB } = await studentB.auth.signInWithPassword({
-    email: STUDENT_B_EMAIL,
-    password: STUDENT_B_PASSWORD,
-  });
-  if (errorB || !dataB.user) {
-    throw new Error(
-      `Setup failed: could not authenticate ${STUDENT_B_EMAIL}: ${errorB?.message ?? "no user returned"}`
-    );
-  }
-
   const { error: errorAdmin } = await admin.auth.signInWithPassword({
     email: ADMIN_EMAIL,
     password: ADMIN_PASSWORD,
@@ -75,8 +69,12 @@ beforeAll(async () => {
     throw new Error(`Setup failed: could not authenticate ${ADMIN_EMAIL}: ${errorAdmin.message}`);
   }
 
-  studentAId = dataA.user.id;
-  studentBId = dataB.user.id;
+  const dataA = await signUpStudent();
+  const dataB = await signUpStudent();
+  studentA = dataA.client;
+  studentB = dataB.client;
+  studentAId = dataA.userId;
+  studentBId = dataB.userId;
 });
 
 afterAll(async () => {

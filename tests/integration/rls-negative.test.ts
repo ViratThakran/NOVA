@@ -15,43 +15,95 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 
-// Test credentials - created in supabase/seed.sql
-const STUDENT_A_EMAIL = "student-a@test.nova";
-const STUDENT_A_PASSWORD = "TestPassword123!";
-const STUDENT_B_EMAIL = "student-b@test.nova";
-const STUDENT_B_PASSWORD = "TestPassword123!";
+const ADMIN_EMAIL = "admin@test.nova";
+const ADMIN_PASSWORD = "TestPassword123!";
 
+// Freshly signed-up students rather than the shared seeded
+// student-a@test.nova / student-b@test.nova pair — several other
+// integration test files also authenticate as those literal accounts
+// concurrently (Vitest runs test files in parallel). Every test below is a
+// "must fail" RLS assertion, so it's not really the unique_student_internship
+// collision class fixed elsewhere, but there's no reason to depend on the
+// shared accounts either when a fresh pair works exactly the same.
 let studentA: SupabaseClient;
 let studentB: SupabaseClient;
 let studentAId: string;
 let studentBId: string;
+const makePdfBlob = (size: number = 1024) => {
+  const header = "%PDF-1.4\n";
+  const padding = "a".repeat(Math.max(0, size - header.length));
+  return new Blob([header + padding], { type: "application/pdf" });
+};
+
+function unique(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+}
+
+async function signUpStudent() {
+  const email = `${unique("rls-negative-student")}@test.nova`;
+  const client = createClient(SUPABASE_URL, PUBLISHABLE_KEY);
+  const { data, error } = await client.auth.signUp({ email, password: "correcthorse1" });
+  if (error || !data.user) {
+    throw new Error(`Setup failure: could not sign up a fresh student: ${error?.message}`);
+  }
+  const { error: profileError } = await client.from("student_profiles").insert({ id: data.user.id });
+  if (profileError) {
+    throw new Error(`Setup failure: could not create student_profiles row: ${profileError.message}`);
+  }
+  return { client, userId: data.user.id };
+}
 
 beforeAll(async () => {
-  studentA = createClient(SUPABASE_URL, PUBLISHABLE_KEY);
-  studentB = createClient(SUPABASE_URL, PUBLISHABLE_KEY);
-
-  const { data: dataA, error: errorA } = await studentA.auth.signInWithPassword({
-    email: STUDENT_A_EMAIL,
-    password: STUDENT_A_PASSWORD,
+  const admin = createClient(SUPABASE_URL, PUBLISHABLE_KEY);
+  const { error: adminError } = await admin.auth.signInWithPassword({
+    email: ADMIN_EMAIL,
+    password: ADMIN_PASSWORD,
   });
-  if (errorA || !dataA.user) {
-    throw new Error(
-      `Setup failed: could not authenticate ${STUDENT_A_EMAIL}: ${errorA?.message ?? "no user returned"}`
-    );
+  if (adminError) {
+    throw new Error(`Setup failed: could not authenticate ${ADMIN_EMAIL}: ${adminError.message}`);
   }
 
-  const { data: dataB, error: errorB } = await studentB.auth.signInWithPassword({
-    email: STUDENT_B_EMAIL,
-    password: STUDENT_B_PASSWORD,
-  });
-  if (errorB || !dataB.user) {
-    throw new Error(
-      `Setup failed: could not authenticate ${STUDENT_B_EMAIL}: ${errorB?.message ?? "no user returned"}`
-    );
+  const dataA = await signUpStudent();
+  const dataB = await signUpStudent();
+  studentA = dataA.client;
+  studentB = dataB.client;
+  studentAId = dataA.userId;
+  studentBId = dataB.userId;
+
+  // Test 6/7 need Student A to already have an application to attempt (and
+  // fail) an UPDATE against.
+  const { data: internship, error: internshipError } = await admin
+    .from("internships")
+    .insert({
+      title: `RLS Negative Fixture Internship ${unique("internship")}`,
+      description: "Integration test fixture internship.",
+      requirements: "None.",
+      eligibility: "None.",
+      status: "open",
+    })
+    .select("id")
+    .single();
+  if (internshipError || !internship) {
+    throw new Error(`Setup failure: could not create fixture internship: ${internshipError?.message}`);
+  }
+  const { error: applyError } = await studentA
+    .from("applications")
+    .insert({ student_id: studentAId, internship_id: internship.id, cover_letter: "RLS negative test fixture." });
+  if (applyError) {
+    throw new Error(`Setup failure: could not create fixture application: ${applyError.message}`);
   }
 
-  studentAId = dataA.user.id;
-  studentBId = dataB.user.id;
+  // Test 14 needs Student B to actually have a resume uploaded, otherwise
+  // "Student A cannot read it" would trivially pass on a missing-file error
+  // rather than an RLS denial.
+  const { error: uploadError } = await studentB.storage
+    .from("resumes")
+    .upload(`${studentBId}/resume.pdf`, makePdfBlob(), { contentType: "application/pdf", upsert: true });
+  if (uploadError) {
+    throw new Error(`Setup failure: could not upload Student B's fixture resume: ${uploadError.message}`);
+  }
+
+  await admin.auth.signOut();
 });
 
 afterAll(async () => {

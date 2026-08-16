@@ -42,6 +42,21 @@ afterAll(async () => {
   await Promise.all(clientsToSignOut.map((client) => client.auth.signOut()));
 });
 
+// Signs up a fresh, uniquely-emailed account for tests that just need "some
+// authenticated student" rather than the literal seeded student-a@test.nova
+// — that account is signed into concurrently by many other integration test
+// files (Vitest runs test files in parallel), so tests that don't actually
+// need to be *that* account are better off not depending on it at all.
+async function signUpFreshStudent() {
+  const email = newTestEmail();
+  const client = trackedClient();
+  const { data, error } = await client.auth.signUp({ email, password: "correcthorse1" });
+  if (error || !data.user) {
+    throw new Error(`Setup failure: could not sign up a fresh student: ${error?.message}`);
+  }
+  return { client, email, userId: data.user.id };
+}
+
 describe("Registration", () => {
   it("creates a real auth user, profile, and a student-only role via handle_new_user()", async () => {
     const email = newTestEmail();
@@ -85,9 +100,13 @@ describe("Registration", () => {
   });
 
   it("rejects a duplicate email with a clear error rather than a raw Postgres error", async () => {
+    // A freshly registered email, re-submitted — self-contained rather than
+    // depending on the shared seeded student-a@test.nova account existing.
+    const { email } = await signUpFreshStudent();
+
     const client = trackedClient();
     const { error } = await client.auth.signUp({
-      email: STUDENT_A_EMAIL, // already exists from supabase/seed.sql
+      email,
       password: "correcthorse1",
     });
 
@@ -125,9 +144,9 @@ describe("Login", () => {
   });
 
   it("rejects an incorrect password", async () => {
-    const client = trackedClient();
+    const { client, email } = await signUpFreshStudent();
     const { data, error } = await client.auth.signInWithPassword({
-      email: STUDENT_A_EMAIL,
+      email,
       password: "definitely-wrong-password",
     });
 
@@ -136,11 +155,12 @@ describe("Login", () => {
   });
 
   it("rejects a nonexistent email with the same error as a wrong password (no account enumeration)", async () => {
+    const { email } = await signUpFreshStudent();
     const wrongPassword = trackedClient();
     const nonexistent = trackedClient();
 
     const [wrongPasswordResult, nonexistentResult] = await Promise.all([
-      wrongPassword.auth.signInWithPassword({ email: STUDENT_A_EMAIL, password: "definitely-wrong-password" }),
+      wrongPassword.auth.signInWithPassword({ email, password: "definitely-wrong-password" }),
       nonexistent.auth.signInWithPassword({ email: "no-such-account@test.nova", password: "definitely-wrong-password" }),
     ]);
 
@@ -152,27 +172,22 @@ describe("Login", () => {
 
 describe("Authenticated session", () => {
   it("reflects the signed-in user after login", async () => {
-    const client = trackedClient();
-    await client.auth.signInWithPassword({ email: STUDENT_A_EMAIL, password: STUDENT_A_PASSWORD });
+    const { client, email } = await signUpFreshStudent();
 
     const {
       data: { user },
     } = await client.auth.getUser();
 
     expect(user).not.toBeNull();
-    expect(user?.email).toBe(STUDENT_A_EMAIL);
+    expect(user?.email).toBe(email);
   });
 });
 
 describe("Role routing data — what loginAction()/requireRole() actually query", () => {
-  it("the seeded student account has role 'student'", async () => {
-    const client = trackedClient();
-    const { data: userData } = await client.auth.signInWithPassword({
-      email: STUDENT_A_EMAIL,
-      password: STUDENT_A_PASSWORD,
-    });
+  it("a signed-in student account has role 'student'", async () => {
+    const { client, userId } = await signUpFreshStudent();
 
-    const { data: roleRows } = await client.from("user_roles").select("role").eq("user_id", userData.user!.id);
+    const { data: roleRows } = await client.from("user_roles").select("role").eq("user_id", userId);
 
     expect(roleRows?.map((r) => r.role)).toEqual(["student"]);
   });
@@ -193,8 +208,7 @@ describe("Role routing data — what loginAction()/requireRole() actually query"
 
 describe("Logout", () => {
   it("clears the session so getUser() no longer returns a user", async () => {
-    const client = trackedClient();
-    await client.auth.signInWithPassword({ email: STUDENT_A_EMAIL, password: STUDENT_A_PASSWORD });
+    const { client } = await signUpFreshStudent();
 
     const before = await client.auth.getUser();
     expect(before.data.user).not.toBeNull();
