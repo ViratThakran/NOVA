@@ -173,6 +173,7 @@ function WhatWeDoMegaMenu({
 }
 
 // ── 2. WHO WE ARE Full-Width Mega-Menu ──────────────────────────────────────
+// ── 2. WHO WE ARE Full-Width Mega-Menu ──────────────────────────────────────
 function WhoWeAreMegaMenu({
   section,
   onClose,
@@ -183,7 +184,8 @@ function WhoWeAreMegaMenu({
   reduced: boolean;
 }) {
   const aboutGroup = section.groups.find((g) => g.title === "ABOUT NOVA");
-  const cultureGroup = section.groups.find((g) => g.title === "CULTURE & ECOSYSTEM");
+  const peopleGroup = section.groups.find((g) => g.title === "PEOPLE & CULTURE");
+  const impactGroup = section.groups.find((g) => g.title === "IMPACT & TRUST");
 
   return (
     <div className="w-full bg-[#1C1C1E] text-[#F5F5F5] border-b border-white/[0.08] shadow-[0_30px_90px_rgba(0,0,0,0.85)]">
@@ -192,9 +194,9 @@ function WhoWeAreMegaMenu({
 
       {/* Main content container */}
       <div className="mx-auto w-full max-w-[1560px] px-6 sm:px-10 lg:px-16 xl:px-20 py-8 lg:py-9">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 xl:gap-16 items-start">
-          {/* ── LEFT SECTION: ABOUT NOVA (6 Cols) ── */}
-          <div className="lg:col-span-6 flex flex-col">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 xl:gap-12 items-start">
+          {/* ── 1. ABOUT NOVA (4 Cols) ── */}
+          <div className="lg:col-span-4 flex flex-col">
             <motion.div
               initial={reduced ? { opacity: 1 } : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
@@ -207,12 +209,9 @@ function WhoWeAreMegaMenu({
                   ABOUT NOVA
                 </h3>
               </div>
-              <span className="text-[10.5px] font-mono text-[#85858A] uppercase tracking-wider">
-                Identity &amp; Foundations
-              </span>
             </motion.div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 sm:gap-y-1.5">
+            <div className="flex flex-col gap-1">
               {aboutGroup?.items.map((item, i) => (
                 <MegaNavLink
                   key={item.label}
@@ -225,8 +224,8 @@ function WhoWeAreMegaMenu({
             </div>
           </div>
 
-          {/* ── RIGHT SECTION: CULTURE & ECOSYSTEM (6 Cols, subtle divider) ── */}
-          <div className="lg:col-span-6 flex flex-col lg:border-l lg:border-white/[0.08] lg:pl-10 xl:pl-14">
+          {/* ── 2. PEOPLE & CULTURE (4 Cols, subtle divider) ── */}
+          <div className="lg:col-span-4 flex flex-col lg:border-l lg:border-white/[0.08] lg:pl-8 xl:pl-10">
             <motion.div
               initial={reduced ? { opacity: 1 } : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
@@ -234,23 +233,49 @@ function WhoWeAreMegaMenu({
               className="flex items-center justify-between border-b border-white/[0.08] pb-3 mb-3.5"
             >
               <div className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500/70" aria-hidden="true" />
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500/80" aria-hidden="true" />
                 <h3 className="text-[11px] font-mono font-semibold tracking-[0.24em] uppercase text-[#85858A]">
-                  CULTURE &amp; ECOSYSTEM
+                  PEOPLE &amp; CULTURE
                 </h3>
               </div>
-              <span className="text-[10.5px] font-mono text-[#85858A] uppercase tracking-wider">
-                People &amp; Platform
-              </span>
             </motion.div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 sm:gap-y-1.5">
-              {cultureGroup?.items.map((item, i) => (
+            <div className="flex flex-col gap-1">
+              {peopleGroup?.items.map((item, i) => (
                 <MegaNavLink
                   key={item.label}
                   item={item}
                   onClose={onClose}
                   index={i + 4}
+                  reduced={!!reduced}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* ── 3. IMPACT & TRUST (4 Cols, subtle divider) ── */}
+          <div className="lg:col-span-4 flex flex-col lg:border-l lg:border-white/[0.08] lg:pl-8 xl:pl-10">
+            <motion.div
+              initial={reduced ? { opacity: 1 } : { opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: 0.07 }}
+              className="flex items-center justify-between border-b border-white/[0.08] pb-3 mb-3.5"
+            >
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" aria-hidden="true" />
+                <h3 className="text-[11px] font-mono font-semibold tracking-[0.24em] uppercase text-[#85858A]">
+                  IMPACT &amp; TRUST
+                </h3>
+              </div>
+            </motion.div>
+
+            <div className="flex flex-col gap-1">
+              {impactGroup?.items.map((item, i) => (
+                <MegaNavLink
+                  key={item.label}
+                  item={item}
+                  onClose={onClose}
+                  index={i + 8}
                   reduced={!!reduced}
                 />
               ))}
@@ -266,7 +291,7 @@ function WhoWeAreMegaMenu({
           className="mt-7 pt-4 border-t border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
         >
           <span className="font-mono text-[10.5px] font-medium text-[#85858A] uppercase tracking-widest">
-            NOVA ECOSYSTEM &amp; IDENTITY
+            NOVA ORGANIZATIONAL DIRECTORY
           </span>
           <Link
             href={section.cta.href}

@@ -155,29 +155,38 @@ export const MEGA_NAV_SECTIONS = [
   {
     id: "who-we-are",
     label: "Who We Are",
-    href: "/#who-we-are",
+    href: "/who-we-are",
     summary: "An ambitious technology organization and platform connecting learning, technology, people, and opportunity.",
     groups: [
       {
         title: "ABOUT NOVA",
         items: [
-          { label: "About NOVA", href: "/about", description: "Our identity, purpose, and ecosystem" },
-          { label: "Our Mission", href: "/#who-we-are", description: "Connecting potential with opportunity" },
-          { label: "Our Vision", href: "/#who-we-are", description: "The future of technology & talent" },
-          { label: "Our Values", href: "/#who-we-are", description: "Craft, transparency, and action" },
+          { label: "About NOVA", href: "/who-we-are/about", description: "Our identity, purpose, and ecosystem" },
+          { label: "Our Story", href: "/who-we-are/our-story", description: "Origins, evolution & trajectory" },
+          { label: "Our Mission", href: "/who-we-are/our-mission", description: "Connecting potential with opportunity" },
+          { label: "How We Work", href: "/who-we-are/how-we-work", description: "Engineering methodology & craft" },
         ],
       },
       {
-        title: "CULTURE & ECOSYSTEM",
+        title: "PEOPLE & CULTURE",
         items: [
-          { label: "Our People", href: "/#who-we-are", description: "Engineers, leads & resident builders" },
-          { label: "Our Ecosystem", href: "/#ecosystem", description: "Interconnected network of partners" },
-          { label: "Platform", href: "/platform", description: "The intelligent infrastructure underneath" },
-          { label: "Impact", href: "/#who-we-are", description: "Real software shipped, careers launched" },
+          { label: "Our People", href: "/who-we-are/our-people", description: "Engineers, leads & resident builders" },
+          { label: "Leadership", href: "/who-we-are/leadership", description: "Stewardship & architectural vision" },
+          { label: "Culture", href: "/who-we-are/culture", description: "First principles & proof of work" },
+          { label: "Locations", href: "/who-we-are/locations", description: "Global hubs & distributed squads" },
+        ],
+      },
+      {
+        title: "IMPACT & TRUST",
+        items: [
+          { label: "Our Impact", href: "/who-we-are/our-impact", description: "Careers launched, code shipped" },
+          { label: "Sustainability", href: "/who-we-are/sustainability", description: "Resilient & energy-efficient systems" },
+          { label: "Responsible Technology", href: "/who-we-are/responsible-technology", description: "Ethics, safety & transparent AI" },
+          { label: "Partnerships", href: "/who-we-are/partnerships", description: "Enterprise & academic network" },
         ],
       },
     ],
-    cta: { label: "Discover About NOVA", href: "/about" },
+    cta: { label: "Explore Who We Are Overview", href: "/who-we-are" },
   },
   {
     id: "careers",

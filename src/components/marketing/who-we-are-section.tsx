@@ -20,7 +20,7 @@ const STEPS: Step[] = [
     description:
       "We exist to remove the artificial barriers between technical education and real-world engineering. By providing challenge-driven labs and live project squads, we empower builders worldwide to prove their value through real software.",
     image: "/images/cards/learn.jpg",
-    href: "/about",
+    href: "/who-we-are/our-mission",
   },
   {
     dot: ".02",
@@ -28,7 +28,7 @@ const STEPS: Step[] = [
     description:
       "We believe static credentials take a back seat to inspectable code commits and production deployments. The future belongs to engineers who can design, ship, and scale resilient architectures.",
     image: "/images/cards/build.jpg",
-    href: "/about",
+    href: "/who-we-are/about",
   },
   {
     dot: ".03",
@@ -36,7 +36,7 @@ const STEPS: Step[] = [
     description:
       "We unite curious engineers, technical leads, and partner technology organizations. Our community is built on rigorous peer review, generous mentorship, and the highest standards of craft.",
     image: "/images/cards/experience.jpg",
-    href: "/about",
+    href: "/who-we-are/our-people",
   },
   {
     dot: ".04",
@@ -44,7 +44,7 @@ const STEPS: Step[] = [
     description:
       "We route proven builders directly into paid industry residencies, production squad roles, and venture opportunities — unlocking economic mobility through demonstrated execution.",
     image: "/images/cards/grow.jpg",
-    href: "/about",
+    href: "/who-we-are/our-impact",
   },
 ];
 
