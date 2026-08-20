@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ToastProvider } from "@/components/ui/toast";
+import { SmoothScrollProvider } from "@/components/providers/smooth-scroll-provider";
 import "./globals.css";
 
 const inter = Inter({
@@ -20,9 +21,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} motion-safe:scroll-smooth`}>
+    <html lang="en" className={`${inter.variable}`}>
       <body className="flex min-h-screen flex-col">
-        <ToastProvider>{children}</ToastProvider>
+        <SmoothScrollProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </SmoothScrollProvider>
       </body>
     </html>
   );

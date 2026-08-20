@@ -33,7 +33,6 @@ export function Avatar({ src, alt, fallback, size = "md", className, ...props }:
       {showImage ? (
         // Avatar sources are arbitrary/user-provided; next/image would require
         // per-domain remotePatterns config, which is out of scope here.
-        // eslint-disable-next-line @next/next/no-img-element
         <img src={src} alt={alt} className="h-full w-full object-cover" onError={() => setErrored(true)} />
       ) : (
         <span aria-hidden="true">{(fallback ?? alt).trim().charAt(0).toUpperCase()}</span>

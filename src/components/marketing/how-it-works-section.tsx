@@ -4,7 +4,7 @@ import { JOURNEY_STEPS } from "./content";
 
 export function HowItWorksSection() {
   return (
-    <section id="programs" className="scroll-mt-16 border-b border-border bg-surface">
+    <section id="how-we-work" className="scroll-mt-16 border-b border-border bg-surface">
       <div className="mx-auto w-full max-w-content px-4 py-20 sm:px-6 sm:py-24 lg:px-8 xl:px-12">
         <Reveal className="max-w-2xl">
           <h2 className="text-h2 text-text">How NOVA works</h2>
