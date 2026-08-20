@@ -307,7 +307,7 @@ function WhoWeAreMegaMenu({
   );
 }
 
-// ── 3. CAREERS Full-Width Mega-Menu (Action-Oriented) ───────────────────────
+// ── 3. CAREERS Full-Width Mega-Menu ─────────────────────────────────────────
 function CareersMegaMenu({
   section,
   onClose,
@@ -319,6 +319,7 @@ function CareersMegaMenu({
 }) {
   const opportunitiesGroup = section.groups.find((g) => g.title === "OPPORTUNITIES");
   const learningGroup = section.groups.find((g) => g.title === "LEARNING & GROWTH");
+  const lifeGroup = section.groups.find((g) => g.title === "LIFE AT NOVA");
 
   return (
     <div className="w-full bg-[#1C1C1E] text-[#F5F5F5] border-b border-white/[0.08] shadow-[0_30px_90px_rgba(0,0,0,0.85)]">
@@ -327,9 +328,9 @@ function CareersMegaMenu({
 
       {/* Main content container */}
       <div className="mx-auto w-full max-w-[1560px] px-6 sm:px-10 lg:px-16 xl:px-20 py-8 lg:py-9">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 xl:gap-16 items-start">
-          {/* ── LEFT SECTION: OPPORTUNITIES (6 Cols) ── */}
-          <div className="lg:col-span-6 flex flex-col">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 xl:gap-12 items-start">
+          {/* ── 1. OPPORTUNITIES (4 Cols) ── */}
+          <div className="lg:col-span-4 flex flex-col">
             <motion.div
               initial={reduced ? { opacity: 1 } : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
@@ -342,12 +343,9 @@ function CareersMegaMenu({
                   OPPORTUNITIES
                 </h3>
               </div>
-              <span className="text-[10.5px] font-mono text-[#85858A] uppercase tracking-wider">
-                Production Squads &amp; Roles
-              </span>
             </motion.div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 sm:gap-y-1.5">
+            <div className="flex flex-col gap-1">
               {opportunitiesGroup?.items.map((item, i) => (
                 <MegaNavLink
                   key={item.label}
@@ -360,8 +358,8 @@ function CareersMegaMenu({
             </div>
           </div>
 
-          {/* ── RIGHT SECTION: LEARNING & GROWTH (6 Cols, subtle divider) ── */}
-          <div className="lg:col-span-6 flex flex-col lg:border-l lg:border-white/[0.08] lg:pl-10 xl:pl-14">
+          {/* ── 2. LEARNING & GROWTH (4 Cols, subtle divider) ── */}
+          <div className="lg:col-span-4 flex flex-col lg:border-l lg:border-white/[0.08] lg:pl-8 xl:pl-10">
             <motion.div
               initial={reduced ? { opacity: 1 } : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
@@ -369,23 +367,49 @@ function CareersMegaMenu({
               className="flex items-center justify-between border-b border-white/[0.08] pb-3 mb-3.5"
             >
               <div className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500/70" aria-hidden="true" />
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500/80" aria-hidden="true" />
                 <h3 className="text-[11px] font-mono font-semibold tracking-[0.24em] uppercase text-[#85858A]">
                   LEARNING &amp; GROWTH
                 </h3>
               </div>
-              <span className="text-[10.5px] font-mono text-[#85858A] uppercase tracking-wider">
-                Curriculum &amp; Partnerships
-              </span>
             </motion.div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 sm:gap-y-1.5">
+            <div className="flex flex-col gap-1">
               {learningGroup?.items.map((item, i) => (
                 <MegaNavLink
                   key={item.label}
                   item={item}
                   onClose={onClose}
                   index={i + 4}
+                  reduced={!!reduced}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* ── 3. LIFE AT NOVA (4 Cols, subtle divider) ── */}
+          <div className="lg:col-span-4 flex flex-col lg:border-l lg:border-white/[0.08] lg:pl-8 xl:pl-10">
+            <motion.div
+              initial={reduced ? { opacity: 1 } : { opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: 0.07 }}
+              className="flex items-center justify-between border-b border-white/[0.08] pb-3 mb-3.5"
+            >
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" aria-hidden="true" />
+                <h3 className="text-[11px] font-mono font-semibold tracking-[0.24em] uppercase text-[#85858A]">
+                  LIFE AT NOVA
+                </h3>
+              </div>
+            </motion.div>
+
+            <div className="flex flex-col gap-1">
+              {lifeGroup?.items.map((item, i) => (
+                <MegaNavLink
+                  key={item.label}
+                  item={item}
+                  onClose={onClose}
+                  index={i + 8}
                   reduced={!!reduced}
                 />
               ))}

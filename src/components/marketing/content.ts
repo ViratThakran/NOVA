@@ -5,7 +5,7 @@ export const NAV_ITEMS = [
   { href: "/#what-we-do", label: "What We Do" },
   { href: "/#who-we-are", label: "Who We Are" },
   { href: "/what-we-think", label: "What We Think" },
-  { href: "/#careers", label: "Careers" },
+  { href: "/careers", label: "Careers" },
   { href: "/contact", label: "Contact" },
 ] as const;
 
@@ -191,29 +191,36 @@ export const MEGA_NAV_SECTIONS = [
   {
     id: "careers",
     label: "Careers",
-    href: "/#careers",
-    summary: "Build real skills, work on real technology, and launch your career in an ecosystem built for builders.",
+    href: "/careers",
+    summary: "Build real skills, work on real production technology, and launch your career inside a global ecosystem built for builders.",
     groups: [
       {
         title: "OPPORTUNITIES",
         items: [
           { label: "Internships", href: "/internships", description: "Hands-on product & engineering roles" },
-          { label: "Internship Programs", href: "/internship-programs", description: "Outcome-driven mastery tracks" },
-          { label: "Programs", href: "/programs", description: "Structured engineering sprints" },
-          { label: "Jobs & Placements", href: "/#careers", description: "Full-time roles across our network" },
+          { label: "Programs", href: "/internship-programs", description: "Outcome-driven 1, 3, and 6-month tracks" },
+          { label: "Jobs & Placements", href: "/what-we-do/talent-solutions", description: "Talent matching & placement pipelines" },
+          { label: "Opportunities", href: "/get-started", description: "Direct talent placement & residencies" },
         ],
       },
       {
         title: "LEARNING & GROWTH",
         items: [
           { label: "Courses", href: "/courses", description: "Modular high-density technical modules" },
-          { label: "Projects", href: "/#careers", description: "Live production proof-of-work builds" },
-          { label: "For Companies", href: "/companies", description: "Engage proven talent with real track records" },
-          { label: "Hire Talent", href: "/contact", description: "Partner with embedded builder squads" },
+          { label: "Learning Programs", href: "/programs", description: "Flagship career-oriented learning tracks" },
+          { label: "Builder Community", href: "/who-we-are/our-people", description: "Global collective of engineers & leads" },
+        ],
+      },
+      {
+        title: "LIFE AT NOVA",
+        items: [
+          { label: "Why NOVA", href: "/careers/why-nova", description: "Proof of work over passive credentials" },
+          { label: "Squad Life", href: "/careers/squad-life", description: "Production squads, code reviews & craft" },
+          { label: "Hiring Process", href: "/careers/hiring-process", description: "Skills verification & placement flow" },
         ],
       },
     ],
-    cta: { label: "Explore All Careers & Programs", href: "/internships" },
+    cta: { label: "Explore Careers Overview", href: "/careers" },
   },
 ] as const;
 
