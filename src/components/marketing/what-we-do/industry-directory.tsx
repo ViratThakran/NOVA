@@ -46,51 +46,55 @@ export function IndustryDirectory() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: idx * 0.05 }}
-                className={cn(
-                  "group rounded-3xl p-7 sm:p-8 flex flex-col justify-between border transition-all duration-300 min-h-[340px]",
-                  isActive
-                    ? "bg-[#14141A] border-indigo-500/40 shadow-[0_12px_36px_rgba(99,102,241,0.08)]"
-                    : "bg-[#101014] border-neutral-800/80 hover:border-neutral-700"
-                )}
               >
-                <div className="flex flex-col gap-4">
-                  {/* Top Bar: Number + Arrow */}
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-bold tracking-widest text-indigo-400">
-                      {industry.number}
+                <Link
+                  href={`/industries/${industry.slug}`}
+                  className={cn(
+                    "group rounded-3xl p-7 sm:p-8 flex flex-col justify-between border transition-all duration-300 min-h-[340px] block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
+                    isActive
+                      ? "bg-[#14141A] border-indigo-500/40 shadow-[0_12px_36px_rgba(99,102,241,0.08)]"
+                      : "bg-[#101014] border-neutral-800/80 hover:border-neutral-700"
+                  )}
+                >
+                  <div className="flex flex-col gap-4">
+                    {/* Top Bar: Number + Arrow */}
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-bold tracking-widest text-indigo-400">
+                        {industry.number}
+                      </span>
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 border border-white/10 group-hover:bg-white group-hover:text-neutral-950 transition-colors">
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                      </div>
+                    </div>
+
+                    {/* Industry Title */}
+                    <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-white leading-snug">
+                      {industry.name}
+                    </h3>
+
+                    {/* Description */}
+                    <p className="text-xs sm:text-sm text-neutral-400 font-normal leading-relaxed">
+                      {industry.heroDescription || (industry as { description?: string }).description}
+                    </p>
+                  </div>
+
+                  {/* Bottom: Relevant Capabilities Pills */}
+                  <div className="pt-6 border-t border-neutral-800/80 flex flex-col gap-3">
+                    <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-neutral-500">
+                      Capabilities:
                     </span>
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 border border-white/10 group-hover:bg-white group-hover:text-neutral-950 transition-colors">
-                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    <div className="flex flex-wrap gap-1.5">
+                      {(industry.relevantCapabilities ?? ["AI & Intelligence", "Software & Technology", "Cloud & Infrastructure"]).map((cap) => (
+                        <span
+                          key={cap}
+                          className="rounded-full bg-white/5 border border-white/10 px-2.5 py-0.5 text-[10.5px] font-mono text-neutral-300"
+                        >
+                          {cap}
+                        </span>
+                      ))}
                     </div>
                   </div>
-
-                  {/* Industry Title */}
-                  <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-white leading-snug">
-                    {industry.name}
-                  </h3>
-
-                  {/* Description */}
-                  <p className="text-xs sm:text-sm text-neutral-400 font-normal leading-relaxed">
-                    {industry.heroDescription || (industry as { description?: string }).description}
-                  </p>
-                </div>
-
-                {/* Bottom: Relevant Capabilities Pills */}
-                <div className="pt-6 border-t border-neutral-800/80 flex flex-col gap-3">
-                  <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-neutral-500">
-                    Capabilities:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(industry.relevantCapabilities ?? ["AI & Intelligence", "Software & Technology", "Cloud & Infrastructure"]).map((cap) => (
-                      <span
-                        key={cap}
-                        className="rounded-full bg-white/5 border border-white/10 px-2.5 py-0.5 text-[10.5px] font-mono text-neutral-300"
-                      >
-                        {cap}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                </Link>
               </motion.div>
             );
           })}

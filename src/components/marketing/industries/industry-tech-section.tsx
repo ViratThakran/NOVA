@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ArrowDown } from "lucide-react";
 import { IndustryAccent, getIndustryAccent } from "./industry-theme";
 import { cn } from "@/lib/utils";
 
@@ -68,10 +68,7 @@ export function IndustryTechSection({
           <span className="block text-[11px] font-mono font-semibold tracking-widest text-neutral-500 uppercase mb-6">
             {pipelineLabel}
           </span>
-          <div
-            className="grid gap-4"
-            style={{ gridTemplateColumns: `repeat(${Math.min(stackLayers.length, 5)}, minmax(0, 1fr))` }}
-          >
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {stackLayers.map((item, index) => (
               <motion.div
                 key={item.layer}
@@ -85,7 +82,10 @@ export function IndustryTechSection({
                   <div className="flex items-center justify-between mb-3">
                     <span className={cn("text-xs font-mono font-bold", a.text)}>0{index + 1}</span>
                     {index < stackLayers.length - 1 && (
-                      <ArrowRight className="hidden sm:block h-3.5 w-3.5 text-neutral-400" />
+                      <>
+                        <ArrowRight className="hidden sm:block h-3.5 w-3.5 text-neutral-400" />
+                        <ArrowDown className="block sm:hidden h-3.5 w-3.5 text-neutral-400" />
+                      </>
                     )}
                   </div>
                   <h3 className="text-sm sm:text-base font-bold tracking-tight text-neutral-950 mb-2">

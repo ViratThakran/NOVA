@@ -3,13 +3,13 @@
 import * as React from "react";
 import { motion, useScroll, useSpring, useReducedMotion, AnimatePresence } from "framer-motion";
 
-const CHAPTERS = [
-  { id: "hero", label: "01 / NOVA OPENING" },
-  { id: "platform", label: "02 / THE NOVA JOURNEY" },
-  { id: "what-we-do", label: "03 / WHAT WE DO" },
-  { id: "careers", label: "04 / CAREERS & OPPORTUNITY" },
-  { id: "who-we-are", label: "05 / WHO WE ARE" },
-];
+const DEFAULT_CHAPTERS: Record<string, string> = {
+  hero: "01 / NOVA OPENING",
+  platform: "02 / THE NOVA JOURNEY",
+  "what-we-do": "03 / WHAT WE DO",
+  careers: "04 / CAREERS & OPPORTUNITY",
+  "who-we-are": "05 / WHO WE ARE",
+};
 
 export function ScrollProgress() {
   const prefersReducedMotion = useReducedMotion();
@@ -27,9 +27,11 @@ export function ScrollProgress() {
     const observerCallback: IntersectionObserverCallback = (entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting) {
-          const match = CHAPTERS.find((ch) => ch.id === entry.target.id);
-          if (match) {
-            setActiveChapter(match.label);
+          const el = entry.target as HTMLElement;
+          const chapterLabel = el.getAttribute("data-chapter") || DEFAULT_CHAPTERS[el.id];
+
+          if (chapterLabel) {
+            setActiveChapter(chapterLabel);
             if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
             toastTimeoutRef.current = setTimeout(() => {
               setActiveChapter(null);
@@ -43,9 +45,16 @@ export function ScrollProgress() {
       threshold: 0.3,
     });
 
-    CHAPTERS.forEach((ch) => {
-      const el = document.getElementById(ch.id);
-      if (el) observer.observe(el);
+    // 1. Discover all elements with data-chapter attribute
+    const dataChapterEls = Array.from(document.querySelectorAll("[data-chapter]"));
+    dataChapterEls.forEach((el) => observer.observe(el));
+
+    // 2. Fallback: Observe legacy homepage section IDs if present and not already observed
+    Object.keys(DEFAULT_CHAPTERS).forEach((id) => {
+      const el = document.getElementById(id);
+      if (el && !el.hasAttribute("data-chapter")) {
+        observer.observe(el);
+      }
     });
 
     return () => {
