@@ -71,8 +71,13 @@ export async function requireRole(expectedRole: "student" | "admin") {
   }
 
   const { user, roles, supabase } = auth;
-  const hasExpectedRole =
-    expectedRole === "admin" ? roles.some((role) => ADMIN_ROLES.includes(role)) : roles.includes(expectedRole);
+  const isAdmin = roles.some((role) => ADMIN_ROLES.includes(role));
+
+  if (expectedRole === "student" && isAdmin) {
+    redirect("/admin/dashboard");
+  }
+
+  const hasExpectedRole = expectedRole === "admin" ? isAdmin : roles.includes(expectedRole);
 
   if (!hasExpectedRole) {
     redirect(getDashboardPathForRoles(roles));
