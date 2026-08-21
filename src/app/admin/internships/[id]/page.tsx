@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { z } from "zod";
+import { ArrowLeft, FileText } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { EmptyState } from "@/components/app/empty-state";
 import { ErrorState } from "@/components/app/error-state";
@@ -74,6 +76,23 @@ export default async function AdminInternshipDetailPage({
 
   return (
     <div className="flex flex-col gap-8">
+      {/* Cross-entity nav */}
+      <div className="flex items-center justify-between gap-4">
+        <Link
+          href="/admin/internships"
+          className="inline-flex items-center gap-1.5 text-xs font-mono text-slate-400 hover:text-white transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Opportunities
+        </Link>
+        <Link
+          href="/admin/applications"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-mono font-bold uppercase tracking-wider transition-colors"
+        >
+          <FileText className="h-3.5 w-3.5 text-indigo-400" />
+          View Applications
+        </Link>
+      </div>
+
       <PageHeader
         title={record.title}
         description={`Created ${new Date(record.created_at).toLocaleDateString()} · Last updated ${new Date(

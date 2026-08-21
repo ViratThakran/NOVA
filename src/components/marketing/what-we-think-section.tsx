@@ -113,7 +113,7 @@ export function WhatWeThinkSection() {
             className="pt-2"
           >
             <Link
-              href="/about"
+              href="/what-we-think"
               className="group inline-flex items-center gap-1.5 rounded-lg bg-[#18181B] hover:bg-black text-white px-5 py-2.5 text-xs sm:text-sm font-semibold shadow-md transition-all duration-200 active:scale-[0.98]"
             >
               <span>Explore Research</span>

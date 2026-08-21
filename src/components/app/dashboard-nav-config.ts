@@ -6,22 +6,46 @@ export interface DashboardNavItem {
   label: string;
 }
 
-export const STUDENT_NAV_ITEMS: readonly DashboardNavItem[] = [
-  { href: "/student/dashboard", label: "Dashboard" },
-  { href: "/student/onboarding", label: "Onboarding" },
-  { href: "/student/profile", label: "Profile" },
-  { href: "/student/internships", label: "Internships" },
-  { href: "/student/applications", label: "Applications" },
-  { href: "/student/enrollments", label: "Enrollments" },
-  { href: "/student/services", label: "Services" },
-  { href: "/student/services/requests", label: "My Requests" },
-  { href: "/student/programs", label: "Programs" },
-  { href: "/student/learning", label: "Learning" },
-  { href: "/student/projects", label: "Projects" },
-  { href: "/student/portfolio", label: "Portfolio" },
-  { href: "/student/notifications", label: "Notifications" },
-  { href: "/student/settings", label: "Settings" },
+export interface DashboardNavGroup {
+  title: string;
+  items: readonly DashboardNavItem[];
+}
+
+export const STUDENT_NAV_GROUPS: readonly DashboardNavGroup[] = [
+  {
+    title: "OVERVIEW",
+    items: [
+      { href: "/student/dashboard", label: "Dashboard" },
+    ],
+  },
+  {
+    title: "CAREER & OPPORTUNITIES",
+    items: [
+      { href: "/student/internships", label: "Explore Internships" },
+      { href: "/student/applications", label: "My Applications" },
+      { href: "/student/enrollments", label: "My Residencies" },
+    ],
+  },
+  {
+    title: "LEARNING & SERVICES",
+    items: [
+      { href: "/student/programs", label: "Learning Programs" },
+      { href: "/student/services", label: "AI Services & Requests" },
+    ],
+  },
+  {
+    title: "ACCOUNT",
+    items: [
+      { href: "/student/profile", label: "Profile & Resume" },
+      { href: "/student/notifications", label: "Notifications" },
+      { href: "/student/settings", label: "Settings" },
+    ],
+  },
 ];
+
+export const STUDENT_NAV_ITEMS: readonly DashboardNavItem[] = STUDENT_NAV_GROUPS.flatMap(
+  (group) => group.items
+);
 
 export const COMPANY_NAV_ITEMS: readonly DashboardNavItem[] = [
   { href: "/company", label: "Dashboard" },
@@ -33,21 +57,50 @@ export const COMPANY_NAV_ITEMS: readonly DashboardNavItem[] = [
   { href: "/company/services/requests", label: "My Requests" },
 ];
 
-export const ADMIN_NAV_ITEMS: readonly DashboardNavItem[] = [
-  { href: "/admin/dashboard", label: "Dashboard" },
-  { href: "/admin/students", label: "Students" },
-  { href: "/admin/companies", label: "Companies" },
-  { href: "/admin/programs", label: "Programs" },
-  { href: "/admin/courses", label: "Courses" },
-  { href: "/admin/internships", label: "Internships" },
-  { href: "/admin/services", label: "Services" },
-  { href: "/admin/services/requests", label: "Service Requests" },
-  { href: "/admin/ai-operations", label: "AI Operations" },
-  { href: "/admin/applications", label: "Applications" },
-  { href: "/admin/enrollments", label: "Enrollments" },
-  { href: "/admin/audit-logs", label: "Audit Logs" },
-  { href: "/admin/contact", label: "Contact" },
-  { href: "/admin/media", label: "Media Studio" },
-  { href: "/admin/notifications", label: "Notifications" },
-  { href: "/admin/settings", label: "Settings" },
+export const ADMIN_NAV_GROUPS: readonly DashboardNavGroup[] = [
+  {
+    title: "OVERVIEW",
+    items: [
+      { href: "/admin/dashboard", label: "Dashboard" },
+    ],
+  },
+  {
+    title: "PEOPLE & PARTNERS",
+    items: [
+      { href: "/admin/students", label: "Students" },
+      { href: "/admin/companies", label: "Companies" },
+    ],
+  },
+  {
+    title: "OPPORTUNITIES & RESIDENCIES",
+    items: [
+      { href: "/admin/internships", label: "Internships" },
+      { href: "/admin/applications", label: "Applications" },
+      { href: "/admin/enrollments", label: "Enrollments" },
+    ],
+  },
+  {
+    title: "LEARNING & SERVICES",
+    items: [
+      { href: "/admin/programs", label: "Programs" },
+      { href: "/admin/courses", label: "Courses" },
+      { href: "/admin/services", label: "Services" },
+      { href: "/admin/services/requests", label: "Service Requests" },
+    ],
+  },
+  {
+    title: "GOVERNANCE & SYSTEM",
+    items: [
+      { href: "/admin/ai-operations", label: "AI Operations" },
+      { href: "/admin/audit-logs", label: "Audit Logs" },
+      { href: "/admin/contact", label: "Contact" },
+      { href: "/admin/media", label: "Media Studio" },
+      { href: "/admin/notifications", label: "Notifications" },
+      { href: "/admin/settings", label: "Settings" },
+    ],
+  },
 ];
+
+export const ADMIN_NAV_ITEMS: readonly DashboardNavItem[] = ADMIN_NAV_GROUPS.flatMap(
+  (group) => group.items
+);

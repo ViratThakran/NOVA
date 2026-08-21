@@ -1,16 +1,28 @@
 import { DashboardShell } from "@/components/app/dashboard-shell";
-import { STUDENT_NAV_ITEMS } from "@/components/app/dashboard-nav-config";
+import { STUDENT_NAV_GROUPS, STUDENT_NAV_ITEMS } from "@/components/app/dashboard-nav-config";
 import { requireRole } from "@/lib/auth";
+import { countUnread } from "@/lib/notification-view-state";
 
-// The real security boundary is RLS on every table (see
-// supabase/migrations), enforced regardless of this check — requireRole()
-// exists to send people to the right place in the UI, not to be the
-// authorization system itself.
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
-  const { user } = await requireRole("student");
+  const { user, supabase } = await requireRole("student");
+
+  const [{ data: profile }, { data: notifications }] = await Promise.all([
+    supabase.from("profiles").select("first_name").eq("id", user.id).maybeSingle(),
+    supabase.from("notifications").select("id, read").eq("user_id", user.id),
+  ]);
+
+  const unreadCount = countUnread(notifications ?? []);
+  const firstName = profile?.first_name ?? undefined;
 
   return (
-    <DashboardShell roleLabel="Student" navItems={STUDENT_NAV_ITEMS} userEmail={user.email ?? ""}>
+    <DashboardShell
+      roleLabel="Student"
+      navItems={STUDENT_NAV_ITEMS}
+      navGroups={STUDENT_NAV_GROUPS}
+      userEmail={user.email ?? ""}
+      firstName={firstName}
+      unreadCount={unreadCount}
+    >
       {children}
     </DashboardShell>
   );

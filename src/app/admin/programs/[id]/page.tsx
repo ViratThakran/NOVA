@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { z } from "zod";
+import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { EmptyState } from "@/components/app/empty-state";
 import { ErrorState } from "@/components/app/error-state";
@@ -78,6 +79,13 @@ export default async function AdminProgramDetailPage({ params }: { params: Promi
 
   return (
     <div className="flex flex-col gap-8">
+      <Link
+        href="/admin/programs"
+        className="inline-flex items-center gap-1.5 text-xs font-mono text-slate-400 hover:text-white transition-colors"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" /> Back to Programs Catalog
+      </Link>
+
       <PageHeader
         title={record.name}
         description={`Created ${new Date(record.created_at).toLocaleDateString()} · Last updated ${new Date(record.updated_at).toLocaleDateString()}`}

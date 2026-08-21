@@ -1,26 +1,23 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { z } from "zod";
-import { PageHeader } from "@/components/app/page-header";
-import { EmptyState } from "@/components/app/empty-state";
-import { ErrorState } from "@/components/app/error-state";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Calendar, Zap, AlertCircle, FileText, CheckCircle2 } from "lucide-react";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { customerDeliverableLabel } from "@/lib/deliverable-labels";
 import { CancelRequestButton } from "../cancel-request-button";
 
-export const metadata: Metadata = { title: "Service request — NOVA" };
+export const metadata: Metadata = { title: "Service Request Details | NOVA" };
 
 const idSchema = z.string().uuid();
 
-const STATUS_VARIANTS: Record<string, "default" | "primary" | "success" | "warning" | "error" | "info"> = {
-  pending: "warning",
-  accepted: "info",
-  rejected: "error",
-  in_progress: "primary",
-  delivered: "success",
-  completed: "success",
-  cancelled: "default",
+const STATUS_META: Record<string, { label: string; class: string }> = {
+  pending: { label: "Pending Review", class: "bg-amber-950/80 text-amber-300 border-amber-700/40" },
+  accepted: { label: "Accepted", class: "bg-cyan-950/80 text-cyan-300 border-cyan-700/40" },
+  in_progress: { label: "In Progress", class: "bg-indigo-950/80 text-indigo-300 border-indigo-700/40" },
+  delivered: { label: "Delivered", class: "bg-emerald-950/80 text-emerald-300 border-emerald-700/40" },
+  completed: { label: "Completed", class: "bg-emerald-950/80 text-emerald-300 border-emerald-700/40" },
+  rejected: { label: "Rejected", class: "bg-red-950/80 text-red-300 border-red-800/40" },
+  cancelled: { label: "Cancelled", class: "bg-slate-900 text-slate-400 border-slate-700" },
 };
 
 interface RequestRow {
@@ -35,122 +32,200 @@ interface RequestRow {
 interface ArtifactRow {
   id: string;
   type: string;
-  title: string;
   created_at: string;
 }
 
-// Customer-facing tracking view — deliberately does NOT show any internal
-// AI workforce mechanics (agents, tasks, approvals). A customer sees
-// Service Request -> status -> deliverables, matching the Phase 9
-// "customers should not need to know which internal agent handles their
-// request" boundary. The full operational view lives only at
-// /admin/services/requests/[id].
-export default async function StudentServiceRequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
+// Customer-facing tracking view — deliberately does NOT show internal AI
+// workforce mechanics (agents, task IDs, approvals). Only status, request
+// details, deliverable notes, and artifact types visible to the student.
+export default async function StudentServiceRequestDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
+
   const notFoundState = (
-    <div className="flex flex-col gap-8">
-      <PageHeader title="Service request" />
-      <EmptyState title="Request not found" description="This request doesn't exist." />
+    <div className="flex flex-col gap-6">
+      <Link
+        href="/student/services/requests"
+        className="inline-flex items-center gap-1.5 text-xs font-mono text-slate-400 hover:text-white transition-colors"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" /> Back to My Service Requests
+      </Link>
+      <div className="p-12 rounded-2xl bg-[#0E131F] border border-slate-800 text-center flex flex-col items-center gap-3 font-mono">
+        <AlertCircle className="h-10 w-10 text-slate-600" />
+        <p className="text-sm font-bold text-slate-300">Request Not Found</p>
+        <p className="text-xs text-slate-500 max-w-sm">
+          This service request doesn&apos;t exist or is not associated with your account.
+        </p>
+      </div>
     </div>
   );
 
   if (!idSchema.safeParse(id).success) return notFoundState;
 
   const auth = await getAuthenticatedUser();
-  if (!auth) {
-    return (
-      <div className="flex flex-col gap-8">
-        <PageHeader title="Service request" />
-        <ErrorState title="Your session has expired" description="Please log in again." />
-      </div>
-    );
-  }
+  if (!auth) return notFoundState;
   const { supabase, user } = auth;
 
-  const { data: request, error } = await supabase
-    .from("service_requests")
-    .select("id, status, details, deliverable_notes, created_at, services(name, short_description)")
-    .eq("id", id)
-    .eq("requester_id", user.id)
-    .maybeSingle();
+  const [{ data: rawRequest, error }, { data: rawArtifacts }] = await Promise.all([
+    supabase
+      .from("service_requests")
+      .select("id, status, details, deliverable_notes, created_at, services(name, short_description)")
+      .eq("id", id)
+      .eq("requester_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("ai_artifacts")
+      .select("id, type, created_at")
+      .eq("service_request_id", id)
+      .order("created_at", { ascending: true }),
+  ]);
 
-  if (error) {
-    return (
-      <div className="flex flex-col gap-8">
-        <PageHeader title="Service request" />
-        <ErrorState title="Couldn't load this request" description="Something went wrong. Please try again." />
-      </div>
-    );
-  }
+  if (error || !rawRequest) return notFoundState;
 
-  if (!request) return notFoundState;
-
-  const row = request as unknown as RequestRow;
-
-  const { data: artifacts } = await supabase
-    .from("ai_artifacts")
-    .select("id, type, title, created_at")
-    .eq("service_request_id", id)
-    .order("created_at", { ascending: true });
+  const request = rawRequest as unknown as RequestRow;
+  const artifacts = (rawArtifacts as unknown as ArtifactRow[] | null) ?? [];
+  const meta = STATUS_META[request.status] ?? {
+    label: request.status,
+    class: "bg-slate-900 text-slate-400 border-slate-700",
+  };
+  const isDelivered = ["delivered", "completed"].includes(request.status);
 
   return (
-    <div className="flex flex-col gap-8">
-      <PageHeader title={row.services?.name ?? "Service request"} description={`Requested ${new Date(row.created_at).toLocaleDateString()}`} />
+    <div className="flex flex-col gap-6">
+      {/* BACK LINK */}
+      <Link
+        href="/student/services/requests"
+        className="inline-flex items-center gap-1.5 text-xs font-mono text-slate-400 hover:text-white transition-colors"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" /> Back to My Service Requests
+      </Link>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="flex flex-col gap-6 lg:col-span-2">
-          <Card>
-            <CardContent className="flex flex-col gap-4 p-6">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-small font-medium text-text">Status</span>
-                <Badge variant={STATUS_VARIANTS[row.status] ?? "default"}>{row.status}</Badge>
+      {/* HEADER BANNER */}
+      <div className="p-6 rounded-2xl bg-[#0E131F] border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded bg-indigo-950/80 border border-indigo-700/40 text-[10px] font-mono font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1">
+              <Zap className="h-3 w-3" /> AI SERVICE REQUEST
+            </span>
+          </div>
+          <h1 className="text-2xl font-bold text-white font-sans">
+            {request.services?.name ?? "Service Request"}
+          </h1>
+          <p className="text-xs font-mono text-slate-400 flex items-center gap-1.5">
+            <Calendar className="h-3.5 w-3.5 text-slate-500" />
+            Submitted {new Date(request.created_at).toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-slate-900 border border-slate-800 shrink-0">
+          <span className="text-xs font-mono text-slate-400 font-semibold">Status:</span>
+          <span className={`px-2.5 py-0.5 rounded border text-[10px] font-mono font-bold uppercase tracking-wider ${meta.class}`}>
+            {meta.label}
+          </span>
+        </div>
+      </div>
+
+      {/* DELIVERY BANNER */}
+      {isDelivered && (
+        <div className="p-5 rounded-2xl bg-emerald-950/40 border border-emerald-700/50 flex items-center gap-3 font-mono">
+          <CheckCircle2 className="h-6 w-6 text-emerald-400 shrink-0" />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">
+              SERVICE DELIVERED
+            </span>
+            <p className="text-xs text-slate-300 font-sans">
+              Your AI service request has been executed and delivered. Review the details and deliverables below.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 2-COLUMN GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* LEFT COLUMN: REQUEST DETAILS */}
+        <div className="lg:col-span-7 flex flex-col gap-6">
+          <div className="p-6 rounded-2xl bg-[#0E131F] border border-slate-800 flex flex-col gap-5 font-mono">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <FileText className="h-4 w-4 text-indigo-400" />
+              Your Request Details
+            </h3>
+            <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-200 leading-relaxed whitespace-pre-line font-sans">
+              {request.details}
+            </div>
+
+            {request.deliverable_notes && (
+              <div className="pt-4 border-t border-slate-800/80 flex flex-col gap-2">
+                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Delivery Notes from NOVA
+                </h4>
+                <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-800/40 text-xs text-emerald-200 leading-relaxed whitespace-pre-line font-sans">
+                  {request.deliverable_notes}
+                </div>
               </div>
-              <Section title="What you asked for" body={row.details} />
-              {row.deliverable_notes && <Section title="Delivery notes" body={row.deliverable_notes} />}
-            </CardContent>
-          </Card>
-
-          {artifacts && artifacts.length > 0 && (
-            <Card>
-              <CardContent className="flex flex-col gap-3 p-6">
-                <h3 className="text-small font-semibold text-text">Deliverables</h3>
-                {/* Customer-facing: rendered purely from artifact.type through
-                    customerDeliverableLabel(), never artifact.title or the raw
-                    type — both are AI-Engine-authored and can contain internal
-                    workflow-stage language. See src/lib/deliverable-labels.ts. */}
-                <ul className="flex flex-col gap-2">
-                  {(artifacts as ArtifactRow[]).map((artifact) => (
-                    <li key={artifact.id} className="flex items-center justify-between gap-2 border-t border-border pt-2 first:border-t-0 first:pt-0">
-                      <span className="text-small text-text">{customerDeliverableLabel(artifact.type)}</span>
-                      <span className="text-caption text-text-muted">{new Date(artifact.created_at).toLocaleDateString()}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
+            )}
+          </div>
         </div>
 
-        <div className="flex flex-col gap-4">
-          {row.status === "pending" && (
-            <Card>
-              <CardContent className="flex flex-col gap-3 p-6">
-                <p className="text-small font-medium text-text">Manage request</p>
-                <CancelRequestButton requestId={row.id} />
-              </CardContent>
-            </Card>
+        {/* RIGHT COLUMN: DELIVERABLES & MANAGEMENT */}
+        <div className="lg:col-span-5 flex flex-col gap-6">
+          {/* DELIVERABLES */}
+          {artifacts.length > 0 && (
+            <div className="p-6 rounded-2xl bg-[#0E131F] border border-slate-800 flex flex-col gap-4 font-mono">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                Deliverables ({artifacts.length})
+              </h3>
+              <div className="flex flex-col gap-2">
+                {artifacts.map((artifact) => (
+                  <div
+                    key={artifact.id}
+                    className="flex items-center justify-between gap-3 p-3 rounded-lg bg-slate-900/60 border border-slate-800"
+                  >
+                    <span className="text-xs font-semibold text-slate-200">
+                      {customerDeliverableLabel(artifact.type)}
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {new Date(artifact.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* CANCEL (if pending) */}
+          {request.status === "pending" && (
+            <div className="p-6 rounded-2xl bg-[#0E131F] border border-slate-800 flex flex-col gap-4 font-mono">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Manage Request
+              </h3>
+              <p className="text-xs text-slate-400 font-sans">
+                Your request is pending review. You can cancel it if you no longer need this service.
+              </p>
+              <CancelRequestButton requestId={request.id} />
+            </div>
+          )}
+
+          {/* SERVICE INFO */}
+          {request.services?.short_description && (
+            <div className="p-6 rounded-2xl bg-[#0E131F] border border-slate-800 flex flex-col gap-2 font-mono">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                About This Service
+              </h3>
+              <p className="text-xs text-slate-400 font-sans leading-relaxed">
+                {request.services.short_description}
+              </p>
+            </div>
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function Section({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="flex flex-col gap-1.5 border-t border-border pt-4 first:border-t-0 first:pt-0">
-      <h3 className="text-small font-semibold text-text">{title}</h3>
-      <p className="whitespace-pre-line text-body text-text-muted">{body}</p>
     </div>
   );
 }

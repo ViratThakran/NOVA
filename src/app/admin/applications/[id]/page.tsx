@@ -1,15 +1,13 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { z } from "zod";
-import { PageHeader } from "@/components/app/page-header";
-import { EmptyState } from "@/components/app/empty-state";
-import { ErrorState } from "@/components/app/error-state";
+import { ArrowLeft, User, GraduationCap, FileText, Building2, Calendar, CheckCircle2, History, Briefcase } from "lucide-react";
 import { ApplicationStatusBadge } from "@/components/app/application-status-badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { canMarkUnderReview, canReview } from "@/lib/admin-review-view-state";
 import { ReviewActionButtons } from "./review-actions";
 
-export const metadata: Metadata = { title: "Application details — NOVA Admin" };
+export const metadata: Metadata = { title: "Application Review Workspace | NOVA Admin" };
 
 const idSchema = z.string().uuid();
 
@@ -19,7 +17,7 @@ interface AdminApplicationDetailRow {
   cover_letter: string | null;
   created_at: string;
   updated_at: string;
-  internship: { id: string; title: string; description: string; requirements: string; eligibility: string } | null;
+  internship: { id: string; title: string; description: string; requirements: string; eligibility: string; companies: { name: string } | null } | null;
   student: {
     id: string;
     education_info: { school?: string; degree?: string; grad_year?: number } | null;
@@ -41,59 +39,61 @@ export default async function AdminApplicationDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const notFoundState = (
-    <div className="flex flex-col gap-8">
-      <PageHeader title="Application details" />
-      <EmptyState title="Application not found" description="This application doesn't exist." />
-    </div>
-  );
 
-  // Malformed ids never reach Postgres — an invalid UUID literal would come
-  // back as a raw Postgres error (22P02) rather than a clean "not found".
   if (!idSchema.safeParse(id).success) {
-    return notFoundState;
+    return (
+      <div className="flex flex-col gap-6">
+        <Link href="/admin/applications" className="inline-flex items-center gap-1.5 text-xs font-mono text-slate-400 hover:text-white">
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Queue
+        </Link>
+        <div className="p-8 rounded-xl bg-[#0E131F] border border-slate-800 text-center text-slate-400 font-mono text-sm">
+          Application not found (Invalid ID)
+        </div>
+      </div>
+    );
   }
 
   const auth = await getAuthenticatedUser();
   if (!auth) {
-    return notFoundState; // layout already redirects unauthenticated/non-admin users; this is a safe fallback
+    return null;
   }
   const { supabase } = auth;
 
-  // Admin sees every application via the applications SELECT policy's
-  // `OR is_current_user_admin()` clause — no extra filter needed here.
   const { data: application, error } = await supabase
     .from("applications")
     .select(
       "id, status, cover_letter, created_at, updated_at, " +
-        "internship:internships(id, title, description, requirements, eligibility), " +
+        "internship:internships(id, title, description, requirements, eligibility, companies(name)), " +
         "student:student_profiles(id, education_info, skills, profiles(first_name, last_name, email))"
     )
     .eq("id", id)
     .maybeSingle();
 
-  if (error) {
+  if (error || !application) {
     return (
-      <div className="flex flex-col gap-8">
-        <PageHeader title="Application details" />
-        <ErrorState title="Couldn't load this application" description="Something went wrong. Please try again." />
+      <div className="flex flex-col gap-6">
+        <Link href="/admin/applications" className="inline-flex items-center gap-1.5 text-xs font-mono text-slate-400 hover:text-white">
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Queue
+        </Link>
+        <div className="p-8 rounded-xl bg-[#0E131F] border border-slate-800 text-center text-slate-400 font-mono text-sm">
+          Application not found or unavailable
+        </div>
       </div>
     );
   }
 
-  if (!application) {
-    return notFoundState;
-  }
-
   const app = application as unknown as AdminApplicationDetailRow;
   const profile = app.student?.profiles;
-  const studentName = profile ? [profile.first_name, profile.last_name].filter(Boolean).join(" ") : null;
+  const studentName = profile
+    ? [profile.first_name, profile.last_name].filter(Boolean).join(" ") || profile.email
+    : "Unknown Student";
   const education = app.student?.education_info;
+  const dateSubmitted = new Date(app.created_at).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
-  // Admin-only: audit_logs' "Admins can read audit logs" RLS policy makes
-  // prior review feedback readable here even though it's never a durable
-  // field on applications itself (students have no read access to this
-  // table at all — see the Phase 4C/4D report's "existing issues" section).
   const { data: reviewHistory } = await supabase
     .from("audit_logs")
     .select("id, action, changes, created_at")
@@ -102,103 +102,188 @@ export default async function AdminApplicationDetailPage({
     .order("created_at", { ascending: false });
 
   return (
-    <div className="flex flex-col gap-8">
-      <PageHeader
-        title={app.internship?.title ?? "Internship no longer available"}
-        description={`Submitted ${new Date(app.created_at).toLocaleDateString()}`}
-      />
+    <div className="flex flex-col gap-6">
+      {/* NAVIGATION & TOP HEADER */}
+      <div className="flex flex-col gap-2 pb-4 border-b border-slate-800/80">
+        <Link
+          href="/admin/applications"
+          className="inline-flex items-center gap-1.5 text-xs font-mono text-slate-400 hover:text-white transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Applications Queue
+        </Link>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="flex flex-col gap-6 lg:col-span-2">
-          <Card>
-            <CardContent className="flex flex-col gap-4 p-6">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-small font-medium text-text">Status</span>
-                <ApplicationStatusBadge status={app.status} />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold tracking-tight text-white">
+                {studentName}
+              </h1>
+              <ApplicationStatusBadge status={app.status} />
+            </div>
+            <p className="text-xs font-mono text-slate-400">
+              Applied for{" "}
+              <span className="text-indigo-300 font-semibold">{app.internship?.title || "Opportunity"}</span> · Submitted {dateSubmitted}
+            </p>
+          </div>
+
+          {app.status === "accepted" && (
+            <Link
+              href="/admin/enrollments"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/80 border border-emerald-500/30 text-emerald-300 text-xs font-mono font-bold uppercase tracking-wider hover:bg-emerald-900 transition-colors"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              View Active Residency
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* 2-COLUMN REVIEW STAGE */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* LEFT COLUMN (Col 8): Candidate Info & Cover Letter */}
+        <div className="lg:col-span-8 flex flex-col gap-6">
+          {/* Candidate Profile Details */}
+          <div className="p-6 rounded-xl bg-[#0E131F] border border-slate-800 flex flex-col gap-5">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-indigo-400" />
+                <h2 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
+                  Candidate Profile &amp; Background
+                </h2>
+              </div>
+              <span className="text-[10px] font-mono text-slate-500">ID: {app.student?.id.slice(0, 8)}...</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
+              <div className="flex flex-col gap-1 p-3 rounded-lg bg-slate-900/60 border border-slate-800">
+                <span className="text-slate-500 text-[10px] uppercase">Email Contact</span>
+                <span className="text-slate-200 font-semibold">{profile?.email || "N/A"}</span>
+              </div>
+              <div className="flex flex-col gap-1 p-3 rounded-lg bg-slate-900/60 border border-slate-800">
+                <span className="text-slate-500 text-[10px] uppercase">Academic Institution</span>
+                <span className="text-slate-200 font-semibold">{education?.school || "Not provided"}</span>
+              </div>
+              <div className="flex flex-col gap-1 p-3 rounded-lg bg-slate-900/60 border border-slate-800">
+                <span className="text-slate-500 text-[10px] uppercase">Degree Program</span>
+                <span className="text-slate-200 font-semibold">{education?.degree || "Not provided"}</span>
+              </div>
+              <div className="flex flex-col gap-1 p-3 rounded-lg bg-slate-900/60 border border-slate-800">
+                <span className="text-slate-500 text-[10px] uppercase">Graduation Year</span>
+                <span className="text-slate-200 font-semibold">{education?.grad_year || "Not provided"}</span>
+              </div>
+            </div>
+
+            {/* Skills */}
+            {app.student?.skills && app.student.skills.length > 0 && (
+              <div className="flex flex-col gap-2 pt-2 border-t border-slate-800/60">
+                <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                  VERIFIED CANDIDATE SKILLS
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {app.student.skills.map((skill) => (
+                    <span
+                      key={skill}
+                      className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 font-mono text-[11px] text-slate-300"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Submission Cover Letter */}
+          <div className="p-6 rounded-xl bg-[#0E131F] border border-slate-800 flex flex-col gap-4">
+            <div className="flex items-center gap-2 border-b border-slate-800/80 pb-3">
+              <FileText className="h-4 w-4 text-emerald-400" />
+              <h2 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
+                Submitted Statement / Cover Letter
+              </h2>
+            </div>
+            <p className="text-xs text-slate-300 font-sans leading-relaxed whitespace-pre-line bg-slate-950/40 p-4 rounded-lg border border-slate-800">
+              {app.cover_letter || "No statement or cover letter submitted."}
+            </p>
+          </div>
+
+          {/* Target Opportunity Details */}
+          {app.internship && (
+            <div className="p-6 rounded-xl bg-[#0E131F] border border-slate-800 flex flex-col gap-4">
+              <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-indigo-400" />
+                  <h2 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
+                    Target Residency Details
+                  </h2>
+                </div>
+                <Link
+                  href={`/admin/internships/${app.internship.id}`}
+                  className="text-xs font-mono text-indigo-400 hover:underline uppercase tracking-wider"
+                >
+                  Manage Internship →
+                </Link>
               </div>
 
-              <Section title="Cover letter" body={app.cover_letter || "No cover letter was submitted."} />
+              <div className="flex flex-col gap-3 text-xs">
+                <div>
+                  <span className="font-mono text-[10px] text-slate-500 uppercase">Hiring Company</span>
+                  <p className="font-semibold text-slate-200">{app.internship.companies?.name || "Platform Direct"}</p>
+                </div>
+                <div>
+                  <span className="font-mono text-[10px] text-slate-500 uppercase">Description</span>
+                  <p className="text-slate-400 leading-relaxed mt-0.5">{app.internship.description}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
-              {app.internship && (
-                <>
-                  <Section title="Internship description" body={app.internship.description} />
-                  <Section title="Requirements" body={app.internship.requirements} />
-                  <Section title="Eligibility" body={app.internship.eligibility} />
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="flex flex-col gap-4 p-6">
-              <h3 className="text-small font-semibold text-text">Student</h3>
-              <dl className="flex flex-col gap-2 text-small">
-                <Row label="Name" value={studentName || "Not provided"} />
-                <Row label="Email" value={profile?.email ?? "Not available"} />
-                <Row label="School" value={education?.school || "Not provided"} />
-                <Row label="Degree" value={education?.degree || "Not provided"} />
-                <Row label="Graduation year" value={education?.grad_year?.toString() || "Not provided"} />
-                <Row label="Skills" value={app.student?.skills?.join(", ") || "Not provided"} />
-              </dl>
-            </CardContent>
-          </Card>
-
+          {/* Review Audit Trail */}
           {reviewHistory && reviewHistory.length > 0 && (
-            <Card>
-              <CardContent className="flex flex-col gap-4 p-6">
-                <h3 className="text-small font-semibold text-text">Review history</h3>
-                <ul className="flex flex-col gap-3">
-                  {(reviewHistory as ReviewAuditLogRow[]).map((entry) => (
-                    <li key={entry.id} className="flex flex-col gap-1 border-b border-border pb-3 last:border-b-0 last:pb-0">
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-small font-medium text-text">
-                          {entry.changes?.previous_status ?? "?"} → {entry.changes?.new_status ?? "?"}
-                        </span>
-                        <span className="text-caption text-text-muted">
-                          {new Date(entry.created_at).toLocaleString()}
-                        </span>
-                      </div>
-                      {entry.changes?.feedback && (
-                        <p className="text-small text-text-muted">"{entry.changes.feedback}"</p>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
+            <div className="p-6 rounded-xl bg-[#0E131F] border border-slate-800 flex flex-col gap-4">
+              <div className="flex items-center gap-2 border-b border-slate-800/80 pb-3">
+                <History className="h-4 w-4 text-indigo-400" />
+                <h2 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
+                  Review Audit History
+                </h2>
+              </div>
+              <div className="flex flex-col divide-y divide-slate-800/60 font-mono text-xs">
+                {(reviewHistory as ReviewAuditLogRow[]).map((entry) => (
+                  <div key={entry.id} className="py-3 flex flex-col gap-1 first:pt-0 last:pb-0">
+                    <div className="flex items-center justify-between text-slate-400">
+                      <span className="font-semibold text-indigo-300">
+                        {entry.changes?.previous_status || "?"} → {entry.changes?.new_status || "?"}
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        {new Date(entry.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                    {entry.changes?.feedback && (
+                      <p className="text-slate-400 font-sans italic text-[11px] bg-slate-900/40 p-2 rounded border border-slate-800">
+                        &quot;{entry.changes.feedback}&quot;
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
-        <div className="flex flex-col gap-4">
-          <Card>
-            <CardContent className="p-6">
-              <ReviewActionButtons
-                applicationId={app.id}
-                canMarkUnderReview={canMarkUnderReview(app.status)}
-                canReview={canReview(app.status)}
-              />
-            </CardContent>
-          </Card>
+        {/* RIGHT COLUMN (Col 4): Review Actions Panel */}
+        <div className="lg:col-span-4 flex flex-col gap-6 sticky top-20">
+          <div className="p-6 rounded-xl bg-[#0E131F] border border-slate-800 flex flex-col gap-4">
+            <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-[0.2em] pb-2 border-b border-slate-800/80">
+              OPERATIONAL DECISION PANEL
+            </span>
+
+            <ReviewActionButtons
+              applicationId={app.id}
+              canMarkUnderReview={canMarkUnderReview(app.status)}
+              canReview={canReview(app.status)}
+            />
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Section({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="flex flex-col gap-1.5 border-t border-border pt-4 first:border-t-0 first:pt-0">
-      <h3 className="text-small font-semibold text-text">{title}</h3>
-      <p className="whitespace-pre-line text-body text-text-muted">{body}</p>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <dt className="text-text-muted">{label}</dt>
-      <dd className="font-medium text-text">{value}</dd>
     </div>
   );
 }
