@@ -86,7 +86,7 @@ export function MobileNav({ light = false }: { light?: boolean }) {
           "backdrop:bg-black/80 backdrop:backdrop-blur-sm"
         )}
       >
-        <div className="flex items-center justify-between border-b border-white/[0.08] p-4">
+        <div className="flex items-center justify-between p-4">
           <span className="text-small font-bold tracking-tight text-[#F5F5F5]">NOVA</span>
           <Button variant="ghost" size="icon" aria-label="Close menu" onClick={close} className="text-[#A0A0A5] hover:text-white hover:bg-white/10">
             <X className="h-5 w-5" aria-hidden="true" />
@@ -96,7 +96,7 @@ export function MobileNav({ light = false }: { light?: boolean }) {
         <nav aria-label="Mobile Navigation" className="flex flex-1 flex-col gap-2 overflow-y-auto p-4">
           {/* 1. What We Do */}
           {whatWeDoSection && (
-            <details key={whatWeDoSection.id} className="group border-b border-white/[0.08] pb-2" open>
+            <details key={whatWeDoSection.id} className="group pb-2" open>
               <summary
                 className={cn(
                   "flex cursor-pointer list-none items-center justify-between rounded-md px-3 py-2.5 text-body font-medium text-[#F5F5F5] transition-colors hover:bg-white/[0.04]",
@@ -142,7 +142,7 @@ export function MobileNav({ light = false }: { light?: boolean }) {
 
           {/* 2. Who We Are */}
           {whoWeAreSection && (
-            <details key={whoWeAreSection.id} className="group border-b border-white/[0.08] pb-2">
+            <details key={whoWeAreSection.id} className="group pb-2">
               <summary
                 className={cn(
                   "flex cursor-pointer list-none items-center justify-between rounded-md px-3 py-2.5 text-body font-medium text-[#F5F5F5] transition-colors hover:bg-white/[0.04]",
@@ -191,7 +191,7 @@ export function MobileNav({ light = false }: { light?: boolean }) {
             href="/what-we-think"
             onClick={close}
             className={cn(
-              "flex items-center justify-between rounded-md px-3 py-2.5 text-body font-medium transition-colors hover:bg-white/[0.04] border-b border-white/[0.08] pb-2.5",
+              "flex items-center justify-between rounded-md px-3 py-2.5 text-body font-medium transition-colors hover:bg-white/[0.04] pb-2.5",
               pathname === "/what-we-think"
                 ? "bg-white/[0.06] font-semibold text-indigo-400"
                 : "text-[#F5F5F5]"
@@ -203,7 +203,7 @@ export function MobileNav({ light = false }: { light?: boolean }) {
 
           {/* 4. Careers */}
           {careersSection && (
-            <details key={careersSection.id} className="group border-b border-white/[0.08] pb-2">
+            <details key={careersSection.id} className="group pb-2">
               <summary
                 className={cn(
                   "flex cursor-pointer list-none items-center justify-between rounded-md px-3 py-2.5 text-body font-medium text-[#F5F5F5] transition-colors hover:bg-white/[0.04]",

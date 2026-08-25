@@ -192,9 +192,8 @@ export function WhoWeAreSection() {
         {/* ── Section Header ── */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-neutral-300/80 pb-8">
           <div className="flex flex-col gap-3.5 max-w-2xl">
-            <div className="flex items-center gap-2 text-[11px] font-mono font-bold tracking-[0.28em] text-neutral-500 uppercase">
-              <HeartHandshake className="h-3.5 w-3.5 text-indigo-500" />
-              <span>05 / WHO WE ARE</span>
+            <div className="text-[11px] font-mono font-bold tracking-[0.28em] text-neutral-500 uppercase">
+              05 / WHO WE ARE
             </div>
             <h2 className="text-3xl sm:text-4xl lg:text-[50px] font-black tracking-tight text-neutral-950 uppercase leading-[0.94]">
               THE PEOPLE &amp;<br />THE PURPOSE.

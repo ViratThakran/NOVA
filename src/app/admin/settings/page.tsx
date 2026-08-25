@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { User, ShieldCheck, Key, Server, Lock } from "lucide-react";
+import { User, ShieldCheck, Key, Server, Lock, Settings } from "lucide-react";
 import { getAuthenticatedUser } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Platform & Admin Settings | NOVA Admin" };
@@ -29,37 +29,38 @@ export default async function AdminSettingsPage() {
     : user?.email ?? "Administrator";
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 text-slate-800">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-white font-mono uppercase">
-            ADMINISTRATOR &amp; PLATFORM SETTINGS
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            <Settings className="h-6 w-6 text-sky-600" />
+            Administrator &amp; Platform Settings
           </h1>
-          <p className="text-xs text-slate-400 font-mono mt-0.5">
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Manage your administrative profile, security configuration, and platform security status.
           </p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-950/80 border border-emerald-700/40 text-emerald-300 font-mono text-xs font-bold uppercase shrink-0">
-          <ShieldCheck className="h-4 w-4 text-emerald-400" />
+        <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold uppercase shrink-0 shadow-xs">
+          <ShieldCheck className="h-4 w-4 text-emerald-600" />
           <span>Active Role: {roles.join(" / ")}</span>
         </div>
       </div>
 
-      {/* 2-COLUMN GRID */}
+      {/* 2-COLUMN GRID WITH GLASSMORPHISM */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* LEFT COLUMN: Administrator Profile */}
         <div className="lg:col-span-6 flex flex-col gap-6">
           {/* Profile Card */}
-          <div className="p-6 rounded-xl bg-[#0E131F] border border-slate-800 flex flex-col gap-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-800/80">
-              <User className="h-4 w-4 text-indigo-400" />
-              <h2 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
+          <div className="p-6 sm:p-7 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-4">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+              <User className="h-4 w-4 text-sky-600" />
+              <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Administrator Identity
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 font-mono text-xs">
+            <div className="grid grid-cols-1 gap-3 text-xs">
               <SettingField label="Full Name" value={adminName} />
               <SettingField label="Email Address" value={profile?.email ?? user?.email ?? "Not logged in"} />
               <SettingField label="Account ID" value={user?.id ?? "—"} isMono />
@@ -83,10 +84,10 @@ export default async function AdminSettingsPage() {
           </div>
 
           {/* Roles & Authorization */}
-          <div className="p-6 rounded-xl bg-[#0E131F] border border-slate-800 flex flex-col gap-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-800/80">
-              <Key className="h-4 w-4 text-amber-400" />
-              <h2 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
+          <div className="p-6 sm:p-7 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-4">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+              <Key className="h-4 w-4 text-amber-600" />
+              <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Assigned Platform Roles ({roles.length})
               </h2>
             </div>
@@ -95,13 +96,13 @@ export default async function AdminSettingsPage() {
               {roles.map((role) => (
                 <span
                   key={role}
-                  className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs font-mono font-bold text-indigo-300 uppercase tracking-wider"
+                  className="px-3 py-1.5 rounded-full bg-sky-50 border border-sky-200 text-xs font-bold text-sky-700 uppercase tracking-wider"
                 >
                   {role}
                 </span>
               ))}
             </div>
-            <p className="text-[11px] font-mono text-slate-500">
+            <p className="text-[11px] text-slate-500">
               Role permissions are enforced via database RLS policies and server-side RPC authorization checks.
             </p>
           </div>
@@ -110,15 +111,15 @@ export default async function AdminSettingsPage() {
         {/* RIGHT COLUMN: Platform Security & Environment */}
         <div className="lg:col-span-6 flex flex-col gap-6">
           {/* Security Overview */}
-          <div className="p-6 rounded-xl bg-[#0E131F] border border-slate-800 flex flex-col gap-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-800/80">
-              <Lock className="h-4 w-4 text-emerald-400" />
-              <h2 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
+          <div className="p-6 sm:p-7 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-4">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+              <Lock className="h-4 w-4 text-emerald-600" />
+              <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Security &amp; RLS Governance Status
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 font-mono text-xs">
+            <div className="grid grid-cols-1 gap-3 text-xs">
               <StatusCheckRow
                 label="Row Level Security (RLS)"
                 status="Enabled &amp; Active"
@@ -143,15 +144,15 @@ export default async function AdminSettingsPage() {
           </div>
 
           {/* System Environment */}
-          <div className="p-6 rounded-xl bg-[#0E131F] border border-slate-800 flex flex-col gap-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-800/80">
-              <Server className="h-4 w-4 text-cyan-400" />
-              <h2 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
+          <div className="p-6 sm:p-7 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-4">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+              <Server className="h-4 w-4 text-sky-600" />
+              <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 System Infrastructure Parameters
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 font-mono text-xs">
+            <div className="grid grid-cols-1 gap-3 text-xs">
               <SettingField label="Platform Framework" value="Next.js App Router (React Server Components)" />
               <SettingField label="Database & Auth Provider" value="Supabase Postgres + GoTrue Auth" />
               <SettingField label="Storage Architecture" value="Public Static Assets (/media) + GCS Integration" />
@@ -174,9 +175,9 @@ function SettingField({
   isMono?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-0.5 p-3 rounded-lg bg-slate-900/60 border border-slate-800">
-      <span className="text-slate-500 text-[10px] uppercase tracking-wider">{label}</span>
-      <span className={`text-slate-200 font-semibold leading-snug ${isMono ? "font-mono text-[11px]" : ""}`}>
+    <div className="flex flex-col gap-0.5 p-3 rounded-2xl bg-slate-50/80 border border-slate-100">
+      <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">{label}</span>
+      <span className={`text-slate-900 font-semibold leading-snug ${isMono ? "font-mono text-[11px] text-slate-700" : ""}`}>
         {value}
       </span>
     </div>
@@ -193,14 +194,14 @@ function StatusCheckRow({
   detail: string;
 }) {
   return (
-    <div className="flex flex-col gap-0.5 p-3 rounded-lg bg-slate-900/60 border border-slate-800">
+    <div className="flex flex-col gap-0.5 p-3.5 rounded-2xl bg-slate-50/80 border border-slate-100">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-slate-400 font-semibold">{label}</span>
-        <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-700/40 text-emerald-300 text-[10px] font-bold uppercase">
+        <span className="text-slate-800 font-bold">{label}</span>
+        <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold uppercase">
           {status}
         </span>
       </div>
-      <span className="text-[10px] text-slate-500">{detail}</span>
+      <span className="text-[11px] text-slate-500 mt-0.5">{detail}</span>
     </div>
   );
 }

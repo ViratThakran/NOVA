@@ -137,9 +137,8 @@ export function WhatWeDoSection() {
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-neutral-300 pb-7">
             {/* Left: eyebrow + heading */}
             <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-xs font-mono font-bold tracking-[0.25em] text-neutral-500 uppercase">
-                <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
-                <span>03 / CAPABILITIES &amp; SOLUTIONS</span>
+              <div className="text-xs font-mono font-bold tracking-[0.25em] text-neutral-500 uppercase">
+                03 / CAPABILITIES &amp; SOLUTIONS
               </div>
 
               <h2 className="text-4xl sm:text-5xl lg:text-[72px] font-black tracking-tight text-neutral-950 uppercase leading-[0.92]">

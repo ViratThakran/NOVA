@@ -38,7 +38,7 @@ export default async function AdminStudentsPage({
 
   if (roleError) {
     return (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 text-slate-800">
         <PageTitle />
         <ErrorPanel message="Couldn't load student role assignments." />
       </div>
@@ -49,7 +49,7 @@ export default async function AdminStudentsPage({
 
   if (studentIds.length === 0) {
     return (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 text-slate-800">
         <PageTitle />
         <EmptyPanel message="No students have registered yet. Student accounts will appear here." />
       </div>
@@ -77,7 +77,7 @@ export default async function AdminStudentsPage({
 
   if (profilesError) {
     return (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 text-slate-800">
         <PageTitle />
         <ErrorPanel message="Couldn't load student profiles." />
       </div>
@@ -116,21 +116,22 @@ export default async function AdminStudentsPage({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 text-slate-800">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-white font-mono uppercase">
-            STUDENT CANDIDATE REGISTRY
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            <Users className="h-6 w-6 text-sky-600" />
+            Student Candidate Registry
           </h1>
-          <p className="text-xs text-slate-400 font-mono mt-0.5">
-            {studentIds.length} registered candidate{studentIds.length !== 1 ? "s" : ""} · Manage profiles, applications, and active residencies.
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            {studentIds.length} registered candidate{studentIds.length !== 1 ? "s" : ""} · Manage student profiles, applications, and active builder squad residencies.
           </p>
         </div>
       </div>
 
-      {/* TOOLBAR */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-[#0E131F] p-4 rounded-xl border border-slate-800">
+      {/* TOOLBAR WITH GLASSMORPHISM */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-2xl p-4 sm:p-5 rounded-3xl border border-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
           {FILTERS.map((f) => {
             const isSelected = filter === f.value;
@@ -138,10 +139,10 @@ export default async function AdminStudentsPage({
               <Link
                 key={f.value}
                 href={f.value === "all" ? "/admin/students" : `/admin/students?filter=${f.value}`}
-                className={`px-3 py-1.5 rounded-md font-mono text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition-colors ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition-colors ${
                   isSelected
-                    ? "bg-indigo-600 text-white"
-                    : "bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                    ? "bg-[#0F172A] text-white shadow-xs"
+                    : "bg-slate-100/80 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900"
                 }`}
               >
                 {f.label}
@@ -152,137 +153,139 @@ export default async function AdminStudentsPage({
 
         <form method="GET" action="/admin/students" className="relative sm:w-64">
           {filter !== "all" && <input type="hidden" name="filter" value={filter} />}
-          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
+          <Search className="absolute left-3.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
           <input
             type="text"
             name="q"
             defaultValue={rawQuery || ""}
             placeholder="Search by name or email..."
-            className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+            className="w-full pl-9 pr-3 py-2 rounded-full bg-slate-100/80 hover:bg-slate-100 focus:bg-white border border-transparent focus:border-sky-300 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none transition-all"
           />
         </form>
       </div>
 
-      {/* TABLE */}
+      {/* TABLE WITH GLASSMORPHISM */}
       {students.length === 0 ? (
-        <div className="p-12 rounded-xl bg-[#0E131F] border border-slate-800 text-center flex flex-col items-center gap-3">
-          <Users className="h-10 w-10 text-slate-600" />
-          <p className="text-sm font-bold text-slate-300 font-mono">No students match this view</p>
+        <div className="p-12 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 text-center flex flex-col items-center gap-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <Users className="h-10 w-10 text-slate-300" />
+          <p className="text-sm font-bold text-slate-800">No students match this view</p>
           <p className="text-xs text-slate-500">
             {searchQuery ? `No results for "${searchQuery}".` : "Students will appear here when registered."}
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#0E131F]">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#0B0F19] text-slate-400 font-mono uppercase tracking-wider text-[10px] border-b border-slate-800">
-              <tr>
-                <th className="py-3 px-4">Candidate</th>
-                <th className="py-3 px-4">Onboarding</th>
-                <th className="py-3 px-4 text-center">Applications</th>
-                <th className="py-3 px-4">Residency</th>
-                <th className="py-3 px-4">Registered</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300">
-              {students.map((student) => {
-                const name =
-                  [student.first_name, student.last_name].filter(Boolean).join(" ") || student.email;
-                const appCount = applicationCounts.get(student.id) ?? 0;
-                const isActive = activeEnrollment.get(student.id) ?? false;
-                const skills = skillsMap.get(student.id) ?? [];
-                const date = new Date(student.created_at).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                });
+        <div className="rounded-3xl border border-white/90 bg-white/80 backdrop-blur-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400 font-medium bg-slate-50/50">
+                  <th className="py-4 px-5">Candidate</th>
+                  <th className="py-4 px-5">Onboarding</th>
+                  <th className="py-4 px-5 text-center">Applications</th>
+                  <th className="py-4 px-5">Residency</th>
+                  <th className="py-4 px-5">Registered</th>
+                  <th className="py-4 px-5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {students.map((student) => {
+                  const name =
+                    [student.first_name, student.last_name].filter(Boolean).join(" ") || student.email;
+                  const appCount = applicationCounts.get(student.id) ?? 0;
+                  const isActive = activeEnrollment.get(student.id) ?? false;
+                  const skills = skillsMap.get(student.id) ?? [];
+                  const date = new Date(student.created_at).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  });
 
-                return (
-                  <tr key={student.id} className="hover:bg-slate-900/50 transition-colors">
-                    <td className="py-3.5 px-4 font-sans">
-                      <div className="flex flex-col gap-0.5">
+                  return (
+                    <tr key={student.id} className="hover:bg-sky-50/20 transition-colors">
+                      <td className="py-4 px-5">
+                        <div className="flex flex-col gap-0.5">
+                          <Link
+                            href={`/admin/students/${student.id}`}
+                            className="font-bold text-slate-900 hover:text-sky-600 text-xs sm:text-sm transition-colors leading-snug"
+                          >
+                            {name}
+                          </Link>
+                          <span className="text-[11px] text-slate-500">{student.email}</span>
+                          {skills.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {skills.slice(0, 3).map((sk) => (
+                                <span
+                                  key={sk}
+                                  className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[10px] text-slate-700 font-medium"
+                                >
+                                  {sk}
+                                </span>
+                              ))}
+                              {skills.length > 3 && (
+                                <span className="text-[10px] text-slate-400 font-medium">
+                                  +{skills.length - 3} more
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="py-4 px-5">
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full border text-[10px] font-semibold uppercase ${
+                            student.onboarded
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : "bg-slate-50 text-slate-600 border-slate-200"
+                          }`}
+                        >
+                          {student.onboarded ? "Complete" : "Pending"}
+                        </span>
+                      </td>
+
+                      <td className="py-4 px-5 text-center">
+                        <Link
+                          href="/admin/applications"
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-xs font-bold transition-colors"
+                        >
+                          <FileText className="h-3 w-3" />
+                          {appCount}
+                        </Link>
+                      </td>
+
+                      <td className="py-4 px-5">
+                        {isActive ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-bold text-emerald-700 uppercase">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                            Active
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">—</span>
+                        )}
+                      </td>
+
+                      <td className="py-4 px-5 text-slate-500 text-[11px]">
+                        <span className="flex items-center gap-1.5">
+                          <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                          {date}
+                        </span>
+                      </td>
+
+                      <td className="py-4 px-5 text-right">
                         <Link
                           href={`/admin/students/${student.id}`}
-                          className="font-bold text-white hover:text-indigo-300 transition-colors leading-snug"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-sky-600 hover:text-sky-700 uppercase tracking-wider"
                         >
-                          {name}
+                          View Profile
+                          <ChevronRight className="h-3.5 w-3.5" />
                         </Link>
-                        <span className="text-[11px] font-mono text-slate-400">{student.email}</span>
-                        {skills.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {skills.slice(0, 3).map((sk) => (
-                              <span
-                                key={sk}
-                                className="px-1.5 py-px rounded bg-slate-800 border border-slate-700 font-mono text-[10px] text-slate-400"
-                              >
-                                {sk}
-                              </span>
-                            ))}
-                            {skills.length > 3 && (
-                              <span className="font-mono text-[10px] text-slate-500">
-                                +{skills.length - 3} more
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase ${
-                          student.onboarded
-                            ? "bg-emerald-950/80 text-emerald-300 border-emerald-700/40"
-                            : "bg-slate-800 text-slate-400 border-slate-700"
-                        }`}
-                      >
-                        {student.onboarded ? "Complete" : "Pending"}
-                      </span>
-                    </td>
-
-                    <td className="py-3.5 px-4 text-center">
-                      <Link
-                        href={`/admin/applications`}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-indigo-400 border border-slate-800 font-bold"
-                      >
-                        <FileText className="h-3 w-3" />
-                        {appCount}
-                      </Link>
-                    </td>
-
-                    <td className="py-3.5 px-4">
-                      {isActive ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-700/40 text-[10px] font-bold text-emerald-300 uppercase">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Active
-                        </span>
-                      ) : (
-                        <span className="text-slate-600 text-[10px] font-mono">—</span>
-                      )}
-                    </td>
-
-                    <td className="py-3.5 px-4 text-slate-500 text-[11px]">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3 text-slate-600" />
-                        {date}
-                      </span>
-                    </td>
-
-                    <td className="py-3.5 px-4 text-right">
-                      <Link
-                        href={`/admin/students/${student.id}`}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 uppercase tracking-wider"
-                      >
-                        View Profile
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
@@ -291,9 +294,10 @@ export default async function AdminStudentsPage({
 
 function PageTitle() {
   return (
-    <div className="pb-4 border-b border-slate-800/80">
-      <h1 className="text-xl font-bold tracking-tight text-white font-mono uppercase">
-        STUDENT CANDIDATE REGISTRY
+    <div className="flex flex-col gap-1 pb-1">
+      <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+        <Users className="h-6 w-6 text-sky-600" />
+        Student Candidate Registry
       </h1>
     </div>
   );
@@ -301,17 +305,17 @@ function PageTitle() {
 
 function ErrorPanel({ message }: { message: string }) {
   return (
-    <div className="p-8 rounded-xl bg-red-950/20 border border-red-800/40 text-center">
-      <p className="text-sm font-semibold text-red-300 font-mono">{message}</p>
+    <div className="p-8 rounded-3xl bg-white/80 backdrop-blur-xl border border-red-200 text-center shadow-xs">
+      <p className="text-sm font-semibold text-red-600">{message}</p>
     </div>
   );
 }
 
 function EmptyPanel({ message }: { message: string }) {
   return (
-    <div className="p-12 rounded-xl bg-[#0E131F] border border-slate-800 text-center flex flex-col items-center gap-3">
-      <Users className="h-10 w-10 text-slate-600" />
-      <p className="text-sm font-bold text-slate-300 font-mono">No students yet</p>
+    <div className="p-12 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 text-center flex flex-col items-center gap-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+      <Users className="h-10 w-10 text-slate-300" />
+      <p className="text-sm font-bold text-slate-800">No students yet</p>
       <p className="text-xs text-slate-500 max-w-sm">{message}</p>
     </div>
   );

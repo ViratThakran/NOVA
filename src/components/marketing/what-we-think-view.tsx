@@ -75,16 +75,15 @@ const SHOWCASE_CARDS: ShowcaseCard[] = [
 
 interface PerspectiveArticle {
   id: string;
+  dot: string;
   number: string;
   category: string;
   topicId: string;
   title: string;
-  subtitle: string;
+  description: string;
   readTime: string;
   date: string;
   author: string;
-  summary: string;
-  takeaways: string[];
   image: string;
   href: string;
 }
@@ -92,103 +91,248 @@ interface PerspectiveArticle {
 const PERSPECTIVE_ARTICLES: PerspectiveArticle[] = [
   {
     id: "p1",
+    dot: ".01",
     number: "01",
     category: "AI & TECHNOLOGY",
     topicId: "ai",
-    title: "From Syntax Generation to Constraint Modeling: The Modern Engineer's Cognitive Stack",
-    subtitle: "How engineering evolves from line-by-line syntax writing to architecting verification loops, property invariants, and deterministic agent scaffolds.",
+    title: "Constraint Modeling",
+    description:
+      "We design autonomous verification loops, property invariants, and deterministic agent scaffolds. By prioritizing constraint modeling over syntax generation, we ensure AI systems remain provably robust.",
     readTime: "8 min read",
     date: "August 2026",
     author: "NOVA Systems Group",
-    summary:
-      "As code generation approaches instantaneous zero-cost commodity, the true differentiator of engineering teams shifts upward: defining formal specifications, constraint envelopes, and automated evaluation suites.",
-    takeaways: [
-      "Deterministic verification over speculative generations",
-      "Property-based invariant testing in autonomous agent pipelines",
-      "Zero-trust execution environments for distributed squads",
-    ],
     image: "/images/cards/software.jpg",
     href: "/about",
   },
   {
     id: "p2",
+    dot: ".02",
     number: "02",
     category: "LEARNING & SYSTEMS",
     topicId: "learning",
-    title: "The Death of Sandbox Code: Why Production Realities Cannot Be Simulated",
-    subtitle: "Passive tutorials cultivate fragility. High-conviction engineering instinct only emerges when builders debug flaky network partitions and live state conflicts.",
+    title: "Production Realities",
+    description:
+      "We believe sandbox tutorials cultivate fragility. High-conviction engineering instinct only emerges when builders debug live state conflicts, network partitions, and real production commits.",
     readTime: "6 min read",
     date: "July 2026",
     author: "NOVA Academy & Pedagogy",
-    summary:
-      "When educational sandboxes conceal concurrency bugs, latency spikes, and telemetry anomalies, students develop false confidence. Genuine mastery demands real repository accountability.",
-    takeaways: [
-      "Replacing simulated toy tasks with verified production commits",
-      "Peer review as the fundamental cognitive engine of mastery",
-      "Developing intuitive architectural taste under live constraints",
-    ],
     image: "/images/cards/build.jpg",
     href: "/about",
   },
   {
     id: "p3",
+    dot: ".03",
     number: "03",
     category: "FUTURE OF WORK",
     topicId: "work",
-    title: "Agentic Commerce and the Emergence of Machine-to-Machine Value Systems",
-    subtitle: "Designing API ecosystems and data services for autonomous agents negotiating micro-transactions, rate allocations, and verifiable cryptographic attestations.",
+    title: "Agentic Commerce",
+    description:
+      "We architect API ecosystems and data services for autonomous agents negotiating micro-transactions, rate allocations, and verifiable cryptographic attestations in zero-trust environments.",
     readTime: "7 min read",
     date: "June 2026",
     author: "NOVA Research Labs",
-    summary:
-      "When software agents act as autonomous economic participants, digital infrastructure must adapt: transitioning from human authentication cookies to cryptographic provenance and deterministic rate markets.",
-    takeaways: [
-      "Zero-downtime service meshes for autonomous agent coordination",
-      "Cryptographic provenance of multi-agent generated deliverables",
-      "Human-in-the-loop escalation gates with zero latency penalties",
-    ],
     image: "/images/cards/products.jpg",
+    href: "/about",
+  },
+  {
+    id: "p4",
+    dot: ".04",
+    number: "04",
+    category: "SYSTEMS & SCALE",
+    topicId: "products",
+    title: "Distributed State",
+    description:
+      "We build edge-native microservices with sub-second synchronization across distributed worker runtimes and global cache nodes without incurring architectural complexity penalties.",
+    readTime: "7 min read",
+    date: "May 2026",
+    author: "NOVA Cloud Architecture",
+    image: "/images/cards/grow.jpg",
     href: "/about",
   },
 ];
 
+const DEEPDIVE_ACCORDION_STYLE = `
+  .deepdive-track {
+    display: flex;
+    gap: 16px;
+    align-items: stretch;
+    height: 520px;
+    width: 100%;
+  }
+
+  .deepdive-panel {
+    flex: 1 1 0;
+    min-width: 0;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    cursor: pointer;
+    transition: flex 0.45s cubic-bezier(0.25, 1, 0.5, 1),
+                box-shadow 0.3s ease,
+                background 0.3s ease,
+                border-color 0.3s ease;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 24px 20px 20px;
+  }
+
+  .deepdive-panel.deepdive-active {
+    flex: 3.2 1 0;
+    background: rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+    border-color: rgba(255, 255, 255, 0.22);
+  }
+
+  .deepdive-panel:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.16);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  }
+
+  .deepdive-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .deepdive-active .deepdive-title {
+    white-space: normal;
+  }
+
+  .deepdive-body {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transform: translateY(8px);
+    transition: opacity 0.35s ease 0.12s, transform 0.35s ease 0.12s, max-height 0.4s ease;
+    pointer-events: none;
+    margin-top: 10px;
+  }
+
+  .deepdive-active .deepdive-body {
+    opacity: 1;
+    max-height: 220px;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .deepdive-image-wrap {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    flex-shrink: 0;
+    height: 190px;
+    width: 100%;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.35s ease 0.15s, transform 0.35s ease 0.15s;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .deepdive-active .deepdive-image-wrap {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .deepdive-image-wrap img {
+    transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  .deepdive-active:hover .deepdive-image-wrap img {
+    transform: scale(1.03);
+  }
+
+  .deepdive-num {
+    font-size: clamp(2.5rem, 4vw, 4.5rem);
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.5);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    user-select: none;
+    align-self: flex-end;
+    transition: opacity 0.3s ease, color 0.3s ease;
+  }
+
+  .deepdive-active .deepdive-num {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+    color: #ffffff;
+    font-size: clamp(2.5rem, 3.5vw, 4rem);
+    z-index: 10;
+    text-shadow: 0 2px 14px rgba(0, 0, 0, 0.8);
+  }
+
+  .deepdive-bottom {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    position: relative;
+  }
+`;
+
 interface TopicFilter {
   id: string;
+  number: string;
   label: string;
   count: number;
   description: string;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 const TOPICS: TopicFilter[] = [
   {
     id: "all",
+    number: "01",
     label: "ALL TOPICS",
     count: 7,
     description: "Complete index of NOVA research dispatches, architecture briefs, and editorial perspectives.",
+    icon: Layers,
   },
   {
     id: "ai",
+    number: "02",
     label: "AI & TECHNOLOGY",
     count: 3,
     description: "Autonomous reasoning architectures, deterministic agent scaffolds, and scalable systems engineering.",
+    icon: Cpu,
   },
   {
     id: "work",
+    number: "03",
     label: "FUTURE OF WORK",
     count: 2,
     description: "Builder squads, agile coordination models, agentic workflows, and the new engineering organization.",
+    icon: Briefcase,
   },
   {
     id: "learning",
+    number: "04",
     label: "LEARNING & SYSTEMS",
     count: 2,
     description: "Challenge-driven pedagogy, track records vs. credentials, and production apprentice frameworks.",
+    icon: GraduationCap,
   },
   {
     id: "products",
+    number: "05",
     label: "DIGITAL PRODUCTS",
     count: 2,
     description: "High-density UI/UX ergonomics, edge web infrastructure, and design systems for enterprise scale.",
+    icon: Compass,
   },
 ];
 
@@ -319,32 +463,44 @@ export function WhatWeThinkView() {
   return (
     <>
       <CustomCursor />
-      <SiteHeader transparent={false} />
+      <SiteHeader transparent={true} />
 
-      <main className="flex flex-col min-h-screen bg-white text-neutral-950 pt-16 selection:bg-[#6D54D4]/15 selection:text-[#6D54D4]">
+      <main className="flex flex-col min-h-screen bg-[#0a0a0a] text-white pt-16 selection:bg-white selection:text-black font-sans antialiased">
         {/* ------------------------------------------------------------------ */}
         {/* 01 / EDITORIAL HERO & MASTHEAD                                     */}
         {/* ------------------------------------------------------------------ */}
         <section
           aria-label="Editorial Masthead"
-          className="relative w-full border-b border-neutral-200/90 bg-gradient-to-b from-neutral-50/70 via-white to-white pt-16 sm:pt-24 pb-14 sm:pb-20 overflow-hidden"
+          className="relative w-full bg-neutral-950 pt-16 sm:pt-24 pb-14 sm:pb-20 overflow-hidden text-white"
         >
-          {/* Subtle Ambient Radial Top Glow */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-96 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(109,84,212,0.12),transparent)]" />
+          {/* Cosmic Galaxy Background Image */}
+          <div className="absolute inset-0 z-0 overflow-hidden">
+            <Image
+              src="/images/what-we-think-hero.png"
+              alt="Cosmic galaxy background"
+              fill
+              priority
+              className="object-cover object-center"
+              sizes="100vw"
+            />
+            {/* Dark gradient overlay to preserve star detail while ensuring text legibility */}
+            <div className="absolute inset-0 bg-black/40 bg-gradient-to-b from-black/70 via-black/30 to-black/80" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-96 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(109,84,212,0.18),transparent)]" />
+          </div>
 
           <div className="relative z-10 mx-auto flex w-full max-w-[1560px] flex-col gap-8 sm:gap-12 px-6 sm:px-10 lg:px-16 xl:px-20">
-            {/* Masthead Eyebrow & Issue Indicator */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-200 pb-5">
+            {/* Masthead Eyebrow & Issue Indicator (Horizontal border removed) */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
               <div className="flex items-center gap-3">
                 <span className="flex h-2 w-2 rounded-full bg-[#6D54D4] animate-pulse" />
-                <span className="text-xs font-mono font-bold uppercase tracking-[0.25em] text-neutral-500">
+                <span className="text-xs font-mono font-bold uppercase tracking-[0.25em] text-neutral-300 drop-shadow">
                   01 / NOVA RESEARCH &amp; EDITORIAL WORLD
                 </span>
               </div>
-              <div className="flex items-center gap-4 text-[11px] font-mono text-neutral-400 font-medium">
+              <div className="flex items-center gap-4 text-[11px] font-mono text-neutral-300 font-medium drop-shadow">
                 <span>ISSUE 04 • QUARTERLY DISPATCH</span>
                 <span className="hidden md:inline">•</span>
-                <span className="hidden md:inline text-neutral-500">OPEN ACCESS PERSPECTIVES</span>
+                <span className="hidden md:inline text-neutral-300">OPEN ACCESS PERSPECTIVES</span>
               </div>
             </div>
 
@@ -355,10 +511,10 @@ export function WhatWeThinkView() {
                   initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, ease: premiumEase }}
-                  className="text-4xl sm:text-6xl md:text-7xl lg:text-[76px] font-black tracking-tight text-neutral-950 uppercase leading-[0.93]"
+                  className="text-4xl sm:text-6xl md:text-7xl lg:text-[76px] font-black tracking-tight text-white uppercase leading-[0.93] drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]"
                 >
                   WE THINK ABOUT{" "}
-                  <span className="bg-gradient-to-r from-[#6D54D4] via-indigo-600 to-cyan-600 bg-clip-text text-transparent">
+                  <span className="bg-gradient-to-r from-indigo-300 via-purple-300 to-cyan-300 bg-clip-text text-transparent">
                     WHAT&apos;S NEXT.
                   </span>
                 </motion.h1>
@@ -367,7 +523,7 @@ export function WhatWeThinkView() {
                   initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: 0.1, ease: premiumEase }}
-                  className="text-base sm:text-lg md:text-xl text-neutral-600 font-normal leading-relaxed max-w-2xl"
+                  className="text-base sm:text-lg md:text-xl text-neutral-200 font-normal leading-relaxed max-w-2xl drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"
                 >
                   Research, ideas and perspectives on technology, people, learning and the future we&apos;re building.
                 </motion.p>
@@ -380,37 +536,37 @@ export function WhatWeThinkView() {
                 transition={{ duration: 0.6, delay: 0.2, ease: premiumEase }}
                 className="lg:col-span-4 flex flex-col gap-3 justify-end items-start lg:items-end"
               >
-                <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-neutral-400">
+                <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-neutral-300 drop-shadow">
                   EDITORIAL CHAPTERS
                 </span>
                 <nav aria-label="Page Sections" className="flex flex-wrap gap-2 lg:justify-end">
                   <a
                     href="#featured-perspectives"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3.5 py-1.5 text-xs font-mono font-medium text-neutral-700 hover:border-[#6D54D4] hover:text-[#6D54D4] hover:bg-neutral-50 transition-all shadow-sm"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-black/40 hover:bg-black/60 hover:border-white/50 px-3.5 py-1.5 text-xs font-mono font-medium text-white transition-all backdrop-blur-md shadow-sm"
                   >
                     <span>02 / FEATURED</span>
-                    <ChevronRight className="h-3 w-3 text-neutral-400" />
+                    <ChevronRight className="h-3 w-3 text-neutral-300" />
                   </a>
                   <a
                     href="#editorial-perspectives"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3.5 py-1.5 text-xs font-mono font-medium text-neutral-700 hover:border-[#6D54D4] hover:text-[#6D54D4] hover:bg-neutral-50 transition-all shadow-sm"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-black/40 hover:bg-black/60 hover:border-white/50 px-3.5 py-1.5 text-xs font-mono font-medium text-white transition-all backdrop-blur-md shadow-sm"
                   >
                     <span>03 / PERSPECTIVES</span>
-                    <ChevronRight className="h-3 w-3 text-neutral-400" />
+                    <ChevronRight className="h-3 w-3 text-neutral-300" />
                   </a>
                   <a
                     href="#research-topics"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3.5 py-1.5 text-xs font-mono font-medium text-neutral-700 hover:border-[#6D54D4] hover:text-[#6D54D4] hover:bg-neutral-50 transition-all shadow-sm"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-black/40 hover:bg-black/60 hover:border-white/50 px-3.5 py-1.5 text-xs font-mono font-medium text-white transition-all backdrop-blur-md shadow-sm"
                   >
                     <span>04 / TOPICS</span>
-                    <ChevronRight className="h-3 w-3 text-neutral-400" />
+                    <ChevronRight className="h-3 w-3 text-neutral-300" />
                   </a>
                   <a
                     href="#latest-thinking"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3.5 py-1.5 text-xs font-mono font-medium text-neutral-700 hover:border-[#6D54D4] hover:text-[#6D54D4] hover:bg-neutral-50 transition-all shadow-sm"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-black/40 hover:bg-black/60 hover:border-white/50 px-3.5 py-1.5 text-xs font-mono font-medium text-white transition-all backdrop-blur-md shadow-sm"
                   >
                     <span>05 / FEED</span>
-                    <ChevronRight className="h-3 w-3 text-neutral-400" />
+                    <ChevronRight className="h-3 w-3 text-neutral-300" />
                   </a>
                 </nav>
               </motion.div>
@@ -425,12 +581,12 @@ export function WhatWeThinkView() {
           id="featured-perspectives"
           ref={showcaseSectionRef}
           aria-labelledby="featured-heading"
-          className="scroll-mt-20 bg-white py-20 sm:py-28 text-neutral-950 border-b border-neutral-200/90"
+          className="scroll-mt-20 bg-[#0e0e12] py-20 sm:py-28 text-white border-b border-white/10"
         >
           <div className="mx-auto flex w-full max-w-[1560px] flex-col items-center gap-12 sm:gap-16 px-6 sm:px-10 lg:px-16 xl:px-20">
             {/* Centered Editorial Section Header */}
             <div className="flex flex-col items-center text-center max-w-3xl gap-3 sm:gap-4">
-              <span className="text-xs font-mono font-bold uppercase tracking-[0.25em] text-neutral-500">
+              <span className="text-xs font-mono font-bold uppercase tracking-[0.25em] text-neutral-400">
                 02 / FEATURED EDITORIAL STORIES
               </span>
 
@@ -440,10 +596,10 @@ export function WhatWeThinkView() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, ease: premiumEase }}
-                className="text-3xl sm:text-5xl font-bold tracking-tight text-neutral-950"
+                className="text-3xl sm:text-5xl font-black tracking-tight text-white uppercase"
               >
                 Featured Perspectives &amp;{" "}
-                <span className="text-[#6D54D4]">
+                <span className="text-indigo-400">
                   Research
                 </span>
               </motion.h2>
@@ -453,13 +609,13 @@ export function WhatWeThinkView() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: 0.1, ease: premiumEase }}
-                className="text-xs sm:text-sm text-neutral-600 font-normal leading-relaxed max-w-2xl px-4"
+                className="text-xs sm:text-sm text-neutral-300 font-normal leading-relaxed max-w-2xl px-4"
               >
                 Selected dispatches examining the structural changes across software development, intelligent agents, and education.
               </motion.p>
             </div>
 
-            {/* Preserved 3-Card Bento Grid with Dominant Image + Overlapping Floating White Text Card */}
+            {/* Preserved 3-Card Bento Grid with Glassmorphic Floating Cards */}
             <motion.div
               style={{ scale: prefersReducedMotion ? 1 : scrollScale }}
               className="w-full grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-start pt-4"
@@ -493,10 +649,10 @@ export function WhatWeThinkView() {
                         : "opacity-90 hover:opacity-100 z-0"
                     )}
                   >
-                    {/* 1. Tall Dominant Visual Container (Top portion of card) */}
+                    {/* 1. Tall Dominant Visual Container */}
                     <div
                       className={cn(
-                        "relative w-full rounded-[28px] overflow-hidden bg-neutral-900 shadow-[0_20px_45px_-15px_rgba(0,0,0,0.12)] transition-all duration-500",
+                        "relative w-full rounded-[28px] overflow-hidden bg-neutral-900 border border-white/10 shadow-[0_20px_45px_-15px_rgba(0,0,0,0.5)] transition-all duration-500",
                         isActive ? "h-[300px] sm:h-[360px] lg:h-[400px]" : "h-[270px] sm:h-[320px] lg:h-[350px]"
                       )}
                     >
@@ -510,23 +666,23 @@ export function WhatWeThinkView() {
                           isActive ? "scale-[1.04]" : "scale-100"
                         )}
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
 
                       {/* Overlaid Category Pill */}
                       <div className="absolute top-5 left-5 z-10">
-                        <span className="rounded-lg bg-neutral-950/80 text-white px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider backdrop-blur-md border border-white/10">
+                        <span className="rounded-lg bg-black/70 text-white px-3 py-1.5 text-[11px] font-mono font-bold uppercase tracking-wider backdrop-blur-md border border-white/15">
                           {card.category}
                         </span>
                       </div>
                     </div>
 
-                    {/* 2. Floating Overlapping White Card */}
+                    {/* 2. Floating Overlapping Frosted Glass Card */}
                     <div
                       className={cn(
-                        "relative -mt-16 sm:-mt-20 mx-3 sm:mx-4 flex flex-col justify-between p-6 sm:p-7 bg-white rounded-[22px] border border-neutral-100/90 transition-all duration-300 gap-3 min-h-[170px] sm:min-h-[190px]",
+                        "relative -mt-16 sm:-mt-20 mx-3 sm:mx-4 flex flex-col justify-between p-6 sm:p-7 rounded-[22px] border transition-all duration-300 gap-3 min-h-[170px] sm:min-h-[190px]",
                         isActive
-                          ? "shadow-[0_25px_60px_-15px_rgba(109,84,212,0.22)] border-neutral-200"
-                          : "shadow-[0_15px_35px_-10px_rgba(0,0,0,0.08)]"
+                          ? "bg-[#16161b]/90 backdrop-blur-2xl border-white/30 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] ring-1 ring-white/20"
+                          : "bg-[#141418]/80 backdrop-blur-xl border-white/10 shadow-[0_15px_35px_-10px_rgba(0,0,0,0.5)]"
                       )}
                     >
                       <div className="flex flex-col gap-2">
@@ -534,10 +690,10 @@ export function WhatWeThinkView() {
                           {card.readTime}
                         </span>
 
-                        <h3 className="text-lg sm:text-xl font-bold tracking-tight text-[#0F172A] leading-snug">
+                        <h3 className="text-lg sm:text-xl font-bold tracking-tight text-white leading-snug">
                           {card.title}
                         </h3>
-                        <p className="text-xs sm:text-[13px] text-[#475569] leading-relaxed font-normal">
+                        <p className="text-xs sm:text-[13px] text-neutral-300 leading-relaxed font-normal">
                           {card.description}
                         </p>
                       </div>
@@ -545,7 +701,7 @@ export function WhatWeThinkView() {
                       <div className="pt-1">
                         <Link
                           href={card.href}
-                          className="group/link inline-flex items-center gap-1 text-xs font-semibold text-[#0F172A] hover:text-[#6D54D4] underline underline-offset-4 decoration-neutral-300 hover:decoration-[#6D54D4] transition-colors"
+                          className="group/link inline-flex items-center gap-1 text-xs font-semibold text-white hover:text-indigo-300 underline underline-offset-4 decoration-white/30 hover:decoration-indigo-300 transition-colors"
                         >
                           <span>{card.linkText}</span>
                           <ArrowUpRight className="h-3 w-3 transition-transform group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5" />
@@ -560,252 +716,262 @@ export function WhatWeThinkView() {
         </section>
 
         {/* ------------------------------------------------------------------ */}
-        {/* 03 / PERSPECTIVES (HORIZONTAL EDITORIAL INTERACTION)               */}
+        {/* 03 / PERSPECTIVES (EXPANDING ACCORDION CARDS - GLASSMORPHISM)      */}
         {/* ------------------------------------------------------------------ */}
         <section
           id="editorial-perspectives"
           aria-labelledby="perspectives-heading"
-          className="scroll-mt-20 bg-[#FAFAFC] py-20 sm:py-32 border-b border-neutral-200/90 text-neutral-950 overflow-hidden"
+          className="scroll-mt-20 bg-[#0a0a0a] py-16 sm:py-24 border-b border-white/10 text-white overflow-hidden"
         >
-          <div className="mx-auto flex w-full max-w-[1560px] flex-col gap-12 sm:gap-16 px-6 sm:px-10 lg:px-16 xl:px-20">
+          <style>{DEEPDIVE_ACCORDION_STYLE}</style>
+
+          <div className="mx-auto flex w-full max-w-[1560px] flex-col gap-10 sm:gap-12 px-6 sm:px-10 lg:px-16 xl:px-20">
             {/* Section Header */}
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-neutral-200 pb-8">
-              <div className="flex flex-col gap-3 max-w-2xl">
-                <span className="text-xs font-mono font-bold uppercase tracking-[0.25em] text-[#6D54D4]">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-white/10 pb-8">
+              <div className="flex flex-col gap-3.5 max-w-2xl">
+                <div className="text-[11px] font-mono font-bold tracking-[0.28em] text-neutral-400 uppercase">
                   03 / DEEP DIVE PERSPECTIVES
-                </span>
+                </div>
                 <h2
                   id="perspectives-heading"
-                  className="text-3xl sm:text-5xl font-black tracking-tight text-neutral-950 uppercase leading-none"
+                  className="text-3xl sm:text-4xl lg:text-[50px] font-black tracking-tight text-white uppercase leading-[0.94]"
                 >
-                  SYSTEMS &amp; ARCHITECTURAL ESSAYS
+                  SYSTEMS &amp;<br />ARCHITECTURAL ESSAYS.
                 </h2>
-                <p className="text-sm sm:text-base text-neutral-600 font-normal leading-relaxed mt-1">
-                  In-depth architectural analysis written by engineers and researchers at NOVA.
-                </p>
               </div>
-
-              <span className="text-xs font-mono text-neutral-400">
-                ACTIVE PERSPECTIVE {activePerspective.number} OF 0{PERSPECTIVE_ARTICLES.length}
-              </span>
+              <p className="text-sm sm:text-[15px] text-neutral-400 leading-relaxed max-w-xs sm:pb-1 font-normal">
+                In-depth architectural analysis and engineering perspectives written by researchers and builders at NOVA.
+              </p>
             </div>
 
-            {/* Horizontal Split Editorial Stage */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
-              {/* Left Column (Col 5): Horizontal Story Track Selector */}
-              <div className="lg:col-span-5 flex flex-col divide-y divide-neutral-200 border-y border-neutral-200">
+            {/* Desktop 4-Panel Expanding Accordion (lg+) */}
+            <div className="hidden lg:block">
+              <div
+                className="deepdive-track"
+                onMouseLeave={() => setActivePerspectiveIdx(0)}
+              >
                 {PERSPECTIVE_ARTICLES.map((article, idx) => {
-                  const isSelected = activePerspectiveIdx === idx;
+                  const isActive = activePerspectiveIdx === idx;
                   return (
-                    <button
-                      key={article.id}
-                      type="button"
-                      onClick={() => setActivePerspectiveIdx(idx)}
+                    <div
+                      key={article.dot}
+                      className={`deepdive-panel${isActive ? " deepdive-active" : ""}`}
                       onMouseEnter={() => setActivePerspectiveIdx(idx)}
-                      data-cursor-text="READ"
-                      className={cn(
-                        "group relative flex flex-col gap-2 p-5 sm:p-6 text-left transition-all duration-200",
-                        isSelected
-                          ? "bg-white shadow-sm"
-                          : "hover:bg-white/60 text-neutral-700"
-                      )}
+                      onClick={() => setActivePerspectiveIdx(idx)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          setActivePerspectiveIdx(idx);
+                        }
+                      }}
+                      aria-expanded={isActive}
                     >
-                      {/* Active Indicator Accent Line */}
-                      {isSelected && (
-                        <motion.div
-                          layoutId="activePerspectiveIndicator"
-                          className="absolute left-0 top-0 bottom-0 w-1 bg-[#6D54D4]"
-                          transition={{ duration: 0.25, ease: premiumEase }}
-                        />
-                      )}
-
-                      <div className="flex items-center justify-between text-xs font-mono text-neutral-400">
-                        <span className={cn("font-bold", isSelected ? "text-[#6D54D4]" : "text-neutral-500")}>
-                          {article.number} / {article.category}
-                        </span>
-                        <span>{article.readTime}</span>
+                      {/* Top: Title + expandable description */}
+                      <div>
+                        <p className="deepdive-title">{article.title}</p>
+                        <div className="deepdive-body">
+                          <p className="text-sm text-neutral-300 leading-relaxed font-normal">
+                            {article.description}
+                          </p>
+                          <Link
+                            href={article.href}
+                            className="inline-flex items-center gap-1 mt-3 text-[11px] font-semibold font-mono tracking-wider text-white hover:text-indigo-300 transition-colors uppercase"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span>Read more</span>
+                            <ArrowUpRight className="h-3 w-3" />
+                          </Link>
+                        </div>
                       </div>
 
-                      <h3
-                        className={cn(
-                          "text-base sm:text-lg font-bold tracking-tight leading-snug transition-colors",
-                          isSelected ? "text-neutral-950" : "text-neutral-700 group-hover:text-neutral-950"
-                        )}
-                      >
-                        {article.title}
-                      </h3>
+                      {/* Bottom: image (active) or big number (collapsed) */}
+                      <div className="deepdive-bottom">
+                        <div className="deepdive-image-wrap">
+                          <Image
+                            src={article.image}
+                            alt={article.title}
+                            fill
+                            sizes="480px"
+                            className="object-cover object-center"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                        </div>
 
-                      <span className="text-xs text-neutral-500 font-mono">
-                        {article.author} • {article.date}
-                      </span>
-                    </button>
+                        <span className="deepdive-num">{article.dot}</span>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
+            </div>
 
-              {/* Right Column (Col 7): Spatial Editorial Reading Stage */}
-              <div className="lg:col-span-7 relative flex flex-col rounded-3xl border border-neutral-200 bg-white p-6 sm:p-10 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.06)] overflow-hidden">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activePerspective.id}
-                    initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={prefersReducedMotion ? { opacity: 0, x: -20 } : { opacity: 0, x: -20 }}
-                    transition={{ duration: 0.35, ease: premiumEase }}
-                    className="flex flex-col gap-6"
-                  >
-                    {/* Visual Container */}
-                    <div className="relative h-48 sm:h-64 w-full rounded-2xl overflow-hidden bg-neutral-900 shadow-md">
-                      <Image
-                        src={activePerspective.image}
-                        alt={activePerspective.title}
-                        fill
-                        className="object-cover object-center"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                      <div className="absolute bottom-4 left-4 right-4 z-10 flex items-center justify-between text-white text-xs font-mono">
-                        <span className="font-bold uppercase tracking-wider text-indigo-300">
-                          {activePerspective.category}
-                        </span>
-                        <span>{activePerspective.date}</span>
-                      </div>
-                    </div>
-
-                    {/* Excerpt Details */}
-                    <div className="flex flex-col gap-3">
-                      <h3 className="text-xl sm:text-2xl font-bold text-neutral-950 tracking-tight leading-tight">
-                        {activePerspective.title}
-                      </h3>
-                      <p className="text-sm sm:text-base text-neutral-600 leading-relaxed font-normal">
-                        {activePerspective.subtitle}
-                      </p>
-                    </div>
-
-                    {/* Key Engineering Invariants / Bullet Takeaways */}
-                    <div className="flex flex-col gap-2 rounded-xl bg-neutral-50 p-4 border border-neutral-100">
-                      <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-neutral-500">
-                        KEY ARCHITECTURAL TAKEAWAYS
+            {/* Tablet & Mobile: Vertical cards (<lg) */}
+            <div className="lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {PERSPECTIVE_ARTICLES.map((article) => (
+                <div
+                  key={article.dot}
+                  className="rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-white/10 p-6 flex flex-col justify-between gap-4 shadow-sm"
+                >
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-start justify-between">
+                      <h3 className="text-lg font-bold text-white">{article.title}</h3>
+                      <span className="text-3xl font-black text-neutral-300 leading-none font-mono">
+                        {article.dot}
                       </span>
-                      <ul className="flex flex-col gap-1.5 text-xs sm:text-sm text-neutral-700">
-                        {activePerspective.takeaways.map((item) => (
-                          <li key={item} className="flex items-center gap-2">
-                            <span className="h-1.5 w-1.5 rounded-full bg-[#6D54D4]" />
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
                     </div>
-
-                    {/* Read Full Article Button */}
-                    <div className="pt-2 flex items-center justify-between border-t border-neutral-100">
-                      <span className="text-xs font-mono text-neutral-400">
-                        Published by {activePerspective.author}
-                      </span>
-                      <Link
-                        href={activePerspective.href}
-                        className="group/btn inline-flex items-center gap-2 rounded-xl bg-neutral-950 hover:bg-[#6D54D4] text-white px-5 py-2.5 text-xs sm:text-sm font-semibold transition-all shadow-sm active:scale-[0.98]"
-                      >
-                        <span>Read Perspective</span>
-                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover/btn:translate-x-1" />
-                      </Link>
-                    </div>
-                  </motion.div>
-                </AnimatePresence>
-              </div>
+                    <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed font-normal">
+                      {article.description}
+                    </p>
+                  </div>
+                  <div className="relative h-44 rounded-xl overflow-hidden mt-2 border border-white/10">
+                    <Image
+                      src={article.image}
+                      alt={article.title}
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 360px"
+                      className="object-cover"
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
         {/* ------------------------------------------------------------------ */}
-        {/* 04 / TOPICS (TYPOGRAPHY & HORIZONTAL INTERACTION)                  */}
+        {/* 04 / TOPICS (SQUARE BOX CARDS GRID - GLASSMORPHISM)                */}
         {/* ------------------------------------------------------------------ */}
         <section
           id="research-topics"
           aria-labelledby="topics-heading"
-          className="scroll-mt-20 bg-white py-16 sm:py-24 border-b border-neutral-200/90 text-neutral-950"
+          className="scroll-mt-20 bg-[#0e0e12] py-16 sm:py-24 border-b border-white/10 text-white"
         >
-          <div className="mx-auto flex w-full max-w-[1560px] flex-col gap-8 sm:gap-12 px-6 sm:px-10 lg:px-16 xl:px-20">
+          <div className="mx-auto flex w-full max-w-[1560px] flex-col gap-8 sm:gap-10 px-6 sm:px-10 lg:px-16 xl:px-20">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-200 pb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
               <div className="flex flex-col gap-1">
-                <span className="text-xs font-mono font-bold uppercase tracking-[0.25em] text-neutral-500">
+                <span className="text-xs font-mono font-bold uppercase tracking-[0.25em] text-neutral-400">
                   04 / RESEARCH TOPICS
                 </span>
-                <h2 id="topics-heading" className="text-2xl sm:text-4xl font-extrabold tracking-tight uppercase">
+                <h2 id="topics-heading" className="text-2xl sm:text-4xl font-black tracking-tight uppercase text-white">
                   EXPLORE BY TOPIC
                 </h2>
               </div>
               <div className="flex items-center gap-2 text-xs font-mono text-neutral-400">
-                <SlidersHorizontal className="h-3.5 w-3.5 text-[#6D54D4]" />
+                <SlidersHorizontal className="h-3.5 w-3.5 text-indigo-400" />
                 <span>FILTER EDITORIAL FEED</span>
               </div>
             </div>
 
-            {/* Horizontal Typography & Tab Selector (NO CARDS!) */}
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-                {TOPICS.map((topic) => {
-                  const isSelected = selectedTopic === topic.id;
-                  return (
-                    <button
-                      key={topic.id}
-                      type="button"
-                      onClick={() => setSelectedTopic(topic.id)}
-                      className={cn(
-                        "group relative shrink-0 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-xs sm:text-sm font-semibold transition-all duration-200 select-none",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D54D4]",
-                        isSelected
-                          ? "bg-neutral-950 text-white shadow-sm"
-                          : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200 hover:text-neutral-950"
-                      )}
-                    >
-                      <span>{topic.label}</span>
+            {/* Small Square Cards Box Grid with Glassmorphism */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+              {TOPICS.map((topic) => {
+                const isSelected = selectedTopic === topic.id;
+                const IconComponent = topic.icon;
+                return (
+                  <button
+                    key={topic.id}
+                    type="button"
+                    onClick={() => setSelectedTopic(topic.id)}
+                    className={cn(
+                      "group relative flex flex-col justify-between p-4 sm:p-5 text-left rounded-xl sm:rounded-2xl border transition-all duration-200 select-none min-h-[140px] sm:min-h-[160px]",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
+                      isSelected
+                        ? "bg-white/15 backdrop-blur-2xl text-white border-white/40 shadow-xl ring-1 ring-white/30"
+                        : "bg-white/[0.04] hover:bg-white/[0.08] backdrop-blur-xl text-neutral-200 border-white/10 hover:border-white/25 hover:shadow-md"
+                    )}
+                  >
+                    {/* Top row: Icon/Number and Count */}
+                    <div className="flex items-center justify-between w-full">
+                      <div
+                        className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-lg border transition-colors",
+                          isSelected
+                            ? "bg-white/20 border-white/30 text-white"
+                            : "bg-white/[0.06] border-white/10 text-neutral-300 group-hover:border-white/25 group-hover:text-white"
+                        )}
+                      >
+                        <IconComponent className="h-4 w-4" />
+                      </div>
                       <span
                         className={cn(
-                          "rounded-full px-2 py-0.5 text-[10px] font-mono font-bold",
-                          isSelected ? "bg-white/20 text-white" : "bg-neutral-200 text-neutral-600"
+                          "px-2 py-0.5 rounded-full text-[11px] font-mono font-bold transition-colors",
+                          isSelected
+                            ? "bg-white/25 text-white"
+                            : "bg-white/10 text-neutral-300 group-hover:bg-white/15"
                         )}
                       >
                         {topic.count}
                       </span>
-                    </button>
-                  );
-                })}
-              </div>
+                    </div>
 
-              {/* Active Topic Description Banner */}
-              <motion.div
-                key={activeTopicObj.id}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2 }}
-                className="flex items-center justify-between rounded-xl bg-neutral-50 px-5 py-3 border border-neutral-100 text-xs sm:text-sm text-neutral-600"
-              >
-                <span>{activeTopicObj.description}</span>
-                <span className="font-mono text-neutral-400 text-xs shrink-0 hidden sm:inline">
-                  Showing {filteredFeed.length} publications
-                </span>
-              </motion.div>
+                    {/* Bottom: Topic Title & Number */}
+                    <div className="flex flex-col gap-1.5 pt-2">
+                      <span
+                        className={cn(
+                          "text-[10px] font-mono font-semibold uppercase tracking-wider",
+                          isSelected ? "text-neutral-300" : "text-neutral-400"
+                        )}
+                      >
+                        {topic.number} / TOPIC
+                      </span>
+                      <h3
+                        className={cn(
+                          "text-xs sm:text-sm font-bold uppercase tracking-tight leading-snug",
+                          isSelected ? "text-white" : "text-neutral-200"
+                        )}
+                      >
+                        {topic.label}
+                      </h3>
+                    </div>
+
+                    {/* Active Accent Indicator */}
+                    {isSelected && (
+                      <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-indigo-400 rounded-full" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
+
+            {/* Active Topic Description Banner */}
+            <motion.div
+              key={activeTopicObj.id}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+              className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl bg-white/[0.03] backdrop-blur-xl px-5 py-3.5 border border-white/10 text-xs sm:text-sm text-neutral-300"
+            >
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-bold text-xs uppercase text-indigo-400">
+                  ACTIVE FILTER:
+                </span>
+                <span>{activeTopicObj.description}</span>
+              </div>
+              <span className="font-mono text-neutral-400 text-xs shrink-0">
+                Showing {filteredFeed.length} publications
+              </span>
+            </motion.div>
           </div>
         </section>
 
         {/* ------------------------------------------------------------------ */}
-        {/* 05 / LATEST THINKING (EDITORIAL FEED / LIST WITH HORIZONTAL HOVER) */}
+        {/* 05 / LATEST THINKING (EDITORIAL FEED - GLASSMORPHISM)              */}
         {/* ------------------------------------------------------------------ */}
         <section
           id="latest-thinking"
           aria-labelledby="feed-heading"
-          className="scroll-mt-20 bg-white py-16 sm:py-24 border-b border-neutral-200/90 text-neutral-950"
+          className="scroll-mt-20 bg-[#0a0a0a] py-16 sm:py-24 border-b border-white/10 text-white"
         >
           <div className="mx-auto flex w-full max-w-[1560px] flex-col gap-8 sm:gap-12 px-6 sm:px-10 lg:px-16 xl:px-20">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-200 pb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
               <div className="flex flex-col gap-1">
-                <span className="text-xs font-mono font-bold uppercase tracking-[0.25em] text-neutral-500">
+                <span className="text-xs font-mono font-bold uppercase tracking-[0.25em] text-neutral-400">
                   05 / LATEST THINKING
                 </span>
-                <h2 id="feed-heading" className="text-2xl sm:text-4xl font-extrabold tracking-tight uppercase">
+                <h2 id="feed-heading" className="text-2xl sm:text-4xl font-black tracking-tight uppercase text-white">
                   EDITORIAL FEED &amp; DISPATCHES
                 </h2>
               </div>
@@ -814,37 +980,37 @@ export function WhatWeThinkView() {
               </span>
             </div>
 
-            {/* Clean Horizontal Editorial Rows with Hover Shift */}
-            <div className="flex flex-col divide-y divide-neutral-200 border-y border-neutral-200">
+            {/* Clean Horizontal Editorial Rows with Frosted Glass Hover */}
+            <div className="flex flex-col divide-y divide-white/10 border-y border-white/10">
               {filteredFeed.map((item) => (
                 <Link
                   key={item.id}
                   href={item.href}
                   data-cursor-text="READ"
-                  className="group relative flex flex-col md:flex-row md:items-center justify-between gap-4 py-5 sm:py-6 px-3 sm:px-5 transition-all duration-200 hover:bg-neutral-50/90 rounded-xl"
+                  className="group relative flex flex-col md:flex-row md:items-center justify-between gap-4 py-5 sm:py-6 px-3 sm:px-5 transition-all duration-200 hover:bg-white/[0.04] backdrop-blur-md rounded-xl"
                 >
                   {/* Left: Number + Category + Title */}
                   <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-8 flex-1">
                     <div className="flex items-center gap-4 shrink-0">
-                      <span className="font-mono text-xs font-bold text-neutral-400 group-hover:text-[#6D54D4] transition-colors">
+                      <span className="font-mono text-xs font-bold text-neutral-400 group-hover:text-white transition-colors">
                         {item.number}
                       </span>
-                      <span className="rounded-md bg-neutral-100 group-hover:bg-neutral-200/80 px-2.5 py-1 text-[11px] font-mono font-semibold uppercase tracking-wider text-neutral-700 transition-colors">
+                      <span className="rounded-md bg-white/[0.08] group-hover:bg-white/[0.14] px-2.5 py-1 text-[11px] font-mono font-semibold uppercase tracking-wider text-neutral-300 group-hover:text-white border border-white/10 transition-colors">
                         {item.category}
                       </span>
                     </div>
 
-                    <h3 className="text-base sm:text-lg lg:text-xl font-bold tracking-tight text-neutral-950 group-hover:text-[#6D54D4] group-hover:translate-x-1.5 transition-all duration-200">
+                    <h3 className="text-base sm:text-lg lg:text-xl font-bold tracking-tight text-white group-hover:text-neutral-200 group-hover:translate-x-1.5 transition-all duration-200">
                       {item.title}
                     </h3>
                   </div>
 
                   {/* Right: Metadata + Format + Arrow */}
                   <div className="flex items-center justify-between md:justify-end gap-6 shrink-0 text-xs font-mono text-neutral-400">
-                    <span className="hidden lg:inline text-neutral-500">{item.format}</span>
+                    <span className="hidden lg:inline text-neutral-400">{item.format}</span>
                     <span>{item.readTime}</span>
                     <span className="hidden sm:inline">{item.date}</span>
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 bg-white group-hover:border-[#6D54D4] group-hover:bg-[#6D54D4] group-hover:text-white transition-all shadow-sm">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-white group-hover:border-white group-hover:bg-white group-hover:text-black transition-all shadow-sm">
                       <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                     </div>
                   </div>
@@ -873,12 +1039,9 @@ export function WhatWeThinkView() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, ease: premiumEase }}
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 backdrop-blur-md mb-6"
+              className="text-xs font-mono font-semibold uppercase tracking-[0.28em] text-neutral-400 mb-6"
             >
-              <Sparkles className="h-3.5 w-3.5 text-[#6D54D4]" />
-              <span className="text-xs font-mono font-semibold uppercase tracking-[0.25em] text-neutral-300">
-                06 / THE HORIZON
-              </span>
+              06 / THE HORIZON
             </motion.div>
 
             {/* Convergent Heading */}

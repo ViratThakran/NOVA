@@ -65,28 +65,29 @@ export default async function AdminProgramsPage({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 text-slate-800">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-white font-mono uppercase">
-            LEARNING PROGRAMS CATALOG
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            <Layers className="h-6 w-6 text-sky-600" />
+            Learning Programs Catalog
           </h1>
-          <p className="text-xs text-slate-400 font-mono mt-0.5">
-            Manage career-oriented programs, their publish state, courses, and skills.
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Manage career-oriented tracks, their publish state, linked courses, and curricula.
           </p>
         </div>
         <Link
           href="/admin/programs/new"
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold uppercase tracking-wider transition-colors shrink-0"
+          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-colors shrink-0"
         >
           <Plus className="h-4 w-4" />
           Create Program
         </Link>
       </div>
 
-      {/* TOOLBAR */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-[#0E131F] p-4 rounded-xl border border-slate-800">
+      {/* TOOLBAR WITH GLASSMORPHISM */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-2xl p-4 sm:p-5 rounded-3xl border border-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
           {FILTERS.map((f) => {
             const isSelected = filter === f.value;
@@ -94,10 +95,10 @@ export default async function AdminProgramsPage({
               <Link
                 key={f.value}
                 href={f.value === "all" ? "/admin/programs" : `/admin/programs?status=${f.value}`}
-                className={`px-3 py-1.5 rounded-md font-mono text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition-colors ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition-colors ${
                   isSelected
-                    ? "bg-indigo-600 text-white"
-                    : "bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                    ? "bg-[#0F172A] text-white shadow-xs"
+                    : "bg-slate-100/80 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900"
                 }`}
               >
                 {f.label}
@@ -108,125 +109,115 @@ export default async function AdminProgramsPage({
 
         <form method="GET" action="/admin/programs" className="relative sm:w-64">
           {filter !== "all" && <input type="hidden" name="status" value={filter} />}
-          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
+          <Search className="absolute left-3.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
           <input
             type="text"
             name="q"
             defaultValue={rawQuery || ""}
             placeholder="Search programs..."
-            className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+            className="w-full pl-9 pr-3 py-2 rounded-full bg-slate-100/80 hover:bg-slate-100 focus:bg-white border border-transparent focus:border-sky-300 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none transition-all"
           />
         </form>
       </div>
 
-      {/* DATA TABLE */}
+      {/* DATA TABLE WITH GLASSMORPHISM */}
       {error ? (
-        <div className="p-8 rounded-xl bg-red-950/20 border border-red-800/40 text-center">
-          <p className="text-sm font-semibold text-red-300">Couldn&apos;t load programs.</p>
+        <div className="p-8 rounded-3xl bg-white/80 backdrop-blur-xl border border-red-200 text-center shadow-xs">
+          <p className="text-sm font-semibold text-red-600">Couldn&apos;t load programs.</p>
         </div>
       ) : programs.length === 0 ? (
-        <div className="p-12 rounded-xl bg-[#0E131F] border border-slate-800 text-center flex flex-col items-center gap-3">
-          <Layers className="h-10 w-10 text-slate-600" />
-          <p className="text-sm font-bold text-slate-300 font-mono">No programs match this view</p>
+        <div className="p-12 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 text-center flex flex-col items-center gap-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <Layers className="h-10 w-10 text-slate-300" />
+          <p className="text-sm font-bold text-slate-800">No programs match this view</p>
           <p className="text-xs text-slate-500">
             {searchQuery ? `No results for "${searchQuery}".` : "Learning programs you create will appear here."}
           </p>
           <Link
             href="/admin/programs/new"
-            className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-xs font-mono font-semibold text-slate-300"
+            className="mt-2 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold shadow-xs"
           >
             <Plus className="h-3.5 w-3.5" />
             Create First Program
           </Link>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#0E131F]">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#0B0F19] text-slate-400 font-mono uppercase tracking-wider text-[10px] border-b border-slate-800">
-              <tr>
-                <th className="py-3 px-4">Program Name</th>
-                <th className="py-3 px-4">Category</th>
-                <th className="py-3 px-4">Difficulty</th>
-                <th className="py-3 px-4 text-center">Courses</th>
-                <th className="py-3 px-4 text-center">Duration</th>
-                <th className="py-3 px-4">Publish Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300">
-              {programs.map((program) => {
-                const courseCount = program.courses?.[0]?.count ?? 0;
-                const statusStyle =
-                  program.status === "published"
-                    ? "bg-emerald-950/80 text-emerald-300 border-emerald-700/40"
-                    : program.status === "archived"
-                    ? "bg-red-950/80 text-red-300 border-red-700/40"
-                    : "bg-amber-950/80 text-amber-300 border-amber-700/40";
+        <div className="rounded-3xl border border-white/90 bg-white/80 backdrop-blur-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400 font-medium bg-slate-50/50">
+                  <th className="py-4 px-5">Program Title</th>
+                  <th className="py-4 px-5">Category</th>
+                  <th className="py-4 px-5">Difficulty</th>
+                  <th className="py-4 px-5 text-center">Courses</th>
+                  <th className="py-4 px-5">Duration</th>
+                  <th className="py-4 px-5">Status</th>
+                  <th className="py-4 px-5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {programs.map((program) => {
+                  const courseCount = program.courses?.[0]?.count ?? 0;
+                  const statusStyle =
+                    program.status === "published"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : program.status === "draft"
+                      ? "bg-slate-50 text-slate-600 border-slate-200"
+                      : "bg-amber-50 text-amber-700 border-amber-200";
 
-                return (
-                  <tr key={program.id} className="hover:bg-slate-900/50 transition-colors">
-                    <td className="py-3.5 px-4 font-sans">
-                      <div className="flex flex-col gap-0.5">
+                  return (
+                    <tr key={program.id} className="hover:bg-sky-50/20 transition-colors">
+                      <td className="py-4 px-5 font-bold text-slate-900 text-xs sm:text-sm">
                         <Link
                           href={`/admin/programs/${program.id}`}
-                          className="font-bold text-white hover:text-indigo-300 transition-colors"
+                          className="hover:text-sky-600 transition-colors"
                         >
                           {program.name}
                         </Link>
-                        <span className="text-[10px] font-mono text-slate-500">{program.slug}</span>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="py-3.5 px-4">
-                      <span className="px-2 py-0.5 rounded bg-indigo-950/60 border border-indigo-800/40 text-[10px] font-bold text-indigo-300 uppercase">
-                        {program.category}
-                      </span>
-                    </td>
+                      <td className="py-4 px-5">
+                        <span className="px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-semibold uppercase">
+                          {program.category}
+                        </span>
+                      </td>
 
-                    <td className="py-3.5 px-4">
-                      <span className="flex items-center gap-1 text-slate-400">
-                        <Star className="h-3 w-3 text-slate-500" />
+                      <td className="py-4 px-5 capitalize text-slate-700 font-medium">
                         {program.difficulty}
-                      </span>
-                    </td>
+                      </td>
 
-                    <td className="py-3.5 px-4 text-center">
-                      <Link
-                        href={`/admin/programs/${program.id}`}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-indigo-400 border border-slate-800 font-bold"
-                      >
-                        <BookOpen className="h-3 w-3" />
-                        {courseCount}
-                      </Link>
-                    </td>
+                      <td className="py-4 px-5 text-center">
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-200 text-xs font-bold">
+                          <BookOpen className="h-3 w-3" />
+                          {courseCount}
+                        </span>
+                      </td>
 
-                    <td className="py-3.5 px-4 text-center text-slate-400">
-                      <span className="flex items-center gap-1 justify-center">
-                        <Calendar className="h-3 w-3 text-slate-600" />
-                        {program.duration_weeks}w
-                      </span>
-                    </td>
+                      <td className="py-4 px-5 text-slate-600 font-medium">
+                        {program.duration_weeks} weeks
+                      </td>
 
-                    <td className="py-3.5 px-4">
-                      <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase ${statusStyle}`}>
-                        {program.status}
-                      </span>
-                    </td>
+                      <td className="py-4 px-5">
+                        <span className={`px-2.5 py-0.5 rounded-full border text-[10px] font-semibold uppercase ${statusStyle}`}>
+                          {program.status}
+                        </span>
+                      </td>
 
-                    <td className="py-3.5 px-4 text-right">
-                      <Link
-                        href={`/admin/programs/${program.id}`}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 uppercase tracking-wider"
-                      >
-                        Edit / Manage
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      <td className="py-4 px-5 text-right">
+                        <Link
+                          href={`/admin/programs/${program.id}`}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-sky-600 hover:text-sky-700 uppercase tracking-wider"
+                        >
+                          Edit
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

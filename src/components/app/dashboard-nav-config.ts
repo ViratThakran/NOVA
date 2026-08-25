@@ -4,6 +4,7 @@
 export interface DashboardNavItem {
   href: string;
   label: string;
+  iconName?: string;
 }
 
 export interface DashboardNavGroup {
@@ -13,32 +14,23 @@ export interface DashboardNavGroup {
 
 export const STUDENT_NAV_GROUPS: readonly DashboardNavGroup[] = [
   {
-    title: "OVERVIEW",
+    title: "ACADEMIC & RESIDENCIES",
     items: [
-      { href: "/student/dashboard", label: "Dashboard" },
+      { href: "/student/dashboard", label: "Dashboard", iconName: "LayoutDashboard" },
+      { href: "/student/enrollments", label: "My Residencies", iconName: "Briefcase" },
+      { href: "/student/applications", label: "Applications", iconName: "ClipboardList" },
+      { href: "/student/programs", label: "Learning Programs", iconName: "GraduationCap" },
+      { href: "/student/projects", label: "Deliverables", iconName: "FolderClosed" },
+      { href: "/student/internships", label: "Opportunities", iconName: "Bookmark" },
+      { href: "/student/services", label: "AI Services", iconName: "Layers" },
     ],
   },
   {
-    title: "CAREER & OPPORTUNITIES",
+    title: "ACCOUNT & SETTINGS",
     items: [
-      { href: "/student/internships", label: "Explore Internships" },
-      { href: "/student/applications", label: "My Applications" },
-      { href: "/student/enrollments", label: "My Residencies" },
-    ],
-  },
-  {
-    title: "LEARNING & SERVICES",
-    items: [
-      { href: "/student/programs", label: "Learning Programs" },
-      { href: "/student/services", label: "AI Services & Requests" },
-    ],
-  },
-  {
-    title: "ACCOUNT",
-    items: [
-      { href: "/student/profile", label: "Profile & Resume" },
-      { href: "/student/notifications", label: "Notifications" },
-      { href: "/student/settings", label: "Settings" },
+      { href: "/student/profile", label: "Profile & Resume", iconName: "User" },
+      { href: "/student/notifications", label: "Notifications", iconName: "Bell" },
+      { href: "/student/settings", label: "Settings", iconName: "Settings" },
     ],
   },
 ];

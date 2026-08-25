@@ -72,9 +72,6 @@ function WhatWeDoMegaMenu({
 
   return (
     <div className="w-full bg-[#1C1C1E] text-[#F5F5F5] border-b border-white/[0.08] shadow-[0_30px_90px_rgba(0,0,0,0.85)]">
-      {/* 1px subtle top accent line linking the navbar to mega-menu */}
-      <div className="h-px bg-white/[0.08] w-full" aria-hidden="true" />
-
       {/* Main content surface adhering to NOVA's global max-width container */}
       <div className="mx-auto w-full max-w-[1560px] px-6 sm:px-10 lg:px-16 xl:px-20 py-8 lg:py-9">
         {/* Two-area layout: CAPABILITIES (left) + INDUSTRIES (right) */}
@@ -86,7 +83,7 @@ function WhatWeDoMegaMenu({
               initial={reduced ? { opacity: 1 } : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: 0.03 }}
-              className="flex items-center justify-between border-b border-white/[0.08] pb-3 mb-3.5"
+              className="flex items-center justify-between pb-1.5 mb-3"
             >
               <div className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" aria-hidden="true" />
@@ -113,14 +110,14 @@ function WhatWeDoMegaMenu({
             </div>
           </div>
 
-          {/* ── RIGHT SECTION: INDUSTRIES (5 Cols, subtle vertical border on left) ── */}
-          <div className="lg:col-span-5 flex flex-col lg:border-l lg:border-white/[0.08] lg:pl-10 xl:pl-14">
+          {/* ── RIGHT SECTION: INDUSTRIES (5 Cols) ── */}
+          <div className="lg:col-span-5 flex flex-col lg:pl-10 xl:pl-14">
             {/* Section Header */}
             <motion.div
               initial={reduced ? { opacity: 1 } : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: 0.05 }}
-              className="flex items-center justify-between border-b border-white/[0.08] pb-3 mb-3.5"
+              className="flex items-center justify-between pb-1.5 mb-3"
             >
               <div className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-indigo-500/70" aria-hidden="true" />
@@ -153,7 +150,7 @@ function WhatWeDoMegaMenu({
           initial={reduced ? { opacity: 1 } : { opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, delay: 0.15 }}
-          className="mt-7 pt-4 border-t border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+          className="mt-8 pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
         >
           <span className="font-mono text-[10.5px] font-medium text-[#85858A] uppercase tracking-widest">
             NOVA CAPABILITY &amp; SECTOR DIRECTORY
@@ -173,7 +170,6 @@ function WhatWeDoMegaMenu({
 }
 
 // ── 2. WHO WE ARE Full-Width Mega-Menu ──────────────────────────────────────
-// ── 2. WHO WE ARE Full-Width Mega-Menu ──────────────────────────────────────
 function WhoWeAreMegaMenu({
   section,
   onClose,
@@ -189,9 +185,6 @@ function WhoWeAreMegaMenu({
 
   return (
     <div className="w-full bg-[#1C1C1E] text-[#F5F5F5] border-b border-white/[0.08] shadow-[0_30px_90px_rgba(0,0,0,0.85)]">
-      {/* 1px top accent line */}
-      <div className="h-px bg-white/[0.08] w-full" aria-hidden="true" />
-
       {/* Main content container */}
       <div className="mx-auto w-full max-w-[1560px] px-6 sm:px-10 lg:px-16 xl:px-20 py-8 lg:py-9">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 xl:gap-12 items-start">
@@ -201,7 +194,7 @@ function WhoWeAreMegaMenu({
               initial={reduced ? { opacity: 1 } : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: 0.03 }}
-              className="flex items-center justify-between border-b border-white/[0.08] pb-3 mb-3.5"
+              className="flex items-center justify-between pb-1.5 mb-3"
             >
               <div className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" aria-hidden="true" />
@@ -224,13 +217,13 @@ function WhoWeAreMegaMenu({
             </div>
           </div>
 
-          {/* ── 2. PEOPLE & CULTURE (4 Cols, subtle divider) ── */}
-          <div className="lg:col-span-4 flex flex-col lg:border-l lg:border-white/[0.08] lg:pl-8 xl:pl-10">
+          {/* ── 2. PEOPLE & CULTURE (4 Cols) ── */}
+          <div className="lg:col-span-4 flex flex-col lg:pl-8 xl:pl-10">
             <motion.div
               initial={reduced ? { opacity: 1 } : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: 0.05 }}
-              className="flex items-center justify-between border-b border-white/[0.08] pb-3 mb-3.5"
+              className="flex items-center justify-between pb-1.5 mb-3"
             >
               <div className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-indigo-500/80" aria-hidden="true" />
@@ -253,13 +246,13 @@ function WhoWeAreMegaMenu({
             </div>
           </div>
 
-          {/* ── 3. IMPACT & TRUST (4 Cols, subtle divider) ── */}
-          <div className="lg:col-span-4 flex flex-col lg:border-l lg:border-white/[0.08] lg:pl-8 xl:pl-10">
+          {/* ── 3. IMPACT & TRUST (4 Cols) ── */}
+          <div className="lg:col-span-4 flex flex-col lg:pl-8 xl:pl-10">
             <motion.div
               initial={reduced ? { opacity: 1 } : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: 0.07 }}
-              className="flex items-center justify-between border-b border-white/[0.08] pb-3 mb-3.5"
+              className="flex items-center justify-between pb-1.5 mb-3"
             >
               <div className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" aria-hidden="true" />
@@ -288,7 +281,7 @@ function WhoWeAreMegaMenu({
           initial={reduced ? { opacity: 1 } : { opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, delay: 0.15 }}
-          className="mt-7 pt-4 border-t border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+          className="mt-8 pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
         >
           <span className="font-mono text-[10.5px] font-medium text-[#85858A] uppercase tracking-widest">
             NOVA ORGANIZATIONAL DIRECTORY
@@ -323,9 +316,6 @@ function CareersMegaMenu({
 
   return (
     <div className="w-full bg-[#1C1C1E] text-[#F5F5F5] border-b border-white/[0.08] shadow-[0_30px_90px_rgba(0,0,0,0.85)]">
-      {/* 1px top accent line */}
-      <div className="h-px bg-white/[0.08] w-full" aria-hidden="true" />
-
       {/* Main content container */}
       <div className="mx-auto w-full max-w-[1560px] px-6 sm:px-10 lg:px-16 xl:px-20 py-8 lg:py-9">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 xl:gap-12 items-start">
@@ -335,7 +325,7 @@ function CareersMegaMenu({
               initial={reduced ? { opacity: 1 } : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: 0.03 }}
-              className="flex items-center justify-between border-b border-white/[0.08] pb-3 mb-3.5"
+              className="flex items-center justify-between pb-1.5 mb-3"
             >
               <div className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" aria-hidden="true" />
@@ -358,13 +348,13 @@ function CareersMegaMenu({
             </div>
           </div>
 
-          {/* ── 2. LEARNING & GROWTH (4 Cols, subtle divider) ── */}
-          <div className="lg:col-span-4 flex flex-col lg:border-l lg:border-white/[0.08] lg:pl-8 xl:pl-10">
+          {/* ── 2. LEARNING & GROWTH (4 Cols) ── */}
+          <div className="lg:col-span-4 flex flex-col lg:pl-8 xl:pl-10">
             <motion.div
               initial={reduced ? { opacity: 1 } : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: 0.05 }}
-              className="flex items-center justify-between border-b border-white/[0.08] pb-3 mb-3.5"
+              className="flex items-center justify-between pb-1.5 mb-3"
             >
               <div className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-indigo-500/80" aria-hidden="true" />
@@ -387,13 +377,13 @@ function CareersMegaMenu({
             </div>
           </div>
 
-          {/* ── 3. LIFE AT NOVA (4 Cols, subtle divider) ── */}
-          <div className="lg:col-span-4 flex flex-col lg:border-l lg:border-white/[0.08] lg:pl-8 xl:pl-10">
+          {/* ── 3. LIFE AT NOVA (4 Cols) ── */}
+          <div className="lg:col-span-4 flex flex-col lg:pl-8 xl:pl-10">
             <motion.div
               initial={reduced ? { opacity: 1 } : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: 0.07 }}
-              className="flex items-center justify-between border-b border-white/[0.08] pb-3 mb-3.5"
+              className="flex items-center justify-between pb-1.5 mb-3"
             >
               <div className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" aria-hidden="true" />
@@ -422,7 +412,7 @@ function CareersMegaMenu({
           initial={reduced ? { opacity: 1 } : { opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, delay: 0.15 }}
-          className="mt-7 pt-4 border-t border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+          className="mt-8 pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
         >
           <span className="font-mono text-[10.5px] font-medium text-[#85858A] uppercase tracking-widest">
             NOVA BUILDER TALENT &amp; OPPORTUNITIES

@@ -17,16 +17,15 @@ export function CtaSection() {
       </div>
 
       <div className="relative z-10 mx-auto max-w-[1560px] px-6 sm:px-10 lg:px-16 xl:px-20 text-center flex flex-col items-center">
-        {/* Eyebrow */}
+        {/* Eyebrow: Clean plain text without pill container or icon */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease: premiumEase }}
-          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 backdrop-blur-md mb-6"
+          className="mb-6"
         >
-          <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
-          <span className="text-xs font-mono font-semibold uppercase tracking-[0.25em] text-neutral-300">
+          <span className="text-xs sm:text-sm font-mono font-bold uppercase tracking-[0.28em] text-neutral-400">
             THE INVITATION
           </span>
         </motion.div>

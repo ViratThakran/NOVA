@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import React from "react";
-import { Cpu, AlertCircle, CheckCircle2, Play, RefreshCw, ChevronRight, FileText } from "lucide-react";
+import { Cpu, AlertCircle, CheckCircle2, Play, RefreshCw, ChevronRight, FileText, Zap } from "lucide-react";
 import { createServerSideClient } from "@/lib/supabase";
 import {
   getOperationsOverview,
@@ -14,49 +14,44 @@ import {
 export const metadata: Metadata = { title: "AI Workforce Operations | NOVA Admin" };
 
 const TASK_STATUS_STYLES: Record<string, string> = {
-  pending: "bg-slate-800 text-slate-400 border-slate-700",
-  assigned: "bg-cyan-950/80 text-cyan-300 border-cyan-700/40",
-  running: "bg-indigo-950/80 text-indigo-300 border-indigo-700/40 animate-pulse",
-  waiting_for_approval: "bg-amber-950/80 text-amber-300 border-amber-700/40",
-  blocked: "bg-amber-950/80 text-amber-300 border-amber-700/40",
-  failed: "bg-red-950/80 text-red-300 border-red-700/40",
-  completed: "bg-emerald-950/80 text-emerald-300 border-emerald-700/40",
-  cancelled: "bg-slate-800 text-slate-400 border-slate-700",
+  pending: "bg-slate-100 text-slate-600 border-slate-200",
+  assigned: "bg-sky-50 text-sky-700 border-sky-200",
+  running: "bg-indigo-50 text-indigo-700 border-indigo-200 animate-pulse",
+  waiting_for_approval: "bg-amber-50 text-amber-700 border-amber-200",
+  blocked: "bg-amber-50 text-amber-700 border-amber-200",
+  failed: "bg-red-50 text-red-700 border-red-200",
+  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  cancelled: "bg-slate-100 text-slate-500 border-slate-200",
 };
 
 export default async function AdminAiOperationsPage() {
   const supabase = await createServerSideClient();
   const overview = await getOperationsOverview(supabase);
 
-  const totalTasks =
-    overview.runningTasks.length +
-    overview.waitingForInterventionTasks.length +
-    overview.failedTasks.length +
-    overview.recentlyCompletedTasks.length;
-
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 text-slate-800">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-white font-mono uppercase">
-            AI WORKFORCE OPERATIONS
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            <Zap className="h-6 w-6 text-sky-600" />
+            AI Workforce Operations
           </h1>
-          <p className="text-xs text-slate-400 font-mono mt-0.5">
-            Cross-request monitoring and orchestration of NOVA&apos;s internal AI agents.
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Cross-request monitoring, autonomous task scheduling, and human-in-the-loop approvals.
           </p>
         </div>
         <Link
           href="/admin/services/requests"
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold uppercase tracking-wider transition-colors shrink-0"
+          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-colors shrink-0"
         >
           <FileText className="h-4 w-4" />
           Service Requests Queue
         </Link>
       </div>
 
-      {/* KPI METRIC STRIP */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* KPI METRIC STRIP WITH GLASSMORPHISM */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <KpiCard
           label="Pending Approvals"
           value={overview.pendingApprovals.length}
@@ -160,20 +155,22 @@ function KpiCard({
   color?: "amber" | "indigo" | "red" | "emerald" | "slate";
 }) {
   const styles = {
-    slate: "bg-[#0E131F] border-slate-800 text-slate-400",
-    amber: "bg-amber-950/20 border-amber-800/40 text-amber-300",
-    indigo: "bg-indigo-950/20 border-indigo-800/40 text-indigo-300",
-    red: "bg-red-950/20 border-red-800/40 text-red-300",
-    emerald: "bg-emerald-950/20 border-emerald-800/40 text-emerald-300",
+    slate: "text-slate-600 bg-slate-50 border-slate-200",
+    amber: "text-amber-600 bg-amber-50 border-amber-200",
+    indigo: "text-indigo-600 bg-indigo-50 border-indigo-200",
+    red: "text-red-600 bg-red-50 border-red-200",
+    emerald: "text-emerald-600 bg-emerald-50 border-emerald-200",
   };
 
   return (
-    <div className={`p-4 rounded-xl border flex flex-col justify-between gap-2 font-mono ${styles[color]}`}>
+    <div className="p-5 sm:p-6 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col justify-between gap-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] uppercase tracking-wider text-slate-400">{label}</span>
-        <Icon className="h-4 w-4 shrink-0 opacity-80" />
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
+        <div className={`p-2 rounded-xl border ${styles[color]}`}>
+          <Icon className="h-4 w-4 shrink-0" />
+        </div>
       </div>
-      <span className="text-2xl font-bold text-white">{value}</span>
+      <span className="text-3xl font-extrabold text-slate-900 tracking-tight">{value}</span>
     </div>
   );
 }
@@ -194,18 +191,18 @@ function SectionBlock({
   const hasChildren = React.Children.count(children) > 0 && children !== null;
 
   return (
-    <div className="p-5 rounded-xl bg-[#0E131F] border border-slate-800 flex flex-col gap-4">
-      <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-        <h2 className="text-sm font-bold text-white font-mono uppercase tracking-wider flex items-center gap-2">
-          <Cpu className="h-4 w-4 text-indigo-400" />
+    <div className="p-6 sm:p-7 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-4">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+          <Cpu className="h-4 w-4 text-sky-600" />
           {title}
         </h2>
         {badge && (
           <span
-            className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase border ${
+            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
               badgeColor === "amber"
-                ? "bg-amber-950/80 text-amber-300 border-amber-700/40"
-                : "bg-indigo-950/80 text-indigo-300 border-indigo-700/40"
+                ? "bg-amber-50 text-amber-700 border-amber-200"
+                : "bg-indigo-50 text-indigo-700 border-indigo-200"
             }`}
           >
             {badge}
@@ -214,7 +211,7 @@ function SectionBlock({
       </div>
 
       {!hasChildren && emptyText ? (
-        <p className="text-xs font-mono text-slate-500 py-1">{emptyText}</p>
+        <p className="text-xs text-slate-500 py-1">{emptyText}</p>
       ) : (
         children
       )}
@@ -225,51 +222,51 @@ function SectionBlock({
 function TaskTable({ tasks }: { tasks: OperationsTask[] }) {
   if (tasks.length === 0) return null;
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-800/80 bg-slate-900/40">
-      <table className="w-full text-left text-xs font-mono">
-        <thead className="bg-[#0B0F19] text-slate-400 uppercase tracking-wider text-[10px] border-b border-slate-800">
+    <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-slate-50/50">
+      <table className="w-full text-left text-xs border-collapse">
+        <thead className="bg-slate-100/70 text-slate-400 font-medium uppercase tracking-wider text-[10px] border-b border-slate-100">
           <tr>
-            <th className="py-2.5 px-3">Task Title</th>
-            <th className="py-2.5 px-3">Assigned Agent</th>
-            <th className="py-2.5 px-3">Linked Service Request</th>
-            <th className="py-2.5 px-3">Status</th>
-            <th className="py-2.5 px-3 text-right">Actions</th>
+            <th className="py-3 px-4">Task Title</th>
+            <th className="py-3 px-4">Assigned Agent</th>
+            <th className="py-3 px-4">Linked Service Request</th>
+            <th className="py-3 px-4">Status</th>
+            <th className="py-3 px-4 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800/60 text-slate-300">
+        <tbody className="divide-y divide-slate-100 text-slate-700">
           {tasks.map((task) => {
-            const style = TASK_STATUS_STYLES[task.status] ?? "bg-slate-800 text-slate-400 border-slate-700";
+            const style = TASK_STATUS_STYLES[task.status] ?? "bg-slate-100 text-slate-600 border-slate-200";
             return (
-              <tr key={task.id} className="hover:bg-slate-900/60 transition-colors">
-                <td className="py-2.5 px-3 font-sans font-bold text-white">
+              <tr key={task.id} className="hover:bg-sky-50/30 transition-colors">
+                <td className="py-3 px-4 font-bold text-slate-900">
                   <div className="flex flex-col gap-0.5">
                     <span>{task.title}</span>
-                    {task.error && <span className="text-[10px] font-mono text-red-400">{task.error}</span>}
+                    {task.error && <span className="text-[10px] text-red-600">{task.error}</span>}
                   </div>
                 </td>
-                <td className="py-2.5 px-3 text-slate-400">{task.agentName ?? "Unassigned"}</td>
-                <td className="py-2.5 px-3">
+                <td className="py-3 px-4 text-slate-600">{task.agentName ?? "Unassigned"}</td>
+                <td className="py-3 px-4">
                   {task.serviceRequestId ? (
                     <Link
                       href={`/admin/services/requests/${task.serviceRequestId}`}
-                      className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
+                      className="text-sky-600 hover:text-sky-700 underline underline-offset-2 font-medium"
                     >
                       {task.serviceName ?? "Service Request"}
                     </Link>
                   ) : (
-                    <span className="text-slate-600">—</span>
+                    <span className="text-slate-400">—</span>
                   )}
                 </td>
-                <td className="py-2.5 px-3">
-                  <span className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase ${style}`}>
+                <td className="py-3 px-4">
+                  <span className={`px-2.5 py-0.5 rounded-full border text-[10px] font-semibold uppercase ${style}`}>
                     {task.status.replace("_", " ")}
                   </span>
                 </td>
-                <td className="py-2.5 px-3 text-right">
+                <td className="py-3 px-4 text-right">
                   {task.serviceRequestId && (
                     <Link
                       href={`/admin/services/requests/${task.serviceRequestId}`}
-                      className="inline-flex items-center gap-0.5 text-xs text-indigo-400 hover:text-indigo-300 font-semibold"
+                      className="inline-flex items-center gap-0.5 text-xs text-sky-600 hover:text-sky-700 font-semibold"
                     >
                       Inspect <ChevronRight className="h-3.5 w-3.5" />
                     </Link>
@@ -287,40 +284,40 @@ function TaskTable({ tasks }: { tasks: OperationsTask[] }) {
 function ApprovalTable({ approvals }: { approvals: OperationsApproval[] }) {
   if (approvals.length === 0) return null;
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-800/80 bg-slate-900/40">
-      <table className="w-full text-left text-xs font-mono">
-        <thead className="bg-[#0B0F19] text-slate-400 uppercase tracking-wider text-[10px] border-b border-slate-800">
+    <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-slate-50/50">
+      <table className="w-full text-left text-xs border-collapse">
+        <thead className="bg-slate-100/70 text-slate-400 font-medium uppercase tracking-wider text-[10px] border-b border-slate-100">
           <tr>
-            <th className="py-2.5 px-3">Task</th>
-            <th className="py-2.5 px-3">Approval Reason</th>
-            <th className="py-2.5 px-3">Agent</th>
-            <th className="py-2.5 px-3">Service Request</th>
-            <th className="py-2.5 px-3 text-right">Action</th>
+            <th className="py-3 px-4">Task</th>
+            <th className="py-3 px-4">Approval Reason</th>
+            <th className="py-3 px-4">Agent</th>
+            <th className="py-3 px-4">Service Request</th>
+            <th className="py-3 px-4 text-right">Action</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800/60 text-slate-300">
+        <tbody className="divide-y divide-slate-100 text-slate-700">
           {approvals.map((approval) => (
-            <tr key={approval.id} className="hover:bg-slate-900/60 transition-colors">
-              <td className="py-2.5 px-3 font-sans font-bold text-white">{approval.taskTitle}</td>
-              <td className="py-2.5 px-3 text-amber-300 font-semibold">{approval.reason}</td>
-              <td className="py-2.5 px-3 text-slate-400">{approval.agentName ?? "Unassigned"}</td>
-              <td className="py-2.5 px-3">
+            <tr key={approval.id} className="hover:bg-amber-50/30 transition-colors">
+              <td className="py-3 px-4 font-bold text-slate-900">{approval.taskTitle}</td>
+              <td className="py-3 px-4 text-amber-700 font-semibold">{approval.reason}</td>
+              <td className="py-3 px-4 text-slate-600">{approval.agentName ?? "Unassigned"}</td>
+              <td className="py-3 px-4">
                 {approval.serviceRequestId ? (
                   <Link
                     href={`/admin/services/requests/${approval.serviceRequestId}`}
-                    className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
+                    className="text-sky-600 hover:text-sky-700 underline underline-offset-2 font-medium"
                   >
                     {approval.serviceName ?? "Service Request"}
                   </Link>
                 ) : (
-                  <span className="text-slate-600">—</span>
+                  <span className="text-slate-400">—</span>
                 )}
               </td>
-              <td className="py-2.5 px-3 text-right">
+              <td className="py-3 px-4 text-right">
                 {approval.serviceRequestId && (
                   <Link
                     href={`/admin/services/requests/${approval.serviceRequestId}`}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-950/80 hover:bg-amber-900 border border-amber-700/40 text-amber-200 text-[10px] font-bold uppercase"
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 text-xs font-semibold uppercase tracking-wider"
                   >
                     Review Approval
                   </Link>
@@ -337,30 +334,30 @@ function ApprovalTable({ approvals }: { approvals: OperationsApproval[] }) {
 function RunTable({ runs }: { runs: OperationsRun[] }) {
   if (runs.length === 0) return null;
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-800/80 bg-slate-900/40">
-      <table className="w-full text-left text-xs font-mono">
-        <thead className="bg-[#0B0F19] text-slate-400 uppercase tracking-wider text-[10px] border-b border-slate-800">
+    <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-slate-50/50">
+      <table className="w-full text-left text-xs border-collapse">
+        <thead className="bg-slate-100/70 text-slate-400 font-medium uppercase tracking-wider text-[10px] border-b border-slate-100">
           <tr>
-            <th className="py-2.5 px-3">Task Title</th>
-            <th className="py-2.5 px-3">Agent</th>
-            <th className="py-2.5 px-3">Run Started</th>
-            <th className="py-2.5 px-3">Status</th>
+            <th className="py-3 px-4">Task Title</th>
+            <th className="py-3 px-4">Agent</th>
+            <th className="py-3 px-4">Run Started</th>
+            <th className="py-3 px-4">Status</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800/60 text-slate-300">
+        <tbody className="divide-y divide-slate-100 text-slate-700">
           {runs.map((run) => (
-            <tr key={run.id} className="hover:bg-slate-900/60 transition-colors">
-              <td className="py-2.5 px-3 font-sans font-bold text-white">{run.taskTitle ?? "AI Task"}</td>
-              <td className="py-2.5 px-3 text-slate-400">{run.agentName ?? "Unassigned"}</td>
-              <td className="py-2.5 px-3 text-slate-500">{new Date(run.startedAt).toLocaleString()}</td>
-              <td className="py-2.5 px-3">
+            <tr key={run.id} className="hover:bg-sky-50/30 transition-colors">
+              <td className="py-3 px-4 font-bold text-slate-900">{run.taskTitle ?? "AI Task"}</td>
+              <td className="py-3 px-4 text-slate-600">{run.agentName ?? "Unassigned"}</td>
+              <td className="py-3 px-4 text-slate-500 text-[11px]">{new Date(run.startedAt).toLocaleString()}</td>
+              <td className="py-3 px-4">
                 <span
-                  className={`px-2 py-0.5 rounded border text-[10px] font-bold uppercase ${
+                  className={`px-2.5 py-0.5 rounded-full border text-[10px] font-semibold uppercase ${
                     run.status === "succeeded"
-                      ? "bg-emerald-950/80 text-emerald-300 border-emerald-700/40"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                       : run.status === "failed"
-                      ? "bg-red-950/80 text-red-300 border-red-700/40"
-                      : "bg-indigo-950/80 text-indigo-300 border-indigo-700/40"
+                      ? "bg-red-50 text-red-700 border-red-200"
+                      : "bg-indigo-50 text-indigo-700 border-indigo-200"
                   }`}
                 >
                   {run.status}
@@ -377,40 +374,40 @@ function RunTable({ runs }: { runs: OperationsRun[] }) {
 function ArtifactTable({ artifacts }: { artifacts: OperationsArtifact[] }) {
   if (artifacts.length === 0) return null;
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-800/80 bg-slate-900/40">
-      <table className="w-full text-left text-xs font-mono">
-        <thead className="bg-[#0B0F19] text-slate-400 uppercase tracking-wider text-[10px] border-b border-slate-800">
+    <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-slate-50/50">
+      <table className="w-full text-left text-xs border-collapse">
+        <thead className="bg-slate-100/70 text-slate-400 font-medium uppercase tracking-wider text-[10px] border-b border-slate-100">
           <tr>
-            <th className="py-2.5 px-3">Deliverable / Artifact Title</th>
-            <th className="py-2.5 px-3">Type</th>
-            <th className="py-2.5 px-3">Agent</th>
-            <th className="py-2.5 px-3">Service Request</th>
-            <th className="py-2.5 px-3">Created</th>
+            <th className="py-3 px-4">Deliverable / Artifact Title</th>
+            <th className="py-3 px-4">Type</th>
+            <th className="py-3 px-4">Agent</th>
+            <th className="py-3 px-4">Service Request</th>
+            <th className="py-3 px-4">Created</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800/60 text-slate-300">
+        <tbody className="divide-y divide-slate-100 text-slate-700">
           {artifacts.map((art) => (
-            <tr key={art.id} className="hover:bg-slate-900/60 transition-colors">
-              <td className="py-2.5 px-3 font-sans font-bold text-white">{art.title}</td>
-              <td className="py-2.5 px-3">
-                <span className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] text-slate-300 uppercase">
+            <tr key={art.id} className="hover:bg-sky-50/30 transition-colors">
+              <td className="py-3 px-4 font-bold text-slate-900">{art.title}</td>
+              <td className="py-3 px-4">
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[10px] text-slate-700 font-semibold uppercase">
                   {art.type.replace(/_/g, " ")}
                 </span>
               </td>
-              <td className="py-2.5 px-3 text-slate-400">{art.agentName ?? "Unassigned"}</td>
-              <td className="py-2.5 px-3">
+              <td className="py-3 px-4 text-slate-600">{art.agentName ?? "Unassigned"}</td>
+              <td className="py-3 px-4">
                 {art.serviceRequestId ? (
                   <Link
                     href={`/admin/services/requests/${art.serviceRequestId}`}
-                    className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
+                    className="text-sky-600 hover:text-sky-700 underline underline-offset-2 font-medium"
                   >
                     {art.serviceName ?? "Service Request"}
                   </Link>
                 ) : (
-                  <span className="text-slate-600">—</span>
+                  <span className="text-slate-400">—</span>
                 )}
               </td>
-              <td className="py-2.5 px-3 text-slate-500">{new Date(art.createdAt).toLocaleDateString()}</td>
+              <td className="py-3 px-4 text-slate-500 text-[11px]">{new Date(art.createdAt).toLocaleDateString()}</td>
             </tr>
           ))}
         </tbody>

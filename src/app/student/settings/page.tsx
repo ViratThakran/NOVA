@@ -10,8 +10,8 @@ export default async function StudentSettingsPage() {
   const auth = await getAuthenticatedUser();
   if (!auth) {
     return (
-      <div className="p-8 rounded-xl bg-red-950/20 border border-red-800/40 text-center">
-        <p className="text-sm font-semibold text-red-300 font-mono">Your session has expired. Please log in again.</p>
+      <div className="p-8 rounded-3xl bg-white/80 backdrop-blur-xl border border-red-200 text-center shadow-xs">
+        <p className="text-sm font-semibold text-red-600">Your session has expired. Please log in again.</p>
       </div>
     );
   }
@@ -32,23 +32,23 @@ export default async function StudentSettingsPage() {
     : null;
 
   return (
-    <div className="flex flex-col gap-6 max-w-2xl">
+    <div className="flex flex-col gap-6 max-w-2xl text-slate-800">
       {/* HEADER */}
-      <div className="flex flex-col gap-2 pb-4 border-b border-slate-800/80">
-        <h1 className="text-xl font-bold tracking-tight text-white font-mono uppercase flex items-center gap-2">
-          <Settings className="h-5 w-5 text-indigo-400" />
-          ACCOUNT SETTINGS
+      <div className="flex flex-col gap-1 pb-1">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+          <Settings className="h-6 w-6 text-sky-600" />
+          Account Settings
         </h1>
-        <p className="text-xs text-slate-400 font-mono">
-          Your account identity and session controls.
+        <p className="text-xs sm:text-sm text-slate-500">
+          Your account identity, security, and session controls.
         </p>
       </div>
 
-      {/* ACCOUNT IDENTITY CARD */}
-      <div className="p-6 rounded-2xl bg-[#0E131F] border border-slate-800 flex flex-col gap-5 font-mono">
-        <div className="flex items-center gap-2 pb-3 border-b border-slate-800/80">
-          <User className="h-4 w-4 text-indigo-400" />
-          <h2 className="text-xs font-bold text-white uppercase tracking-wider">Student Account Identity</h2>
+      {/* ACCOUNT IDENTITY CARD WITH GLASSMORPHISM */}
+      <div className="p-6 sm:p-7 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-5">
+        <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+          <User className="h-4 w-4 text-sky-600" />
+          <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Student Account Identity</h2>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -67,54 +67,50 @@ export default async function StudentSettingsPage() {
       </div>
 
       {/* PROFILE MANAGEMENT LINKS */}
-      <div className="p-6 rounded-2xl bg-[#0E131F] border border-slate-800 flex flex-col gap-4 font-mono">
-        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider pb-3 border-b border-slate-800/80">
+      <div className="p-6 sm:p-7 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-4">
+        <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider pb-3 border-b border-slate-100">
           Manage Your Profile
         </h2>
 
         <Link
           href="/student/profile"
-          className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 hover:bg-slate-900 transition-all"
+          className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-slate-50/80 border border-slate-100 hover:border-sky-300 hover:bg-sky-50/40 transition-all"
         >
-          <div className="flex items-center gap-2.5">
-            <User className="h-4 w-4 text-indigo-400" />
+          <div className="flex items-center gap-3">
+            <User className="h-4 w-4 text-sky-600" />
             <div className="flex flex-col">
-              <span className="text-xs font-bold text-white">Career Profile &amp; Resume</span>
-              <span className="text-[11px] text-slate-500">Update academic info, skills, and PDF resume</span>
+              <span className="text-xs font-bold text-slate-900">Career Profile &amp; Resume</span>
+              <span className="text-[11px] text-slate-500">Update academic background, skills, and PDF resume</span>
             </div>
           </div>
-          <ChevronRight className="h-4 w-4 text-slate-500 shrink-0" />
+          <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
         </Link>
       </div>
 
       {/* SECURITY & SESSION */}
-      <div className="p-6 rounded-2xl bg-[#0E131F] border border-slate-800 flex flex-col gap-4 font-mono">
-        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider pb-3 border-b border-slate-800/80">
+      <div className="p-6 sm:p-7 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-4">
+        <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider pb-3 border-b border-slate-100">
           Security &amp; Session
         </h2>
 
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <ShieldCheck className="h-4 w-4 text-emerald-400" />
+            <ShieldCheck className="h-4 w-4 text-emerald-600" />
             <div className="flex flex-col">
-              <span className="text-xs font-bold text-white">Authentication</span>
-              <span className="text-[11px] text-slate-500">
-                Managed securely via NOVA&apos;s authentication system. Password changes are handled through your email provider.
-              </span>
+              <span className="text-xs font-bold text-slate-900">Authentication</span>
+              <span className="text-[11px] text-slate-500">Session secured via Supabase auth</span>
             </div>
           </div>
-          <ExternalLink className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-        </div>
 
-        <form action={logoutAction}>
-          <button
-            type="submit"
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-red-950/30 hover:bg-red-950/60 border border-red-900/50 hover:border-red-800 text-red-400 hover:text-red-300 text-xs font-mono font-bold uppercase tracking-wider transition-all"
-          >
-            <LogOut className="h-4 w-4" />
-            Sign Out of Student Portal
-          </button>
-        </form>
+          <form action={logoutAction}>
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-semibold transition-colors"
+            >
+              <LogOut className="h-3.5 w-3.5" /> Log Out
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -132,18 +128,18 @@ function InfoRow({
   highlight?: "emerald" | "amber";
 }) {
   return (
-    <div className="flex flex-col gap-1.5 p-3 rounded-lg bg-slate-900/60 border border-slate-800">
-      <span className="text-[10px] text-slate-500 uppercase tracking-wider flex items-center gap-1">
-        <Icon className="h-3 w-3 text-slate-600" />
-        {label}
-      </span>
+    <div className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-100 flex flex-col gap-1">
+      <div className="flex items-center gap-1.5 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+        <Icon className="h-3 w-3" />
+        <span>{label}</span>
+      </div>
       <span
-        className={`text-xs font-bold font-sans ${
+        className={`text-xs font-semibold truncate ${
           highlight === "emerald"
-            ? "text-emerald-300"
+            ? "text-emerald-700"
             : highlight === "amber"
-            ? "text-amber-300"
-            : "text-slate-200"
+            ? "text-amber-700"
+            : "text-slate-900"
         }`}
       >
         {value}

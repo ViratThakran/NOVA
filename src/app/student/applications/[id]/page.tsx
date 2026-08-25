@@ -33,16 +33,16 @@ export default async function StudentApplicationDetailPage({
   const { id } = await params;
 
   const notFoundState = (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 text-slate-800">
       <Link
         href="/student/applications"
-        className="inline-flex items-center gap-1.5 text-xs font-mono text-slate-400 hover:text-white transition-colors"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
       >
         <ArrowLeft className="h-3.5 w-3.5" /> Back to My Applications Tracker
       </Link>
-      <div className="p-12 rounded-2xl bg-[#0E131F] border border-slate-800 text-center flex flex-col items-center gap-3 font-mono">
-        <AlertCircle className="h-10 w-10 text-slate-600" />
-        <p className="text-sm font-bold text-slate-300">Application Not Found</p>
+      <div className="p-12 rounded-2xl bg-white border border-slate-100 text-center flex flex-col items-center gap-3 shadow-xs">
+        <AlertCircle className="h-10 w-10 text-slate-300" />
+        <p className="text-sm font-bold text-slate-800">Application Not Found</p>
         <p className="text-xs text-slate-500 max-w-sm">
           This application doesn&apos;t exist or is not associated with your account.
         </p>
@@ -85,7 +85,6 @@ export default async function StudentApplicationDetailPage({
     year: "numeric",
   });
 
-  // If application is accepted, check if enrollment exists to link directly to residency view
   let enrollmentId: string | null = null;
   if (app.status === "accepted") {
     const { data: enrollment } = await supabase
@@ -97,48 +96,48 @@ export default async function StudentApplicationDetailPage({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 text-slate-800">
       {/* BACK LINK */}
       <Link
         href="/student/applications"
-        className="inline-flex items-center gap-1.5 text-xs font-mono text-slate-400 hover:text-white transition-colors"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
       >
         <ArrowLeft className="h-3.5 w-3.5" /> Back to My Applications Tracker
       </Link>
 
       {/* HEADER BANNER */}
-      <div className="p-6 rounded-2xl bg-[#0E131F] border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="p-6 sm:p-7 rounded-2xl bg-white border border-slate-100 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded bg-indigo-950/80 border border-indigo-700/40 text-[10px] font-mono font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1">
-              <Building2 className="h-3 w-3" /> {companyName}
+            <span className="px-2.5 py-0.5 rounded-full bg-sky-50 border border-sky-200 text-[11px] font-bold text-sky-700 uppercase tracking-wider flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5 text-sky-600" /> {companyName}
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-white font-sans">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
             {app.internship?.title || "Internship Position"}
           </h1>
-          <p className="text-xs font-mono text-slate-400 flex items-center gap-1.5">
-            <Calendar className="h-3.5 w-3.5 text-slate-500" />
+          <p className="text-xs text-slate-500 flex items-center gap-1.5">
+            <Calendar className="h-3.5 w-3.5 text-slate-400" />
             Submitted on {appliedDate}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 p-3 rounded-xl bg-slate-900 border border-slate-800 shrink-0 font-mono">
-          <span className="text-xs text-slate-400 font-semibold">Review Status:</span>
+        <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200 shrink-0">
+          <span className="text-xs text-slate-600 font-semibold">Review Status:</span>
           <ApplicationStatusBadge status={app.status} />
         </div>
       </div>
 
       {/* ACCEPTED BANNER HAND-OFF */}
       {app.status === "accepted" && (
-        <div className="p-5 rounded-2xl bg-emerald-950/40 border border-emerald-700/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-mono">
+        <div className="p-5 sm:p-6 rounded-2xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-6 w-6 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="h-6 w-6 text-emerald-600 shrink-0" />
             <div className="flex flex-col gap-0.5">
-              <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">
-                APPLICATION ACCEPTED — RESIDENCY CREATED
+              <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
+                Application Accepted — Residency Created
               </span>
-              <p className="text-xs text-slate-300 font-sans">
+              <p className="text-xs text-slate-600">
                 Congratulations! Your application has been accepted by the selection team. Your active residency profile is ready.
               </p>
             </div>
@@ -146,7 +145,7 @@ export default async function StudentApplicationDetailPage({
 
           <Link
             href={enrollmentId ? `/student/enrollments/${enrollmentId}` : "/student/enrollments"}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold uppercase tracking-wider transition-colors shrink-0 shadow-lg shadow-emerald-600/20"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors shrink-0"
           >
             Open My Residency Details <ChevronRight className="h-3.5 w-3.5" />
           </Link>
@@ -154,15 +153,15 @@ export default async function StudentApplicationDetailPage({
       )}
 
       {/* 2-COLUMN GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* LEFT COLUMN: SUBMITTED COVER LETTER */}
         <div className="lg:col-span-7 flex flex-col gap-6">
-          <div className="p-6 rounded-2xl bg-[#0E131F] border border-slate-800 flex flex-col gap-4 font-sans">
-            <h3 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-              <FileText className="h-4 w-4 text-indigo-400" />
+          <div className="p-6 sm:p-7 rounded-2xl bg-white border border-slate-100 shadow-xs flex flex-col gap-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+              <FileText className="h-4 w-4 text-sky-600" />
               Your Submitted Cover Letter / Statement
             </h3>
-            <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-200 leading-relaxed whitespace-pre-line font-mono">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 leading-relaxed whitespace-pre-line">
               {app.cover_letter || "No cover letter was submitted with this application."}
             </div>
           </div>
@@ -170,8 +169,8 @@ export default async function StudentApplicationDetailPage({
 
         {/* RIGHT COLUMN: POSITION SPECIFICATION SUMMARY */}
         <div className="lg:col-span-5 flex flex-col gap-6">
-          <div className="p-6 rounded-2xl bg-[#0E131F] border border-slate-800 flex flex-col gap-4 font-sans">
-            <h3 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
+          <div className="p-6 sm:p-7 rounded-2xl bg-white border border-slate-100 shadow-xs flex flex-col gap-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
               Position Details
             </h3>
             {app.internship && (
@@ -189,9 +188,9 @@ export default async function StudentApplicationDetailPage({
 
 function Section({ title, body }: { title: string; body: string }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <h4 className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">{title}</h4>
-      <p className="whitespace-pre-line text-xs text-slate-300 leading-relaxed font-sans">{body}</p>
+    <div className="flex flex-col gap-1">
+      <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{title}</h4>
+      <p className="whitespace-pre-line text-xs sm:text-[13px] text-slate-600 leading-relaxed">{body}</p>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Search, Mail, Building, Calendar, CheckCircle2 } from "lucide-react";
+import { Search, Mail, Building, Calendar, CheckCircle2, MessageSquare } from "lucide-react";
 import { createServerSideClient } from "@/lib/supabase";
 import { MarkReviewedButton } from "./mark-reviewed-button";
 
@@ -63,26 +63,27 @@ export default async function AdminContactPage({
   const newCount = submissions.filter((s) => s.status === "new").length;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 text-slate-800">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-white font-mono uppercase">
-            PUBLIC CONTACT SUBMISSIONS
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            <Mail className="h-6 w-6 text-sky-600" />
+            Public Contact Submissions
           </h1>
-          <p className="text-xs text-slate-400 font-mono mt-0.5">
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Review incoming inquiries and messages submitted via NOVA&apos;s public contact page.
           </p>
         </div>
         {newCount > 0 && (
-          <span className="px-3 py-1.5 rounded-lg bg-amber-950/80 border border-amber-700/40 text-amber-300 font-mono text-xs font-bold uppercase shrink-0">
+          <span className="px-3.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold uppercase shrink-0 shadow-xs">
             {newCount} New Inquiry{newCount !== 1 ? "ies" : ""}
           </span>
         )}
       </div>
 
-      {/* TOOLBAR */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-[#0E131F] p-4 rounded-xl border border-slate-800">
+      {/* TOOLBAR WITH GLASSMORPHISM */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-2xl p-4 sm:p-5 rounded-3xl border border-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
           {FILTERS.map((f) => {
             const isSelected = statusFilter === f.value;
@@ -90,10 +91,10 @@ export default async function AdminContactPage({
               <Link
                 key={f.value}
                 href={f.value === "all" ? "/admin/contact" : `/admin/contact?status=${f.value}`}
-                className={`px-3 py-1.5 rounded-md font-mono text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition-colors ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition-colors ${
                   isSelected
-                    ? "bg-indigo-600 text-white"
-                    : "bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                    ? "bg-[#0F172A] text-white shadow-xs"
+                    : "bg-slate-100/80 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900"
                 }`}
               >
                 {f.label}
@@ -104,107 +105,106 @@ export default async function AdminContactPage({
 
         <form method="GET" action="/admin/contact" className="relative sm:w-64">
           {statusFilter !== "all" && <input type="hidden" name="status" value={statusFilter} />}
-          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
+          <Search className="absolute left-3.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
           <input
             type="text"
             name="q"
             defaultValue={rawQuery || ""}
             placeholder="Search name, email, message..."
-            className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+            className="w-full pl-9 pr-3 py-2 rounded-full bg-slate-100/80 hover:bg-slate-100 focus:bg-white border border-transparent focus:border-sky-300 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none transition-all"
           />
         </form>
       </div>
 
-      {/* TABLE */}
+      {/* TABLE WITH GLASSMORPHISM */}
       {error ? (
-        <div className="p-8 rounded-xl bg-red-950/20 border border-red-800/40 text-center">
-          <p className="text-sm font-semibold text-red-300 font-mono">Couldn&apos;t load submissions.</p>
+        <div className="p-8 rounded-3xl bg-white/80 backdrop-blur-xl border border-red-200 text-center shadow-xs">
+          <p className="text-sm font-semibold text-red-600">Couldn&apos;t load submissions.</p>
         </div>
       ) : submissions.length === 0 ? (
-        <div className="p-12 rounded-xl bg-[#0E131F] border border-slate-800 text-center flex flex-col items-center gap-3">
-          <Mail className="h-10 w-10 text-slate-600" />
-          <p className="text-sm font-bold text-slate-300 font-mono">No submissions match this view</p>
+        <div className="p-12 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 text-center flex flex-col items-center gap-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <Mail className="h-10 w-10 text-slate-300" />
+          <p className="text-sm font-bold text-slate-800">No submissions match this view</p>
           <p className="text-xs text-slate-500">
             {searchQuery ? `No results for "${searchQuery}".` : "Contact submissions sent via /contact will appear here."}
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#0E131F]">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#0B0F19] text-slate-400 font-mono uppercase tracking-wider text-[10px] border-b border-slate-800">
-              <tr>
-                <th className="py-3 px-4">Sender</th>
-                <th className="py-3 px-4">Company</th>
-                <th className="py-3 px-4">Message Content</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Received</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300">
-              {submissions.map((submission) => {
-                const date = new Date(submission.created_at).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                });
-                const isNew = submission.status === "new";
+        <div className="rounded-3xl border border-white/90 bg-white/80 backdrop-blur-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400 font-medium bg-slate-50/50">
+                  <th className="py-4 px-5">Sender</th>
+                  <th className="py-4 px-5">Company</th>
+                  <th className="py-4 px-5">Message Content</th>
+                  <th className="py-4 px-5">Status</th>
+                  <th className="py-4 px-5">Received</th>
+                  <th className="py-4 px-5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {submissions.map((sub) => {
+                  const date = new Date(sub.created_at).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  });
 
-                return (
-                  <tr key={submission.id} className="hover:bg-slate-900/50 transition-colors">
-                    <td className="py-3.5 px-4 font-sans">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-bold text-white">{submission.name}</span>
-                        <span className="text-[10px] font-mono text-slate-400">{submission.email}</span>
-                      </div>
-                    </td>
+                  return (
+                    <tr key={sub.id} className="hover:bg-sky-50/20 transition-colors">
+                      <td className="py-4 px-5">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-bold text-slate-900">{sub.name}</span>
+                          <span className="text-[11px] text-slate-500">{sub.email}</span>
+                        </div>
+                      </td>
 
-                    <td className="py-3.5 px-4">
-                      {submission.company ? (
-                        <span className="flex items-center gap-1 text-slate-300 font-semibold">
-                          <Building className="h-3 w-3 text-slate-500" />
-                          {submission.company}
+                      <td className="py-4 px-5">
+                        {sub.company ? (
+                          <span className="flex items-center gap-1.5 text-slate-700 font-medium">
+                            <Building className="h-3.5 w-3.5 text-sky-600" />
+                            {sub.company}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">—</span>
+                        )}
+                      </td>
+
+                      <td className="py-4 px-5 max-w-xs">
+                        <p className="text-slate-700 leading-relaxed text-xs line-clamp-2">{sub.message}</p>
+                      </td>
+
+                      <td className="py-4 px-5">
+                        {sub.status === "new" ? (
+                          <span className="px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-[10px] font-bold text-amber-700 uppercase">
+                            New
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-semibold text-slate-600 uppercase">
+                            <CheckCircle2 className="h-3 w-3 text-slate-400" /> Reviewed
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-4 px-5 text-slate-500 text-[11px]">
+                        <span className="flex items-center gap-1.5">
+                          <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                          {date}
                         </span>
-                      ) : (
-                        <span className="text-slate-600 text-[11px]">—</span>
-                      )}
-                    </td>
+                      </td>
 
-                    <td className="py-3.5 px-4 font-sans text-slate-300 text-[12px] leading-relaxed max-w-md">
-                      <p className="line-clamp-3">{submission.message}</p>
-                    </td>
-
-                    <td className="py-3.5 px-4">
-                      {isNew ? (
-                        <span className="px-2 py-0.5 rounded bg-amber-950/80 border border-amber-700/40 text-[10px] font-bold text-amber-300 uppercase">
-                          New
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-700/40 text-[10px] font-bold text-emerald-300 uppercase">
-                          <CheckCircle2 className="h-3 w-3" /> Reviewed
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="py-3.5 px-4 text-slate-500 text-[11px]">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3 text-slate-600" />
-                        {date}
-                      </span>
-                    </td>
-
-                    <td className="py-3.5 px-4 text-right">
-                      {isNew ? (
-                        <MarkReviewedButton submissionId={submission.id} />
-                      ) : (
-                        <span className="text-[10px] text-slate-600 font-mono">Reviewed</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      <td className="py-4 px-5 text-right">
+                        {sub.status === "new" && (
+                          <MarkReviewedButton submissionId={sub.id} />
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

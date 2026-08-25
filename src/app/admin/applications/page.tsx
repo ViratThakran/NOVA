@@ -76,21 +76,22 @@ export default async function AdminApplicationsPage({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 text-slate-800">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-white font-mono uppercase">
-            APPLICATION REVIEW QUEUE
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+            <FileText className="h-6 w-6 text-sky-600" />
+            Application Review Queue
           </h1>
-          <p className="text-xs text-slate-400 font-mono mt-0.5">
-            Evaluate candidate submissions, transition status, and record review decisions.
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Evaluate candidate submissions, transition review status, and record decisions.
           </p>
         </div>
       </div>
 
-      {/* TOOLBAR */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-[#0E131F] p-4 rounded-xl border border-slate-800">
+      {/* TOOLBAR WITH GLASSMORPHISM */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-2xl p-4 sm:p-5 rounded-3xl border border-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
         {/* Status Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
           {FILTERS.map((filter) => {
@@ -104,10 +105,10 @@ export default async function AdminApplicationsPage({
               <Link
                 key={filter.value}
                 href={href}
-                className={`px-3 py-1.5 rounded-md font-mono text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition-colors ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition-colors ${
                   isSelected
-                    ? "bg-indigo-600 text-white"
-                    : "bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                    ? "bg-[#0F172A] text-white shadow-xs"
+                    : "bg-slate-100/80 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900"
                 }`}
               >
                 {filter.label}
@@ -119,27 +120,27 @@ export default async function AdminApplicationsPage({
         {/* Search */}
         <form method="GET" action="/admin/applications" className="relative sm:w-64">
           {statusFilter !== "all" && <input type="hidden" name="status" value={statusFilter} />}
-          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
+          <Search className="absolute left-3.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
           <input
             type="text"
             name="q"
             defaultValue={rawQuery || ""}
             placeholder="Search student or internship..."
-            className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+            className="w-full pl-9 pr-3 py-2 rounded-full bg-slate-100/80 hover:bg-slate-100 focus:bg-white border border-transparent focus:border-sky-300 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none transition-all"
           />
         </form>
       </div>
 
-      {/* TABLE DATA STAGE */}
+      {/* TABLE DATA STAGE WITH GLASSMORPHISM */}
       {error ? (
-        <div className="p-8 rounded-xl bg-red-950/20 border border-red-800/40 text-center flex flex-col items-center gap-2">
-          <p className="text-sm font-semibold text-red-300">Couldn&apos;t load applications</p>
-          <p className="text-xs text-red-400/80">Something went wrong querying the database.</p>
+        <div className="p-8 rounded-3xl bg-white/80 backdrop-blur-xl border border-red-200 text-center flex flex-col items-center gap-2 shadow-xs">
+          <p className="text-sm font-semibold text-red-600">Couldn&apos;t load applications</p>
+          <p className="text-xs text-red-500">Something went wrong querying the database.</p>
         </div>
       ) : applications.length === 0 ? (
-        <div className="p-12 rounded-xl bg-[#0E131F] border border-slate-800 text-center flex flex-col items-center gap-3">
-          <FileText className="h-10 w-10 text-slate-600" />
-          <p className="text-sm font-bold text-slate-300 font-mono">No applications in this view</p>
+        <div className="p-12 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 text-center flex flex-col items-center gap-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <FileText className="h-10 w-10 text-slate-300" />
+          <p className="text-sm font-bold text-slate-800">No applications in this view</p>
           <p className="text-xs text-slate-500 max-w-sm">
             {searchQuery
               ? `No applications found for query "${searchQuery}".`
@@ -147,81 +148,83 @@ export default async function AdminApplicationsPage({
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#0E131F]">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#0B0F19] text-slate-400 font-mono uppercase tracking-wider text-[10px] border-b border-slate-800">
-              <tr>
-                <th className="py-3 px-4">Applicant Candidate</th>
-                <th className="py-3 px-4">Target Opportunity</th>
-                <th className="py-3 px-4">Company</th>
-                <th className="py-3 px-4">Submission Date</th>
-                <th className="py-3 px-4">Review Status</th>
-                <th className="py-3 px-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300">
-              {applications.map((app) => {
-                const student = studentDisplayName(app.student);
-                const date = new Date(app.created_at).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                });
+        <div className="rounded-3xl border border-white/90 bg-white/80 backdrop-blur-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100 text-slate-400 font-medium bg-slate-50/50">
+                  <th className="py-4 px-5">Applicant Candidate</th>
+                  <th className="py-4 px-5">Target Opportunity</th>
+                  <th className="py-4 px-5">Company</th>
+                  <th className="py-4 px-5">Submission Date</th>
+                  <th className="py-4 px-5">Review Status</th>
+                  <th className="py-4 px-5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {applications.map((app) => {
+                  const student = studentDisplayName(app.student);
+                  const date = new Date(app.created_at).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  });
 
-                return (
-                  <tr key={app.id} className="hover:bg-slate-900/50 transition-colors">
-                    <td className="py-3.5 px-4 font-sans">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-bold text-white leading-snug">{student.name}</span>
-                        <span className="text-[11px] font-mono text-slate-400">{student.email}</span>
-                      </div>
-                    </td>
+                  return (
+                    <tr key={app.id} className="hover:bg-sky-50/20 transition-colors">
+                      <td className="py-4 px-5">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-bold text-slate-900 leading-snug">{student.name}</span>
+                          <span className="text-[11px] text-slate-500">{student.email}</span>
+                        </div>
+                      </td>
 
-                    <td className="py-3.5 px-4 font-sans font-semibold text-slate-200">
-                      {app.internship ? (
+                      <td className="py-4 px-5 font-bold text-slate-900 text-xs sm:text-sm">
+                        {app.internship ? (
+                          <Link
+                            href={`/admin/internships/${app.internship.id}`}
+                            className="hover:text-sky-600 transition-colors"
+                          >
+                            {app.internship.title}
+                          </Link>
+                        ) : (
+                          <span className="text-slate-400 italic">Internship unavailable</span>
+                        )}
+                      </td>
+
+                      <td className="py-4 px-5">
+                        <span className="flex items-center gap-1.5 text-slate-700 font-medium">
+                          <Building2 className="h-3.5 w-3.5 text-sky-600" />
+                          {app.internship?.companies?.name || "Platform Direct"}
+                        </span>
+                      </td>
+
+                      <td className="py-4 px-5 text-slate-500 text-[11px]">
+                        <span className="flex items-center gap-1.5">
+                          <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                          {date}
+                        </span>
+                      </td>
+
+                      <td className="py-4 px-5">
+                        <ApplicationStatusBadge status={app.status} />
+                      </td>
+
+                      <td className="py-4 px-5 text-right">
                         <Link
-                          href={`/admin/internships/${app.internship.id}`}
-                          className="hover:text-indigo-300 transition-colors"
+                          href={`/admin/applications/${app.id}`}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-xs font-semibold uppercase tracking-wider transition-all"
                         >
-                          {app.internship.title}
+                          Review
+                          <ChevronRight className="h-3.5 w-3.5" />
                         </Link>
-                      ) : (
-                        <span className="text-slate-500 italic">Internship unavailable</span>
-                      )}
-                    </td>
-
-                    <td className="py-3.5 px-4">
-                      <span className="flex items-center gap-1.5 text-slate-400">
-                        <Building2 className="h-3 w-3 text-slate-500" />
-                        {app.internship?.companies?.name || "Platform Direct"}
-                      </span>
-                    </td>
-
-                    <td className="py-3.5 px-4 text-slate-500 text-[11px]">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3 text-slate-600" />
-                        {date}
-                      </span>
-                    </td>
-
-                    <td className="py-3.5 px-4">
-                      <ApplicationStatusBadge status={app.status} />
-                    </td>
-
-                    <td className="py-3.5 px-4 text-right">
-                      <Link
-                        href={`/admin/applications/${app.id}`}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold uppercase tracking-wider transition-all"
-                      >
-                        Review
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

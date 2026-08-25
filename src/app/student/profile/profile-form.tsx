@@ -58,12 +58,12 @@ export function StudentProfileForm({
 
       {/* Personal Identity */}
       <div className="flex flex-col gap-4">
-        <h3 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
+        <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
           Personal Identity
         </h3>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5 font-mono">
-            <Label htmlFor="first_name" className="text-xs text-slate-300">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="first_name" className="text-xs font-medium text-slate-700">
               First Name
             </Label>
             <Input
@@ -72,11 +72,11 @@ export function StudentProfileForm({
               required
               maxLength={100}
               defaultValue={firstName}
-              className="bg-slate-900 border-slate-800 text-slate-200 text-xs focus:border-indigo-500"
+              className="bg-[#F8FAFC] border-slate-200 text-slate-900 text-xs focus:border-sky-400 focus:bg-white rounded-xl"
             />
           </div>
-          <div className="flex flex-col gap-1.5 font-mono">
-            <Label htmlFor="last_name" className="text-xs text-slate-300">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="last_name" className="text-xs font-medium text-slate-700">
               Last Name
             </Label>
             <Input
@@ -85,20 +85,20 @@ export function StudentProfileForm({
               required
               maxLength={100}
               defaultValue={lastName}
-              className="bg-slate-900 border-slate-800 text-slate-200 text-xs focus:border-indigo-500"
+              className="bg-[#F8FAFC] border-slate-200 text-slate-900 text-xs focus:border-sky-400 focus:bg-white rounded-xl"
             />
           </div>
         </div>
       </div>
 
       {/* Academic Background */}
-      <div className="flex flex-col gap-4 pt-4 border-t border-slate-800/80">
-        <h3 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
+      <div className="flex flex-col gap-4 pt-4 border-t border-slate-100">
+        <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
           Academic Background
         </h3>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5 font-mono">
-            <Label htmlFor="school" className="text-xs text-slate-300">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="school" className="text-xs font-medium text-slate-700">
               Institution / School
             </Label>
             <Input
@@ -107,11 +107,11 @@ export function StudentProfileForm({
               autoComplete="organization"
               required
               defaultValue={school}
-              className="bg-slate-900 border-slate-800 text-slate-200 text-xs focus:border-indigo-500"
+              className="bg-[#F8FAFC] border-slate-200 text-slate-900 text-xs focus:border-sky-400 focus:bg-white rounded-xl"
             />
           </div>
-          <div className="flex flex-col gap-1.5 font-mono">
-            <Label htmlFor="degree" className="text-xs text-slate-300">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="degree" className="text-xs font-medium text-slate-700">
               Degree &amp; Major
             </Label>
             <Input
@@ -119,13 +119,13 @@ export function StudentProfileForm({
               name="degree"
               required
               defaultValue={degree}
-              className="bg-slate-900 border-slate-800 text-slate-200 text-xs focus:border-indigo-500"
+              className="bg-[#F8FAFC] border-slate-200 text-slate-900 text-xs focus:border-sky-400 focus:bg-white rounded-xl"
             />
           </div>
         </div>
 
-        <div className="flex flex-col gap-1.5 sm:max-w-xs font-mono">
-          <Label htmlFor="grad_year" className="text-xs text-slate-300">
+        <div className="flex flex-col gap-1.5 sm:max-w-xs">
+          <Label htmlFor="grad_year" className="text-xs font-medium text-slate-700">
             Graduation Year
           </Label>
           <Input
@@ -136,18 +136,18 @@ export function StudentProfileForm({
             max={2100}
             required
             defaultValue={gradYear}
-            className="bg-slate-900 border-slate-800 text-slate-200 text-xs focus:border-indigo-500"
+            className="bg-[#F8FAFC] border-slate-200 text-slate-900 text-xs focus:border-sky-400 focus:bg-white rounded-xl"
           />
         </div>
       </div>
 
       {/* Technical Skills Studio */}
-      <div className="flex flex-col gap-4 pt-4 border-t border-slate-800/80">
+      <div className="flex flex-col gap-4 pt-4 border-t border-slate-100">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
+          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
             Technical Skills ({skillList.length})
           </h3>
-          <span className="text-[10px] font-mono text-slate-500">
+          <span className="text-[11px] text-slate-400">
             Press Enter or click + to add skill
           </span>
         </div>
@@ -158,13 +158,13 @@ export function StudentProfileForm({
             {skillList.map((skill) => (
               <span
                 key={skill}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-700 font-mono text-xs text-indigo-300"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 border border-sky-200 text-xs font-medium text-sky-800"
               >
                 {skill}
                 <button
                   type="button"
                   onClick={() => handleRemoveSkill(skill)}
-                  className="p-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-red-400 transition-colors"
+                  className="p-0.5 rounded-full hover:bg-sky-200/60 text-sky-600 hover:text-red-600 transition-colors"
                   title={`Remove ${skill}`}
                 >
                   <X className="h-3 w-3" />
@@ -173,7 +173,7 @@ export function StudentProfileForm({
             ))}
           </div>
         ) : (
-          <p className="text-xs font-mono text-slate-500 italic">No skills listed yet.</p>
+          <p className="text-xs text-slate-400 italic">No skills listed yet.</p>
         )}
 
         {/* Add Skill Control */}
@@ -184,12 +184,12 @@ export function StudentProfileForm({
             value={newSkillInput}
             onChange={(e) => setNewSkillInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="bg-slate-900 border-slate-800 text-slate-200 text-xs focus:border-indigo-500 font-mono"
+            className="bg-[#F8FAFC] border-slate-200 text-slate-900 placeholder:text-slate-400 text-xs focus:border-sky-400 focus:bg-white rounded-xl"
           />
           <button
             type="button"
             onClick={handleAddSkill}
-            className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-mono font-bold uppercase transition-colors shrink-0"
+            className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold uppercase transition-colors shrink-0"
           >
             <Plus className="h-3.5 w-3.5" /> Add
           </button>
@@ -198,23 +198,23 @@ export function StudentProfileForm({
 
       {/* Action status & submit */}
       {state.status === "error" && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-950/40 border border-red-800/40 text-xs font-mono text-red-300">
-          <AlertCircle className="h-4 w-4 shrink-0" />
+        <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700">
+          <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
           <span>{state.message}</span>
         </div>
       )}
       {state.status === "success" && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/40 text-xs font-mono text-emerald-300">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
+        <div className="flex items-center gap-2 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-700">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
           <span>{state.message}</span>
         </div>
       )}
 
-      <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+      <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
         <Button
           type="submit"
           loading={pending}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs uppercase font-bold tracking-wider px-5 py-2.5 rounded-lg shadow-lg shadow-indigo-600/20"
+          className="bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold px-5 py-2.5 rounded-xl shadow-xs transition-colors"
         >
           {pending ? (
             <span className="flex items-center gap-2">

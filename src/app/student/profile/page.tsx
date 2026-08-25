@@ -23,8 +23,8 @@ export default async function StudentProfilePage() {
   const auth = await getAuthenticatedUser();
   if (!auth) {
     return (
-      <div className="p-8 rounded-xl bg-red-950/20 border border-red-800/40 text-center">
-        <p className="text-sm font-semibold text-red-300 font-mono">Your session has expired. Please log in again.</p>
+      <div className="p-8 rounded-3xl bg-white/80 backdrop-blur-xl border border-red-200 text-center shadow-xs">
+        <p className="text-sm font-semibold text-red-600">Your session has expired. Please log in again.</p>
       </div>
     );
   }
@@ -42,23 +42,23 @@ export default async function StudentProfilePage() {
 
   if (profileError || studentProfileError) {
     return (
-      <div className="p-8 rounded-xl bg-red-950/20 border border-red-800/40 text-center">
-        <p className="text-sm font-semibold text-red-300 font-mono">Couldn&apos;t load your profile details.</p>
+      <div className="p-8 rounded-3xl bg-white/80 backdrop-blur-xl border border-red-200 text-center shadow-xs">
+        <p className="text-sm font-semibold text-red-600">Couldn&apos;t load your profile details.</p>
       </div>
     );
   }
 
   if (!studentProfile) {
     return (
-      <div className="p-12 rounded-2xl bg-[#0E131F] border border-slate-800 text-center flex flex-col items-center gap-3">
-        <User className="h-10 w-10 text-slate-600" />
-        <p className="text-sm font-bold text-slate-300 font-mono">Finish Onboarding First</p>
+      <div className="p-12 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 text-center flex flex-col items-center gap-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+        <User className="h-10 w-10 text-slate-300" />
+        <p className="text-sm font-bold text-slate-800">Finish Onboarding First</p>
         <p className="text-xs text-slate-500 max-w-sm">
           Complete your initial onboarding sequence to set up your academic profile and resume.
         </p>
         <Link
           href="/student/onboarding"
-          className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold uppercase tracking-wider transition-colors"
+          className="mt-2 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold shadow-xs"
         >
           Go to Onboarding →
         </Link>
@@ -87,37 +87,37 @@ export default async function StudentProfilePage() {
   const hasResume = Boolean(studentProfile.resume_path);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6 text-slate-800">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold text-white font-sans">{studentName}</h1>
-            <span className="px-2.5 py-0.5 rounded-md bg-indigo-950/80 border border-indigo-700/40 text-indigo-300 font-mono text-[10px] font-bold uppercase tracking-wider">
-              STUDENT CAREER PROFILE
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">{studentName}</h1>
+            <span className="px-2.5 py-0.5 rounded-full bg-sky-50 border border-sky-200 text-sky-700 text-[10px] font-bold uppercase tracking-wider">
+              Student Career Profile
             </span>
           </div>
-          <p className="text-xs font-mono text-slate-400">
-            {profile?.email} · Academic identity &amp; technical capabilities
+          <p className="text-xs text-slate-500">
+            {profile?.email} · Academic background &amp; technical capabilities
           </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
           <span
-            className={`px-3 py-1 rounded-lg border font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+            className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border shadow-2xs ${
               hasAcademic && hasResume && skills.length > 0
-                ? "bg-emerald-950/80 text-emerald-300 border-emerald-700/40"
-                : "bg-amber-950/80 text-amber-300 border-amber-700/40"
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-amber-50 text-amber-700 border-amber-200"
             }`}
           >
             {hasAcademic && hasResume && skills.length > 0 ? (
               <>
-                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                 Profile Complete
               </>
             ) : (
               <>
-                <AlertCircle className="h-4 w-4 text-amber-400" />
+                <AlertCircle className="h-4 w-4 text-amber-600" />
                 Action Needed
               </>
             )}
@@ -125,14 +125,14 @@ export default async function StudentProfilePage() {
         </div>
       </div>
 
-      {/* 2-COLUMN GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      {/* 2-COLUMN GRID WITH GLASSMORPHISM */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* LEFT COLUMN: EDIT PROFILE FORM */}
         <div className="lg:col-span-7 flex flex-col gap-6">
-          <div className="p-6 rounded-2xl bg-[#0E131F] border border-slate-800 flex flex-col gap-5">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-800/80">
-              <User className="h-4 w-4 text-indigo-400" />
-              <h2 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
+          <div className="p-6 sm:p-7 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-5">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+              <User className="h-4 w-4 text-sky-600" />
+              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
                 Edit Identity &amp; Capabilities
               </h2>
             </div>
@@ -151,19 +151,19 @@ export default async function StudentProfilePage() {
         {/* RIGHT COLUMN: RESUME STUDIO & READINESS SUMMARY */}
         <div className="lg:col-span-5 flex flex-col gap-6">
           {/* RESUME STUDIO BLOCK */}
-          <div className="p-6 rounded-2xl bg-[#0E131F] border border-slate-800 flex flex-col gap-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+          <div className="p-6 sm:p-7 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-cyan-400" />
-                <h2 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
+                <FileText className="h-4 w-4 text-sky-600" />
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
                   Resume Studio
                 </h2>
               </div>
               <span
-                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
                   hasResume
-                    ? "bg-emerald-950/80 text-emerald-300 border-emerald-700/40"
-                    : "bg-amber-950/80 text-amber-300 border-amber-700/40"
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-amber-50 text-amber-700 border-amber-200"
                 }`}
               >
                 {hasResume ? "READY" : "NOT UPLOADED"}
@@ -171,21 +171,21 @@ export default async function StudentProfilePage() {
             </div>
 
             {resumeUrl ? (
-              <div className="flex flex-col gap-3 font-mono">
-                <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col gap-2">
+              <div className="flex flex-col gap-3">
+                <div className="p-3.5 rounded-2xl bg-slate-50/90 border border-slate-200/70 flex flex-col gap-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <FileText className="h-3.5 w-3.5 text-indigo-400" />
+                    <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5 text-sky-600" />
                       resume.pdf
                     </span>
                     {studentProfile.resume_size && (
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-[10px] text-slate-500 font-mono">
                         {Math.round(studentProfile.resume_size / 1024)} KB
                       </span>
                     )}
                   </div>
-                  <span className="text-[10px] text-emerald-400 flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3" /> PDF On File for Employer Review
+                  <span className="text-[11px] text-emerald-700 font-medium flex items-center gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> PDF On File for Employer Review
                   </span>
                 </div>
 
@@ -193,31 +193,31 @@ export default async function StudentProfilePage() {
                   href={resumeUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/40 text-indigo-300 text-xs font-mono font-bold uppercase tracking-wider transition-colors"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-colors"
                 >
                   <Download className="h-3.5 w-3.5" /> View / Download Current Resume <ExternalLink className="h-3 w-3 opacity-60" />
                 </a>
               </div>
             ) : (
-              <div className="p-4 rounded-xl bg-amber-950/20 border border-amber-800/30 text-center flex flex-col items-center gap-2 font-mono">
-                <AlertCircle className="h-6 w-6 text-amber-400" />
-                <span className="text-xs font-bold text-amber-300 uppercase">NO RESUME ON FILE</span>
-                <p className="text-[11px] text-slate-400">
+              <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200 text-center flex flex-col items-center gap-2">
+                <AlertCircle className="h-6 w-6 text-amber-600" />
+                <span className="text-xs font-bold text-amber-800 uppercase">NO RESUME ON FILE</span>
+                <p className="text-[11px] text-slate-600">
                   Upload your PDF resume to submit internship applications.
                 </p>
               </div>
             )}
 
-            <div className="pt-3 border-t border-slate-800/80">
+            <div className="pt-3 border-t border-slate-100">
               <ResumeForm />
             </div>
           </div>
 
           {/* PROFILE READINESS SUMMARY */}
-          <div className="p-6 rounded-2xl bg-[#0E131F] border border-slate-800 flex flex-col gap-4 font-mono">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-800/80">
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+          <div className="p-6 sm:p-7 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-4">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+              <ShieldCheck className="h-4 w-4 text-emerald-600" />
+              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
                 Profile Readiness Checklist
               </h2>
             </div>
@@ -265,18 +265,18 @@ function CheckRow({
   isComplete: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-slate-900/60 border border-slate-800">
+    <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-50/80 border border-slate-100">
       <div className="flex items-center gap-2.5 overflow-hidden">
-        <Icon className={`h-4 w-4 shrink-0 ${isComplete ? "text-emerald-400" : "text-amber-400"}`} />
+        <Icon className={`h-4 w-4 shrink-0 ${isComplete ? "text-emerald-600" : "text-amber-600"}`} />
         <div className="flex flex-col overflow-hidden">
-          <span className="text-[10px] text-slate-500 uppercase">{label}</span>
-          <span className="text-xs font-semibold text-slate-200 truncate">{detail}</span>
+          <span className="text-[10px] text-slate-400 font-bold uppercase">{label}</span>
+          <span className="text-xs font-semibold text-slate-800 truncate">{detail}</span>
         </div>
       </div>
       {isComplete ? (
-        <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
       ) : (
-        <span className="px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-700/40 text-[9px] font-bold text-amber-300 uppercase shrink-0">
+        <span className="px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-[10px] font-bold text-amber-700 uppercase shrink-0">
           Action Needed
         </span>
       )}
