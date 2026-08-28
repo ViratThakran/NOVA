@@ -97,7 +97,7 @@ export function CareersPathwayExplorer() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       {/* Left List of Pathways (5 Cols) */}
-      <div className="lg:col-span-5 flex flex-col divide-y divide-white/10 rounded-3xl bg-[#12121A] border border-white/10 overflow-hidden">
+      <div className="lg:col-span-5 flex flex-col divide-y divide-white/[0.06] rounded-3xl bg-[#08080C] border border-white/[0.08] overflow-hidden">
         {PATHWAYS.map((p, idx) => {
           const isSelected = idx === selectedIndex;
           return (
@@ -107,25 +107,25 @@ export function CareersPathwayExplorer() {
               onClick={() => setSelectedIndex(idx)}
               className={`w-full text-left p-4 sm:p-5 flex items-center justify-between transition-all duration-200 ${
                 isSelected
-                  ? "bg-indigo-600/20 text-white border-l-4 border-l-cyan-400 pl-5"
-                  : "hover:bg-white/5 text-neutral-400 hover:text-white"
+                  ? "bg-white/[0.08] text-white border-l-2 border-l-white pl-5"
+                  : "hover:bg-white/[0.03] text-neutral-400 hover:text-white"
               }`}
             >
               <div className="flex items-center gap-3">
                 <span
-                  className={`font-mono text-xs font-bold ${
-                    isSelected ? "text-cyan-400" : "text-neutral-500"
+                  className={`font-mono text-xs font-medium ${
+                    isSelected ? "text-white" : "text-neutral-500"
                   }`}
                 >
                   {p.number}
                 </span>
-                <span className="text-xs sm:text-sm font-bold tracking-tight uppercase line-clamp-1">
+                <span className="text-xs sm:text-sm font-medium tracking-tight uppercase line-clamp-1">
                   {p.tag}
                 </span>
               </div>
               <ChevronRight
                 className={`h-4 w-4 shrink-0 transition-transform ${
-                  isSelected ? "text-cyan-400 translate-x-1" : "text-neutral-600"
+                  isSelected ? "text-white translate-x-1" : "text-neutral-600"
                 }`}
               />
             </button>
@@ -134,36 +134,36 @@ export function CareersPathwayExplorer() {
       </div>
 
       {/* Right Feature Card (7 Cols) */}
-      <div className="lg:col-span-7 flex flex-col gap-6 p-6 sm:p-8 rounded-3xl bg-[#12121A] border border-white/10 shadow-2xl min-h-[480px] justify-between">
+      <div className="lg:col-span-7 flex flex-col gap-6 p-6 sm:p-8 rounded-3xl bg-[#08080C] border border-white/[0.08] min-h-[480px] justify-between">
         <div className="flex flex-col gap-6">
           {/* Header metadata */}
-          <div className="flex items-center justify-between border-b border-white/10 pb-4">
+          <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
             <div className="flex items-center gap-2">
-              <span className="font-mono text-xs font-bold text-indigo-400">
+              <span className="font-mono text-xs font-medium text-neutral-400">
                 PATHWAY {activePathway.number} / 08
               </span>
               <span className="text-neutral-600">•</span>
-              <span className="font-mono text-xs font-semibold text-cyan-400 uppercase">
+              <span className="font-mono text-xs font-medium text-white uppercase">
                 {activePathway.tag}
               </span>
             </div>
-            <span className="text-[10px] font-mono uppercase bg-white/10 px-2.5 py-1 rounded-full text-neutral-300">
+            <span className="text-[10px] font-mono uppercase bg-white/[0.06] px-2.5 py-1 rounded-md text-neutral-300">
               Interactive Selection
             </span>
           </div>
 
           {/* Headline & Body */}
           <div className="flex flex-col gap-3">
-            <h3 className="text-2xl sm:text-3xl font-black text-white uppercase leading-snug">
+            <h3 className="text-2xl sm:text-3xl font-medium text-white leading-snug">
               {activePathway.headline}
             </h3>
-            <p className="text-sm sm:text-base text-neutral-300 font-normal leading-relaxed">
+            <p className="text-sm sm:text-base text-[#8E8E93] font-normal leading-relaxed">
               {activePathway.body}
             </p>
           </div>
 
           {/* Active Image Feature */}
-          <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden border border-white/10 shadow-lg">
+          <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden border border-white/[0.08]">
             <Image
               src={activePathway.image}
               alt={activePathway.tag}
@@ -171,19 +171,19 @@ export function CareersPathwayExplorer() {
               sizes="(max-width: 1024px) 100vw, 700px"
               className="object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-            <div className="absolute bottom-4 left-4 right-4 flex items-center gap-2 text-xs font-mono text-cyan-300 uppercase">
-              <CheckCircle2 className="h-4 w-4 text-cyan-400 shrink-0" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#000000] via-transparent to-transparent" />
+            <div className="absolute bottom-4 left-4 right-4 flex items-center gap-2 text-xs font-mono text-neutral-300 uppercase">
+              <CheckCircle2 className="h-4 w-4 text-white shrink-0" />
               <span>Real Production Sandboxes &amp; Verified Pull Requests</span>
             </div>
           </div>
         </div>
 
         {/* Link Button */}
-        <div className="pt-4 border-t border-white/10 flex items-center justify-between">
+        <div className="pt-4 border-t border-white/[0.06] flex items-center justify-between">
           <Link
             href={activePathway.href}
-            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 text-xs sm:text-sm font-bold uppercase transition-all shadow-md"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#EDEDED] hover:bg-white text-black px-5 py-2.5 text-xs sm:text-sm font-medium transition-all"
           >
             <span>{activePathway.linkText}</span>
             <ArrowUpRight className="h-4 w-4" />

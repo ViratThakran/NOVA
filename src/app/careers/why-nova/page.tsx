@@ -5,7 +5,6 @@ import { ArrowRight, ArrowUpRight, Zap, ShieldCheck, CheckCircle2, Terminal, Cpu
 import { SiteHeader } from "@/components/marketing/site-header";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { ScrollProgress } from "@/components/marketing/scroll-progress";
-import { CareersSubNav } from "@/components/marketing/careers-sub-nav";
 
 export const metadata: Metadata = {
   title: "Why NOVA | Proof of Work & Engineering Mastery",
@@ -48,100 +47,54 @@ const WHY_PILLARS = [
   },
 ];
 
+import { CareerHero } from "@/components/marketing/careers/career-hero";
+
 export default function WhyNovaPage() {
   return (
-    <div className="min-h-screen bg-[#07070A] text-white selection:bg-fuchsia-600 selection:text-white">
+    <div className="min-h-screen bg-[#000000] text-white selection:bg-white selection:text-black">
       <SiteHeader transparent />
-      <CareersSubNav activeHref="/careers/why-nova" />
       <ScrollProgress />
 
       <main className="flex flex-col">
-        {/* 01 — HERO (Dark with Violet / Fuchsia Accents) */}
-        <section
-          data-chapter="01 / WHY NOVA"
-          className="relative pt-24 pb-20 sm:pt-32 sm:pb-28 bg-[#07070A] text-white border-b border-white/10 overflow-hidden"
+        {/* 01 — HERO */}
+        <CareerHero
+          chapter="01 / WHY NOVA"
+          headline="Why Choose NOVA"
+          description="Proof of work over passive courses. Live sandboxes, real PRs, and verified outcomes."
+          primaryCtaLabel="Explore internships"
+          primaryCtaHref="/internships"
         >
-          {/* Ambient Lighting */}
-          <div className="absolute top-1/4 left-10 w-96 h-96 rounded-full bg-violet-600/20 blur-3xl pointer-events-none" />
-          <div className="absolute bottom-10 right-10 w-96 h-96 rounded-full bg-fuchsia-600/15 blur-3xl pointer-events-none" />
-
-          <div className="relative z-10 mx-auto w-full max-w-[1560px] px-6 sm:px-10 lg:px-16 xl:px-20">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-              <div className="lg:col-span-7 flex flex-col gap-6">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-950/60 border border-violet-500/30 text-xs font-mono font-bold tracking-[0.24em] text-violet-300 uppercase w-fit">
-                  <ShieldCheck className="h-3.5 w-3.5 text-violet-400" />
-                  <span>LIFE AT NOVA · WHY CHOOSE US</span>
-                </div>
-
-                <h1 className="text-4xl sm:text-6xl lg:text-[68px] font-black tracking-tight text-white uppercase leading-[0.92]">
-                  THE EXPERIENCE PARADOX,<br />
-                  <span className="bg-gradient-to-r from-violet-200 via-fuchsia-200 to-cyan-300 bg-clip-text text-transparent">
-                    SOLVED PERMANENTLY.
-                  </span>
-                </h1>
-
-                <p className="text-base sm:text-xl text-neutral-300 font-normal leading-relaxed max-w-2xl">
-                  Traditional credentials leave ambitious minds trapped in tutorial limbo. NOVA provides live sandboxes, paired squads, and inspectable code commits needed to prove real engineering capability.
-                </p>
-
-                <div className="pt-2 flex flex-wrap items-center gap-3">
-                  <Link
-                    href="/internships"
-                    className="inline-flex items-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white px-6 py-3.5 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all shadow-lg shadow-violet-600/30"
-                  >
-                    <span>Explore Open Residencies</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                  <Link
-                    href="/careers/squad-life"
-                    className="inline-flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/20 px-6 py-3.5 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all"
-                  >
-                    <span>Inside Squad Life</span>
-                    <ArrowUpRight className="h-4 w-4" />
-                  </Link>
-                </div>
-              </div>
-
-              <div className="lg:col-span-5 relative aspect-[4/3] rounded-3xl overflow-hidden border border-violet-500/30 shadow-2xl shadow-violet-950/50">
-                <Image
-                  src="/images/cards/gen_residency.jpg"
-                  alt="NOVA Production Sandbox"
-                  fill
-                  priority
-                  sizes="(max-width: 1024px) 100vw, 600px"
-                  className="object-cover object-center"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#07070A] via-[#07070A]/20 to-transparent" />
-                <div className="absolute bottom-6 left-6 right-6 font-mono text-xs font-semibold text-violet-300 uppercase tracking-wider">
-                  REAL PRODUCTION SANDBOXES · AUTOMATED TEST HARNESSES
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+          <Link
+            href="/careers/squad-life"
+            className="inline-flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/20 px-6 py-3.5 text-sm font-medium transition-all"
+          >
+            <span>Inside squad life</span>
+            <ArrowUpRight className="h-4 w-4 text-neutral-400" />
+          </Link>
+        </CareerHero>
 
         {/* 02 — THE EXPERIENCE PARADOX NARRATIVE & COMPARISON */}
         <section
           data-chapter="02 / THE PARADOX"
-          className="py-20 sm:py-28 bg-[#0C0C12] text-white border-b border-white/10"
+          className="py-20 sm:py-28 bg-[#000000] text-white border-b border-white/[0.08]"
         >
-          <div className="mx-auto w-full max-w-[1560px] px-6 sm:px-10 lg:px-16 xl:px-20 flex flex-col gap-16">
+          <div className="mx-auto w-full max-w-[1560px] px-6 sm:px-12 lg:px-20 xl:px-28 flex flex-col gap-16">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
               <div className="lg:col-span-5 flex flex-col gap-6">
-                <span className="text-xs font-mono font-semibold tracking-[0.24em] text-violet-400 uppercase">
+                <span className="text-xs font-mono text-neutral-400 uppercase tracking-wider">
                   THE FUNDAMENTAL PROBLEM
                 </span>
-                <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white uppercase leading-none">
-                  THE EXPERIENCE PARADOX
+                <h2 className="text-3xl sm:text-5xl font-medium tracking-tight text-white leading-tight">
+                  The Experience Paradox
                 </h2>
-                <div className="p-6 rounded-2xl bg-[#14141E] border border-violet-500/30 border-l-4 border-l-violet-400 shadow-xl">
-                  <p className="text-sm sm:text-base font-semibold text-white italic leading-relaxed">
+                <div className="p-6 rounded-2xl bg-[#08080C] border border-white/[0.08]">
+                  <p className="text-sm sm:text-base font-normal text-white italic leading-relaxed">
                     &ldquo;You cannot get a software engineering role without production experience, yet you cannot acquire production experience without a role.&rdquo;
                   </p>
                 </div>
               </div>
 
-              <div className="lg:col-span-7 flex flex-col gap-6 text-base sm:text-lg text-neutral-300 leading-relaxed font-normal">
+              <div className="lg:col-span-7 flex flex-col gap-6 text-base sm:text-lg text-[#8E8E93] leading-relaxed font-normal">
                 <p>
                   Most aspiring engineers spend hundreds of hours completing toy video tutorials that teach syntax but fail to convey the realities of production engineering — continuous integration, distributed system debugging, and code reviews.
                 </p>
@@ -156,41 +109,41 @@ export default function WhyNovaPage() {
 
             {/* Comparison Grid: Traditional vs NOVA */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6">
-              <div className="p-8 rounded-3xl bg-[#101016] border border-red-500/20 flex flex-col gap-5">
-                <span className="text-xs font-mono font-bold text-red-400 uppercase tracking-wider">
+              <div className="p-8 rounded-3xl bg-[#08080C] border border-white/[0.08] flex flex-col gap-5">
+                <span className="text-xs font-mono text-neutral-400 uppercase tracking-wider">
                   TRADITIONAL / BOOTCAMP PATH
                 </span>
-                <ul className="flex flex-col gap-3 text-sm text-neutral-300">
+                <ul className="flex flex-col gap-3 text-sm text-[#8E8E93]">
                   <li className="flex items-start gap-2.5">
-                    <span className="text-red-400 font-bold">✕</span>
+                    <span className="text-neutral-500 font-bold">✕</span>
                     <span>Passive video lectures without production pressure</span>
                   </li>
                   <li className="flex items-start gap-2.5">
-                    <span className="text-red-400 font-bold">✕</span>
+                    <span className="text-neutral-500 font-bold">✕</span>
                     <span>Isolated toy projects with zero peer code review</span>
                   </li>
                   <li className="flex items-start gap-2.5">
-                    <span className="text-red-400 font-bold">✕</span>
+                    <span className="text-neutral-500 font-bold">✕</span>
                     <span>Generic certificates ignored by hiring managers</span>
                   </li>
                 </ul>
               </div>
 
-              <div className="p-8 rounded-3xl bg-[#12121E] border border-violet-500/30 flex flex-col gap-5">
-                <span className="text-xs font-mono font-bold text-violet-300 uppercase tracking-wider">
+              <div className="p-8 rounded-3xl bg-[#08080C] border border-white/20 flex flex-col gap-5">
+                <span className="text-xs font-mono text-white uppercase tracking-wider">
                   THE NOVA PRODUCTION SQUAD MODEL
                 </span>
                 <ul className="flex flex-col gap-3 text-sm text-neutral-200">
                   <li className="flex items-start gap-2.5">
-                    <CheckCircle2 className="h-4 w-4 text-cyan-400 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="h-4 w-4 text-white shrink-0 mt-0.5" />
                     <span>Real live sandboxes with containerized microservices</span>
                   </li>
                   <li className="flex items-start gap-2.5">
-                    <CheckCircle2 className="h-4 w-4 text-cyan-400 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="h-4 w-4 text-white shrink-0 mt-0.5" />
                     <span>Paired engineering sprints &amp; line-by-line staff reviews</span>
                   </li>
                   <li className="flex items-start gap-2.5">
-                    <CheckCircle2 className="h-4 w-4 text-cyan-400 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="h-4 w-4 text-white shrink-0 mt-0.5" />
                     <span>Inspectable pull requests &amp; verified commit records</span>
                   </li>
                 </ul>
@@ -202,14 +155,14 @@ export default function WhyNovaPage() {
         {/* 03 — 4 PILLARS OF WHY NOVA */}
         <section
           data-chapter="03 / CORE PILLARS"
-          className="py-20 sm:py-28 bg-[#09090D] text-white border-b border-white/10"
+          className="py-20 sm:py-28 bg-[#000000] text-white border-b border-white/[0.08]"
         >
-          <div className="mx-auto w-full max-w-[1560px] px-6 sm:px-10 lg:px-16 xl:px-20 flex flex-col gap-14">
+          <div className="mx-auto w-full max-w-[1560px] px-6 sm:px-12 lg:px-20 xl:px-28 flex flex-col gap-14">
             <div className="flex flex-col gap-3 max-w-2xl">
-              <span className="text-xs font-mono font-semibold tracking-[0.24em] text-violet-400 uppercase">
+              <span className="text-xs font-mono text-neutral-400 uppercase tracking-wider">
                 WHY BUILDERS CHOOSE NOVA
               </span>
-              <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white uppercase leading-none">
+              <h2 className="text-3xl sm:text-5xl font-medium tracking-tight text-white leading-tight">
                 Four Pillars of Proof
               </h2>
             </div>
@@ -220,17 +173,17 @@ export default function WhyNovaPage() {
                 return (
                   <div
                     key={p.num}
-                    className="p-8 sm:p-10 rounded-3xl bg-[#12121A] border border-white/10 hover:border-violet-500/40 transition-all flex flex-col justify-between gap-6"
+                    className="p-8 sm:p-10 rounded-3xl bg-[#08080C] border border-white/[0.08] hover:border-white/20 hover:bg-[#0E0E14] transition-all flex flex-col justify-between gap-6"
                   >
                     <div className="flex flex-col gap-4">
                       <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs font-bold text-violet-400">{p.num}</span>
-                        <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-cyan-400">
+                        <span className="font-mono text-xs font-medium text-neutral-400">{p.num}</span>
+                        <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white">
                           <IconComponent className="h-5 w-5" />
                         </div>
                       </div>
-                      <h3 className="text-2xl font-bold text-white tracking-tight">{p.title}</h3>
-                      <p className="text-sm text-neutral-400 font-normal leading-relaxed">
+                      <h3 className="text-2xl font-medium text-white tracking-tight">{p.title}</h3>
+                      <p className="text-sm text-[#8E8E93] font-normal leading-relaxed">
                         {p.description}
                       </p>
                     </div>
@@ -242,43 +195,43 @@ export default function WhyNovaPage() {
         </section>
 
         {/* 04 — ECOSYSTEM TRAVERSAL */}
-        <section className="py-16 bg-[#0E0E14] border-b border-white/10 text-white">
-          <div className="mx-auto w-full max-w-[1560px] px-6 sm:px-10 lg:px-16 xl:px-20 flex flex-col gap-6">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <span className="text-xs font-mono font-semibold tracking-[0.24em] text-neutral-400 uppercase">
+        <section className="py-16 bg-[#000000] border-b border-white/[0.08] text-white">
+          <div className="mx-auto w-full max-w-[1560px] px-6 sm:px-12 lg:px-20 xl:px-28 flex flex-col gap-6">
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+              <span className="text-xs font-mono text-neutral-400 uppercase tracking-wider">
                 EXPLORE LIFE AT NOVA
               </span>
-              <Link href="/careers" className="text-xs font-mono font-semibold text-violet-400 hover:underline uppercase">
+              <Link href="/careers" className="text-xs font-mono text-neutral-400 hover:text-white uppercase">
                 Careers Overview →
               </Link>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <Link href="/careers/squad-life" className="group p-6 rounded-2xl bg-[#151520] border border-white/10 hover:border-violet-500/50 transition-all flex flex-col justify-between">
+              <Link href="/careers/squad-life" className="group p-6 rounded-2xl bg-[#08080C] border border-white/[0.08] hover:border-white/20 hover:bg-[#0E0E14] transition-all flex flex-col justify-between">
                 <div className="flex flex-col gap-2">
-                  <span className="font-mono text-xs font-bold text-violet-400">01</span>
-                  <h3 className="text-base font-bold text-white group-hover:text-violet-300 transition-colors">Squad Life</h3>
-                  <p className="text-xs text-neutral-400 leading-relaxed font-normal">Production squads &amp; code reviews.</p>
+                  <span className="font-mono text-xs font-medium text-neutral-500">01</span>
+                  <h3 className="text-base font-medium text-white group-hover:text-white transition-colors">Squad Life</h3>
+                  <p className="text-xs text-[#8E8E93] leading-relaxed font-normal">Production squads &amp; code reviews.</p>
                 </div>
-                <span className="pt-4 text-xs font-mono font-semibold text-violet-400">Explore →</span>
+                <span className="pt-4 text-xs font-mono text-neutral-400 group-hover:text-white">Explore →</span>
               </Link>
 
-              <Link href="/careers/hiring-process" className="group p-6 rounded-2xl bg-[#151520] border border-white/10 hover:border-violet-500/50 transition-all flex flex-col justify-between">
+              <Link href="/careers/hiring-process" className="group p-6 rounded-2xl bg-[#08080C] border border-white/[0.08] hover:border-white/20 hover:bg-[#0E0E14] transition-all flex flex-col justify-between">
                 <div className="flex flex-col gap-2">
-                  <span className="font-mono text-xs font-bold text-violet-400">02</span>
-                  <h3 className="text-base font-bold text-white group-hover:text-violet-300 transition-colors">Hiring Process</h3>
-                  <p className="text-xs text-neutral-400 leading-relaxed font-normal">Skills verification &amp; placement flow.</p>
+                  <span className="font-mono text-xs font-medium text-neutral-500">02</span>
+                  <h3 className="text-base font-medium text-white group-hover:text-white transition-colors">Hiring Process</h3>
+                  <p className="text-xs text-[#8E8E93] leading-relaxed font-normal">Skills verification &amp; placement flow.</p>
                 </div>
-                <span className="pt-4 text-xs font-mono font-semibold text-violet-400">Explore →</span>
+                <span className="pt-4 text-xs font-mono text-neutral-400 group-hover:text-white">Explore →</span>
               </Link>
 
-              <Link href="/internships" className="group p-6 rounded-2xl bg-[#151520] border border-white/10 hover:border-violet-500/50 transition-all flex flex-col justify-between">
+              <Link href="/internships" className="group p-6 rounded-2xl bg-[#08080C] border border-white/[0.08] hover:border-white/20 hover:bg-[#0E0E14] transition-all flex flex-col justify-between">
                 <div className="flex flex-col gap-2">
-                  <span className="font-mono text-xs font-bold text-violet-400">03</span>
-                  <h3 className="text-base font-bold text-white group-hover:text-violet-300 transition-colors">Open Residencies</h3>
-                  <p className="text-xs text-neutral-400 leading-relaxed font-normal">Live database-backed opportunities.</p>
+                  <span className="font-mono text-xs font-medium text-neutral-500">03</span>
+                  <h3 className="text-base font-medium text-white group-hover:text-white transition-colors">Open Residencies</h3>
+                  <p className="text-xs text-[#8E8E93] leading-relaxed font-normal">Live database-backed opportunities.</p>
                 </div>
-                <span className="pt-4 text-xs font-mono font-semibold text-violet-400">Explore →</span>
+                <span className="pt-4 text-xs font-mono text-neutral-400 group-hover:text-white">Explore →</span>
               </Link>
             </div>
           </div>
@@ -286,23 +239,23 @@ export default function WhyNovaPage() {
 
         {/* 05 — CLOSING CTA */}
         <section className="py-24 sm:py-32 bg-[#050508] text-white overflow-hidden relative">
-          <div className="mx-auto w-full max-w-[1560px] px-6 sm:px-10 lg:px-16 xl:px-20 text-center flex flex-col items-center gap-8">
-            <span className="text-xs font-mono font-semibold tracking-[0.24em] text-violet-400 uppercase">
+          <div className="mx-auto w-full max-w-[1560px] px-6 sm:px-12 lg:px-20 xl:px-28 text-center flex flex-col items-center gap-8">
+            <span className="text-xs font-mono text-neutral-400 uppercase tracking-wider">
               READY TO BUILD?
             </span>
-            <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black uppercase tracking-tight text-white max-w-3xl leading-tight">
+            <h2 className="text-3xl sm:text-5xl lg:text-6xl font-medium tracking-tight text-white max-w-3xl leading-tight">
               Start Your Track Record with NOVA
             </h2>
             <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
               <Link
                 href="/internships"
-                className="rounded-xl bg-violet-600 hover:bg-violet-500 text-white px-6 py-3.5 text-sm font-bold uppercase tracking-wider transition-all shadow-lg shadow-violet-600/30"
+                className="rounded-xl bg-[#EDEDED] hover:bg-white text-black px-7 py-3.5 text-sm font-medium transition-all"
               >
                 Browse Open Roles
               </Link>
               <Link
                 href="/careers"
-                className="rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/20 px-6 py-3.5 text-sm font-bold uppercase tracking-wider transition-all"
+                className="rounded-xl bg-white/[0.06] hover:bg-white/10 text-white border border-white/15 px-7 py-3.5 text-sm font-medium transition-all"
               >
                 Careers Overview
               </Link>
