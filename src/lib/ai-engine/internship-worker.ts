@@ -21,7 +21,7 @@ export async function sendPendingInternshipEmails(supabase: ReturnType<typeof cr
   const from = process.env.RESEND_FROM_EMAIL;
   if (!apiKey || !from) return;
 
-  let query = supabase.from("internship_ai_email_outbox").select("id, user_id, template, attempts").eq("status", "pending").order("created_at", { ascending: true }).limit(10);
+  let query = supabase.from("internship_ai_email_outbox").select("id, user_id, template, attempts").in("status", ["pending", "failed"]).lt("attempts", 5).order("created_at", { ascending: true }).limit(10);
   if (journeyId) query = query.eq("journey_id", journeyId);
   const { data: messages } = await query;
 
