@@ -1,27 +1,6 @@
-// AI provider abstraction — the engine's boundary against any one model
-// vendor. The rest of the engine never talks to a specific vendor
-// directly — it only calls `getAiProvider().complete()`, so swapping or
-// adding a provider never touches agent/orchestration code, and never
-// touches the student/company/admin applications at all.
-//
-// No provider SDK is installed as a dependency: AnthropicProvider below is
-// a plain `fetch()` call to the public Messages API, since a raw HTTPS POST
-// is all a single-turn completion needs. This keeps the dependency surface
-// at zero while still being a real, working implementation if a key is
-// ever configured.
-//
-// Credentials: read ONLY from server-side environment variables
-// (process.env), NEVER from a database row, NEVER forwarded to the client
-// (this module has no "use client" directive and is only ever imported
-// from Server Actions / other server-only engine code). If
-// ANTHROPIC_API_KEY is absent, getAiProvider() falls back to a
-// deterministic MockProvider rather than throwing or inventing a
-// credential — this is what every test exercises, since no real key
-// exists in this environment.
-
 import { ANTHROPIC_MODEL, ANTHROPIC_MAX_TOKENS } from "../config";
 
-export type AiResponseFormat = "task_plan" | "research_result" | "website_build" | "qa_result" | "content_draft";
+export type AiResponseFormat = "task_plan" | "research_result" | "website_build" | "qa_result" | "content_draft" | "internship_task" | "internship_review";
 
 export interface AiCompletionRequest {
   systemPrompt: string;
@@ -34,97 +13,33 @@ export interface AiProvider {
   complete(request: AiCompletionRequest): Promise<string>;
 }
 
-// Deterministic — no randomness — so tests built on it are stable. Each
-// response format returns a fixed, valid JSON shape that still reflects the
-// actual input (e.g. echoes the service name), so it reads as a real
-// response rather than an obviously-canned one, without ever being
-// non-deterministic.
 export class MockProvider implements AiProvider {
   readonly name = "mock";
 
   async complete(request: AiCompletionRequest): Promise<string> {
     switch (request.responseFormat) {
       case "task_plan":
-        return JSON.stringify({
-          tasks: [
-            {
-              title: "Research",
-              description: `Research the requirements and context needed for: ${extractTopic(request.userPrompt)}`,
-              agent_slug: "research-agent",
-              capability_slugs: ["research", "read_public_web"],
-              depends_on_index: null,
-            },
-            {
-              title: "Website structure",
-              description: "Define the site structure and page plan based on the research findings.",
-              agent_slug: "developer-agent",
-              capability_slugs: ["create_artifact"],
-              depends_on_index: 0,
-            },
-            {
-              title: "Development",
-              description: "Build the site according to the agreed structure.",
-              agent_slug: "developer-agent",
-              capability_slugs: ["generate_code", "create_artifact"],
-              depends_on_index: 1,
-            },
-            {
-              title: "QA",
-              description: "Validate the delivered work against the original request before it ships.",
-              agent_slug: "qa-agent",
-              capability_slugs: ["run_tests"],
-              depends_on_index: 2,
-            },
-          ],
-        });
+        return JSON.stringify({ tasks: [
+          { title: "Research", description: `Research the requirements and context needed for: ${extractTopic(request.userPrompt)}`, agent_slug: "research-agent", capability_slugs: ["research", "read_public_web"], depends_on_index: null },
+          { title: "Website structure", description: "Define the site structure and page plan based on the research findings.", agent_slug: "developer-agent", capability_slugs: ["create_artifact"], depends_on_index: 0 },
+          { title: "Development", description: "Build the site according to the agreed structure.", agent_slug: "developer-agent", capability_slugs: ["generate_code", "create_artifact"], depends_on_index: 1 },
+          { title: "QA", description: "Validate the delivered work against the original request before it ships.", agent_slug: "qa-agent", capability_slugs: ["run_tests"], depends_on_index: 2 },
+        ] });
       case "research_result":
-        return JSON.stringify({
-          summary: `Summary of findings for: ${extractTopic(request.userPrompt)}`,
-          findings: [
-            "Identified the core requirements from the request details.",
-            "No blocking constraints found in publicly available context.",
-          ],
-          sources: [],
-        });
-      case "website_build": {
-        const topic = extractTopic(request.userPrompt);
-        return JSON.stringify({
-          files: [
-            {
-              path: "index.html",
-              content: `<!doctype html>\n<html><head><title>${escapeHtml(topic)}</title></head><body><h1>${escapeHtml(topic)}</h1><p>Generated by NOVA AI from the submitted brief.</p></body></html>`,
-            },
-            {
-              path: "styles.css",
-              content: `body { font-family: sans-serif; margin: 0 auto; max-width: 720px; } h1 { color: #1a1a2e; }`,
-            },
-          ],
-        });
-      }
+        return JSON.stringify({ summary: `Summary of findings for: ${extractTopic(request.userPrompt)}`, findings: ["Identified the core requirements from the request details.", "No blocking constraints found in publicly available context."], sources: [] });
+      case "website_build":
+        return JSON.stringify({ files: [{ path: "index.html", content: `<!doctype html><html><head><title>${escapeHtml(extractTopic(request.userPrompt))}</title></head><body><h1>${escapeHtml(extractTopic(request.userPrompt))}</h1><p>Generated by NOVA AI from the submitted brief.</p></body></html>` }, { path: "styles.css", content: "body { font-family: sans-serif; margin: 0 auto; max-width: 720px; }" }] });
       case "qa_result": {
-        // Deterministic and reflective of real input: the QA runner embeds
-        // any structural issues it already found in the prompt itself
-        // (STRUCTURAL_ISSUES:<n>) — the mock never invents a verdict
-        // independent of what was actually passed in.
         const match = request.userPrompt.match(/STRUCTURAL_ISSUES:(\d+)/);
-        const structuralIssueCount = match ? Number(match[1]) : 0;
-        return JSON.stringify({
-          status: structuralIssueCount > 0 ? "failed" : "passed",
-          issues: structuralIssueCount > 0 ? [`${structuralIssueCount} structural issue(s) found in the generated site.`] : [],
-          recommendations: structuralIssueCount > 0 ? ["Regenerate the affected files and re-run QA."] : ["No further action required."],
-          confidence: structuralIssueCount > 0 ? 0.9 : 0.95,
-        });
+        const count = match ? Number(match[1]) : 0;
+        return JSON.stringify({ status: count > 0 ? "failed" : "passed", issues: count > 0 ? [`${count} structural issue(s) found.`] : [], recommendations: count > 0 ? ["Regenerate the affected files and re-run QA."] : ["No further action required."], confidence: count > 0 ? 0.9 : 0.95 });
       }
-      case "content_draft": {
-        const formatMatch = request.userPrompt.match(/Format:\s*(\w+)/);
-        const format = formatMatch ? formatMatch[1] : "website_copy";
-        const topic = extractTopic(request.userPrompt);
-        return JSON.stringify({
-          title: `Draft for: ${topic}`,
-          body: `Generated ${format.replace(/_/g, " ")} content addressing: ${topic}`,
-          format,
-        });
-      }
+      case "content_draft":
+        return JSON.stringify({ title: `Draft for: ${extractTopic(request.userPrompt)}`, body: `Generated content addressing: ${extractTopic(request.userPrompt)}`, format: "website_copy" });
+      case "internship_task":
+        return JSON.stringify({ title: "Build a practical internship deliverable", objective: `Apply your current skills to a real-world deliverable related to ${extractTopic(request.userPrompt)}.`, instructions: "Create a working deliverable, document your approach and submit the work link with a short explanation of your decisions.", deliverables: ["Working deliverable", "Short implementation note", "Link or evidence of the work"], acceptance_criteria: ["The requested deliverable is present", "The work is understandable and reproducible", "The student explains key decisions"], estimated_hours: 4 });
+      case "internship_review":
+        return JSON.stringify({ verdict: "needs_revision", score: 60, summary: "The submission needs stronger evidence before it can be marked complete.", strengths: ["Work was submitted for review."], improvements: ["Add clearer evidence of the completed deliverable and explain important implementation decisions."], next_step: "Update the submission with stronger evidence and submit it again." });
       default: {
         const exhaustive: never = request.responseFormat;
         throw new Error(`Unhandled response format: ${exhaustive}`);
@@ -133,57 +48,31 @@ export class MockProvider implements AiProvider {
   }
 }
 
-function extractTopic(userPrompt: string): string {
-  return userPrompt.slice(0, 200).trim() || "the request";
-}
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
-// Real provider — only ever instantiated when a key is present. Never
-// logs the key, the raw prompt, or the raw response.
 class AnthropicProvider implements AiProvider {
   readonly name = "anthropic";
-
   constructor(private readonly apiKey: string) {}
 
   async complete(request: AiCompletionRequest): Promise<string> {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": this.apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: ANTHROPIC_MAX_TOKENS,
-        system: request.systemPrompt,
-        messages: [{ role: "user", content: request.userPrompt }],
-      }),
+      headers: { "content-type": "application/json", "x-api-key": this.apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: ANTHROPIC_MAX_TOKENS, system: request.systemPrompt, messages: [{ role: "user", content: request.userPrompt }] }),
     });
-
-    if (!response.ok) {
-      // Never include response headers/body verbatim — could echo request
-      // metadata back; a status code is enough to diagnose from server logs.
-      throw new Error(`AI provider request failed with status ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`AI provider request failed with status ${response.status}`);
     const data = (await response.json()) as { content?: { type: string; text?: string }[] };
     const text = data.content?.find((block) => block.type === "text")?.text;
-    if (!text) {
-      throw new Error("AI provider returned no text content");
-    }
+    if (!text) throw new Error("AI provider returned no text content");
     return text;
   }
 }
 
 let cachedProvider: AiProvider | null = null;
-
 export function getAiProvider(): AiProvider {
   if (cachedProvider) return cachedProvider;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   cachedProvider = apiKey ? new AnthropicProvider(apiKey) : new MockProvider();
   return cachedProvider;
 }
+
+function extractTopic(userPrompt: string): string { return userPrompt.slice(0, 200).trim() || "the request"; }
+function escapeHtml(text: string): string { return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;"); }
