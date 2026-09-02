@@ -21,7 +21,15 @@
 
 import { ANTHROPIC_MODEL, ANTHROPIC_MAX_TOKENS } from "../config";
 
-export type AiResponseFormat = "task_plan" | "research_result" | "website_build" | "qa_result" | "content_draft";
+export type AiResponseFormat =
+  | "task_plan"
+  | "research_result"
+  | "website_build"
+  | "qa_result"
+  | "content_draft"
+  | "curriculum_plan"
+  | "internship_task"
+  | "internship_review";
 
 export interface AiCompletionRequest {
   systemPrompt: string;
@@ -125,12 +133,1181 @@ export class MockProvider implements AiProvider {
           format,
         });
       }
+      case "curriculum_plan": {
+        return buildMockCurriculumPlan(request.userPrompt);
+      }
+      case "internship_task": {
+        return buildMockInternshipTask(request.userPrompt);
+      }
+      case "internship_review": {
+        return buildMockInternshipReview(request.userPrompt);
+      }
       default: {
         const exhaustive: never = request.responseFormat;
         throw new Error(`Unhandled response format: ${exhaustive}`);
       }
     }
   }
+}
+
+function buildMockCurriculumPlan(prompt: string): string {
+  const titleMatch = prompt.match(/Title:\s*([^\n]+)/i) || prompt.match(/internship_title:\s*([^\n]+)/i);
+  const title = (titleMatch ? titleMatch[1] : prompt).toLowerCase();
+
+  const isCloud = /cloud|devops|infrastructure|kubernetes|terraform/i.test(title);
+  const isFullStack = /full[\s-]?stack|web development|frontend|react/i.test(title);
+
+  if (isCloud) {
+    return JSON.stringify({
+      internship_title: "Cloud & DevOps Engineering Intern",
+      total_duration_weeks: 8,
+      milestones: [
+        {
+          milestone_index: 0,
+          title: "Infrastructure Fundamentals & Containerization",
+          description: "Master container packaging and Dockerfile optimization for production microservices.",
+          learning_objectives: ["Containerize services with multi-stage Dockerfiles", "Configure container networking and volume mounts"],
+          skills_focused: ["Docker", "Linux", "Networking"],
+          target_difficulty: "beginner",
+          estimated_duration_weeks: 2,
+          prerequisites: [],
+          expected_outcomes: ["Deployable Docker images", "Docker Compose local environments"],
+          final_project_contribution: "Provides container packaging base for the final production cluster.",
+        },
+        {
+          milestone_index: 1,
+          title: "CI/CD Pipeline Automation",
+          description: "Build robust automated GitHub Actions workflows with linting, testing, and security scanning.",
+          learning_objectives: ["Implement automated test and build workflows", "Add vulnerability scanning and image tagging"],
+          skills_focused: ["CI/CD", "GitHub Actions", "Security"],
+          target_difficulty: "intermediate",
+          estimated_duration_weeks: 2,
+          prerequisites: ["Infrastructure Fundamentals & Containerization"],
+          expected_outcomes: ["Automated CI/CD pipelines", "Passed security checks"],
+          final_project_contribution: "Automates continuous delivery for the capstone service.",
+        },
+        {
+          milestone_index: 2,
+          title: "Kubernetes Orchestration & Observability",
+          description: "Deploy scalable deployments, services, ingress, and Prometheus metrics monitoring.",
+          learning_objectives: ["Write declarative K8s manifests", "Configure health checks and Prometheus metrics"],
+          skills_focused: ["Kubernetes", "Prometheus", "Terraform"],
+          target_difficulty: "intermediate",
+          estimated_duration_weeks: 2,
+          prerequisites: ["CI/CD Pipeline Automation"],
+          expected_outcomes: ["Running Kubernetes cluster configs", "Grafana observability dashboards"],
+          final_project_contribution: "Deploys the production infrastructure for the final project.",
+        },
+        {
+          milestone_index: 3,
+          title: "Production Release & Disaster Recovery",
+          description: "Deploy the final resilient, auto-scaling infrastructure with disaster recovery playbooks.",
+          learning_objectives: ["Implement blue-green deployments", "Configure automated rollback triggers"],
+          skills_focused: ["Kubernetes", "Cloud Architecture", "Reliability"],
+          target_difficulty: "advanced",
+          estimated_duration_weeks: 2,
+          prerequisites: ["Kubernetes Orchestration & Observability"],
+          expected_outcomes: ["Production deployment with 99.9% uptime validation", "Full DR playbook"],
+          final_project_contribution: "Delivers the complete production-grade cloud deployment capstone.",
+        },
+      ],
+      final_outcome: "Deploy a production-grade containerized microservice on Kubernetes with automated CI/CD and observability.",
+    });
+  }
+
+  if (isFullStack) {
+    return JSON.stringify({
+      internship_title: "Full-Stack Web Development Intern",
+      total_duration_weeks: 8,
+      milestones: [
+        {
+          milestone_index: 0,
+          title: "Frontend Components & State Management",
+          description: "Build accessible, responsive UI component libraries with TypeScript and state management.",
+          learning_objectives: ["Develop reusable UI components", "Implement robust client state with TypeScript"],
+          skills_focused: ["React", "TypeScript", "Tailwind CSS"],
+          target_difficulty: "beginner",
+          estimated_duration_weeks: 2,
+          prerequisites: [],
+          expected_outcomes: ["Tested component library", "Accessible interactive UI"],
+          final_project_contribution: "Builds the user interface layer of the full-stack portal.",
+        },
+        {
+          milestone_index: 1,
+          title: "Backend API Engineering & Data Modeling",
+          description: "Architect secure REST APIs with PostgreSQL schema migrations and validation.",
+          learning_objectives: ["Create type-safe REST endpoints", "Design normalized database schemas"],
+          skills_focused: ["Node.js", "PostgreSQL", "REST APIs"],
+          target_difficulty: "intermediate",
+          estimated_duration_weeks: 2,
+          prerequisites: ["Frontend Components & State Management"],
+          expected_outcomes: ["Validated API routes", "Database migrations and query handlers"],
+          final_project_contribution: "Builds the data and API backend for the application.",
+        },
+        {
+          milestone_index: 2,
+          title: "Authentication, Authorization & Integration",
+          description: "Implement JWT/session auth, RBAC permissions, and end-to-end frontend-backend integration.",
+          learning_objectives: ["Implement secure session authentication", "Enforce role-based access control"],
+          skills_focused: ["Authentication", "Security", "Integration"],
+          target_difficulty: "intermediate",
+          estimated_duration_weeks: 2,
+          prerequisites: ["Backend API Engineering & Data Modeling"],
+          expected_outcomes: ["Secure user authentication flow", "Role-gated dashboards"],
+          final_project_contribution: "Secures user access across the full-stack platform.",
+        },
+        {
+          milestone_index: 3,
+          title: "Full-Stack Application Deployment & Testing",
+          description: "Deliver the completed SaaS application with comprehensive E2E tests and production deployment.",
+          learning_objectives: ["Write end-to-end integration tests", "Deploy full-stack web application to production"],
+          skills_focused: ["Playwright", "Docker", "Full-Stack Architecture"],
+          target_difficulty: "advanced",
+          estimated_duration_weeks: 2,
+          prerequisites: ["Authentication, Authorization & Integration"],
+          expected_outcomes: ["Passing E2E test suite", "Live production web application"],
+          final_project_contribution: "Delivers the complete SaaS portal capstone project.",
+        },
+      ],
+      final_outcome: "Deploy a full-stack SaaS platform with authentication, PostgreSQL database, responsive UI, and automated tests.",
+    });
+  }
+
+  // Default / AI/ML
+  return JSON.stringify({
+    internship_title: "AI/ML Engineering Intern",
+    total_duration_weeks: 8,
+    milestones: [
+      {
+        milestone_index: 0,
+        title: "Data Ingestion & Preprocessing Pipeline",
+        description: "Process real-world datasets, handle anomalies, engineer features, and build clean pipelines.",
+        learning_objectives: ["Load and clean noisy datasets with Pandas", "Implement robust feature transformers"],
+        skills_focused: ["Python", "Pandas", "Data Cleaning"],
+        target_difficulty: "beginner",
+        estimated_duration_weeks: 2,
+        prerequisites: [],
+        expected_outcomes: ["Clean data ingestion scripts", "Reproducible feature processing pipeline"],
+        final_project_contribution: "Forms the foundational data pipeline for model training.",
+      },
+      {
+        milestone_index: 1,
+        title: "Model Development & Rigorous Evaluation",
+        description: "Train classification and regression models, evaluate with standard metrics, and tune hyperparameters.",
+        learning_objectives: ["Train baseline and ensemble models with Scikit-learn", "Compute cross-validated ROC-AUC and F1 scores"],
+        skills_focused: ["Scikit-learn", "Machine Learning", "Model Evaluation"],
+        target_difficulty: "intermediate",
+        estimated_duration_weeks: 2,
+        prerequisites: ["Data Ingestion & Preprocessing Pipeline"],
+        expected_outcomes: ["Trained model artifacts", "Evaluation reports and metric charts"],
+        final_project_contribution: "Provides the core predictive model artifact for the prediction service.",
+      },
+      {
+        milestone_index: 2,
+        title: "REST API Inference Service",
+        description: "Expose trained model predictions through high-performance FastAPI endpoints with input validation.",
+        learning_objectives: ["Build FastAPI endpoints for batch and real-time inference", "Implement strict Pydantic payload validation"],
+        skills_focused: ["FastAPI", "REST APIs", "Pydantic"],
+        target_difficulty: "intermediate",
+        estimated_duration_weeks: 2,
+        prerequisites: ["Model Development & Rigorous Evaluation"],
+        expected_outcomes: ["Tested FastAPI inference server", "Interactive Swagger/OpenAPI docs"],
+        final_project_contribution: "Serves the model to client applications via REST APIs.",
+      },
+      {
+        milestone_index: 3,
+        title: "Containerization, Automated Testing & Deployment",
+        description: "Containerize the inference service with Docker, implement test suites, and deploy.",
+        learning_objectives: ["Write unit and integration tests with Pytest", "Package and deploy the inference container"],
+        skills_focused: ["Docker", "Pytest", "Deployment"],
+        target_difficulty: "advanced",
+        estimated_duration_weeks: 2,
+        prerequisites: ["REST API Inference Service"],
+        expected_outcomes: ["Production Docker container", "Automated CI test coverage report"],
+        final_project_contribution: "Delivers the complete production-ready ML prediction service capstone.",
+      },
+    ],
+    final_outcome: "Deploy a production-ready ML prediction service with automated preprocessing, validated API, and test suite.",
+  });
+}
+
+function buildMockInternshipTask(prompt: string): string {
+  // Check for test flags
+  if (prompt.includes("SIMULATE_INVALID_JSON")) {
+    return "{ invalid json syntax";
+  }
+  if (prompt.includes("SIMULATE_VAGUE_TASK")) {
+    return JSON.stringify({
+      title: "Read FastAPI docs",
+      business_context: "You should learn FastAPI.",
+      objective: "Read documentation online.",
+      instructions: ["Open website", "Read chapters"],
+      deliverables: ["Understanding"],
+      acceptance_criteria: ["Must read all"],
+      skills_practiced: ["FastAPI"],
+      estimated_hours: 5,
+      difficulty: "beginner",
+      reason_for_assignment: "To learn.",
+      milestone_index: 0,
+    });
+  }
+
+  const titleMatch = prompt.match(/Title:\s*([^\n]+)/i) || prompt.match(/internship_title:\s*([^\n]+)/i);
+  const title = (titleMatch ? titleMatch[1] : prompt).toLowerCase();
+
+  const isCloud = /cloud|devops|infrastructure|kubernetes|terraform/i.test(title);
+  const isFullStack = /full[\s-]?stack|web development|frontend|react/i.test(title);
+  const isDataEng = /data engineering|data platform|etl|warehouse/i.test(title);
+  const isSecurity = /cybersecurity|security|threat|vulnerability/i.test(title);
+  const isDesign = /design|ui\/ux|ui-ux|ux/i.test(title);
+
+  // Extract milestone index if present - match explicit Active Milestone heading first
+  const milestoneMatch =
+    prompt.match(/Milestone Index:\s*(\d+)/i) ||
+    prompt.match(/milestone_index["':\s]+(\d+)/i) ||
+    prompt.match(/Current Milestone:\s*(\d+)/i);
+  const milestoneIndex = milestoneMatch ? Number(milestoneMatch[1]) : 0;
+
+  // Extract completed task count to distinguish Task 1 vs Task 2 within same milestone
+  const taskCountMatch = prompt.match(/Completed Tasks Count:\s*(\d+)/i);
+  const completedTaskCount = taskCountMatch ? Number(taskCountMatch[1]) : 0;
+
+  // Extract target difficulty if present
+  const diffMatch = prompt.match(/target_difficulty["':\s]+"(beginner|intermediate|advanced)"/i) || prompt.match(/Target Difficulty:\s*(beginner|intermediate|advanced)/i) || prompt.match(/\b(beginner|intermediate|advanced)\b/i);
+  const difficulty = (diffMatch ? diffMatch[1] : "intermediate") as "beginner" | "intermediate" | "advanced";
+
+  const isScaffolding = /SCAFFOLD/i.test(prompt);
+  const isScalingUp = /SCALE_UP/i.test(prompt);
+  const hasNanWeakness = /unhandled nan|null/i.test(prompt);
+
+  // 1. DATA ENGINEERING TRACK
+  if (isDataEng) {
+    if (milestoneIndex === 0) {
+      if (completedTaskCount === 0) {
+        return JSON.stringify({
+          title: "Build Multi-Source Data Ingestion and Cleansing Pipeline",
+          business_context: "NOVA Data Platform ingests raw student event logs from webhooks, S3 buckets, and relational replicas. We need an automated extraction module to normalize heterogeneous payloads.",
+          objective: "Develop a modular Python ingestion script using Pandas that extracts raw CSV and JSON telemetry, validates schema integrity, and writes clean Parquet partitions.",
+          instructions: [
+            "Implement extraction functions for CSV and nested JSON log files.",
+            "Enforce strict schema validation casting timestamps, student IDs, and numeric metrics.",
+            "Impute or quarantine malformed records with an audit log of rejected entries.",
+            "Write Pytest unit tests verifying partition layout and zero data corruption.",
+          ],
+          deliverables: [
+            "ingestion/extractor.py module with stream and batch parsers",
+            "tests/test_extractor.py Pytest suite verifying boundary conditions",
+            "schema_manifest.json defining expected raw types",
+          ],
+          acceptance_criteria: [
+            "Extractor handles 10,000+ records in < 5 seconds without memory spikes",
+            "Malformed JSON payloads are diverted to quarantine/ directory with error reason",
+            "Pytest test suite achieves >= 85% branch coverage with >= 5 test cases",
+          ],
+          skills_practiced: ["Python", "Pandas", "Data Cleaning"],
+          estimated_hours: isScaffolding ? 4 : 5,
+          difficulty: isScaffolding ? "beginner" : difficulty,
+          reason_for_assignment: isScaffolding
+            ? "Targeted scaffolding to reinforce Python data parsing and file handling fundamentals."
+            : "Starting Milestone 0 of Data Engineering track to establish ingestion foundations.",
+          milestone_index: 0,
+        });
+      } else {
+        return JSON.stringify({
+          title: "Implement Batch Schema Validation and Data Lake Partitioning",
+          business_context: "Raw extracted data must be organized into time-partitioned Parquet files with automated schema drift detection before loading into analytical warehouses.",
+          objective: "Write an idempotent partitioning pipeline that organizes ingested datasets by date and event type with automated schema validation.",
+          instructions: [
+            "Create a partitioning module saving records in `year=YYYY/month=MM/` directory hierarchy.",
+            "Implement schema drift detection comparing incoming payloads against registered schemas.",
+            "Write automated unit tests verifying idempotent re-runs produce zero duplicate records.",
+          ],
+          deliverables: [
+            "ingestion/partitioner.py module",
+            "tests/test_partitioner.py test suite",
+            "partitioning_specification.md documentation",
+          ],
+          acceptance_criteria: [
+            "Partitions match standard Hive-style directory structures",
+            "Schema drift alerts trigger on unexpected column additions or type changes",
+            "Re-running pipeline over identical input data produces zero duplicate rows",
+          ],
+          skills_practiced: ["Python", "Pandas", "Data Modeling"],
+          estimated_hours: 5,
+          difficulty,
+          reason_for_assignment: "Progressing Milestone 0 to complete data lake organization before database schema modeling.",
+          milestone_index: 0,
+        });
+      }
+    }
+
+    if (milestoneIndex === 1) {
+      return JSON.stringify({
+        title: "Design PostgreSQL Star Schema Warehouse and Migration Scripts",
+        business_context: "Downstream business intelligence reports require dimensional star schema tables (fact_student_assessments, dim_students, dim_courses) for rapid analytical queries.",
+        objective: "Design 3NF staging schemas and dimensional star schema tables in PostgreSQL with DDL migrations, foreign keys, and analytical indexes.",
+        instructions: [
+          "Design normalized staging tables and dimensional fact/dimension tables.",
+          "Write PostgreSQL DDL migration scripts with primary and foreign key constraints.",
+          "Create composite indexes optimizing common date-range and student cohort queries.",
+          "Write verification SQL scripts testing referential integrity and query explain plans.",
+        ],
+        deliverables: [
+          "migrations/001_initial_dw_schema.sql DDL migration script",
+          "schema_diagram.png / schema_erd.md entity relationship diagram",
+          "queries/benchmark_queries.sql analytical verification queries",
+        ],
+        acceptance_criteria: [
+          "DDL migrations execute cleanly against PostgreSQL without syntax errors",
+          "Fact tables enforce foreign keys pointing to dimension surrogate keys",
+          "EXPLAIN ANALYZE confirms index scans on cohort aggregation queries",
+        ],
+        skills_practiced: ["SQL", "PostgreSQL", "Data Modeling"],
+        estimated_hours: 6,
+        difficulty,
+        reason_for_assignment: "Transitioning from data ingestion to analytical data warehouse modeling in Milestone 1.",
+        milestone_index: 1,
+      });
+    }
+
+    if (milestoneIndex === 2) {
+      return JSON.stringify({
+        title: "Build Automated Data Quality Assertions and ETL Transformation",
+        business_context: "Warehouse ETL pipelines must continuously validate data quality to prevent corrupt or duplicate records from polluting executive dashboards.",
+        objective: "Develop an idempotent SQL/Python ETL pipeline with Great Expectations test suites asserting column nullability, unique keys, and value distributions.",
+        instructions: [
+          "Write SQL transformation scripts populating fact and dimension tables from staging.",
+          "Configure Great Expectations expectation suites validating primary key uniqueness.",
+          "Implement automated error logging and pipeline halt on assertion failure.",
+        ],
+        deliverables: [
+          "etl/transform_dimensions.py transformation pipeline",
+          "great_expectations/expectations/student_metrics.json assertion rules",
+          "tests/test_etl_pipeline.py integration test suite",
+        ],
+        acceptance_criteria: [
+          "ETL script transforms raw staging records into star schema with zero loss",
+          "Great Expectations assertions pass with 100% success on valid dataset",
+          "Corrupt test record deliberately triggers pipeline halt with descriptive failure log",
+        ],
+        skills_practiced: ["SQL", "Python", "Data Quality"],
+        estimated_hours: 6,
+        difficulty,
+        reason_for_assignment: "Ensuring rigorous data quality validation on warehouse transformations in Milestone 2.",
+        milestone_index: 2,
+      });
+    }
+
+    // Milestone 3 / Capstone
+    return JSON.stringify({
+      title: "Orchestrate End-to-End Airflow Ingestion DAG with SLA Alerting",
+      business_context: "The final data engineering capstone requires automated scheduling, dependency orchestration, and failure alerting for the complete ETL data pipeline.",
+      objective: "Author a production Apache Airflow DAG that schedules extraction, warehouse transformations, quality assertions, and automated Slack/email failure notifications.",
+      instructions: [
+        "Create `dags/student_analytics_etl_dag.py` with sequential task dependencies.",
+        "Configure task retries with exponential backoff and timeout thresholds.",
+        "Implement custom Airflow failure callbacks sending structured alert messages.",
+        "Verify DAG execution end-to-end in local Airflow standalone environment.",
+      ],
+      deliverables: [
+        "dags/student_analytics_etl_dag.py Airflow DAG definition",
+        "docker-compose.airflow.yml local Airflow execution environment",
+        "capstone_runbook.md architecture and operational documentation",
+      ],
+      acceptance_criteria: [
+        "Airflow DAG parses without syntax errors and renders clean dependency graph",
+        "All upstream extraction and downstream transformation tasks execute successfully",
+        "Simulated task failure triggers retry policy and executes alerting callback",
+      ],
+      skills_practiced: ["Airflow", "Python", "Orchestration", "SQL"],
+      estimated_hours: 8,
+      difficulty: "advanced",
+      reason_for_assignment: "Final milestone capstone: orchestrating the complete data platform pipeline with Airflow.",
+      milestone_index: 3,
+    });
+  }
+
+  // 2. CYBERSECURITY TRACK
+  if (isSecurity) {
+    if (milestoneIndex === 0) {
+      if (completedTaskCount === 0) {
+        return JSON.stringify({
+          title: "Conduct Web Architecture Threat Modeling with STRIDE",
+          business_context: "NOVA platform requires a formal threat assessment of its student portal architecture to identify architectural security vulnerabilities prior to deployment.",
+          objective: "Perform threat modeling on the authentication and API subsystem using the STRIDE methodology, mapping trust boundaries and mitigating attack vectors.",
+          instructions: [
+            "Draft a comprehensive Data Flow Diagram (DFD Level 1) mapping client, API gateway, and database trust boundaries.",
+            "Enumerate threat vectors across all 6 STRIDE categories (Spoofing, Tampering, Repudiation, Info Disclosure, DoS, Elevation of Privilege).",
+            "Document concrete architectural countermeasures for each identified high-risk threat.",
+          ],
+          deliverables: [
+            "threat_model/data_flow_diagram.png Level 1 architectural DFD",
+            "threat_model/stride_assessment.md detailed threat matrix with risk ratings",
+            "security_requirements.md prioritized security countermeasure backlog",
+          ],
+          acceptance_criteria: [
+            "STRIDE matrix identifies at least 8 distinct threat vectors across trust boundaries",
+            "Each threat vector includes DREAD or CVSS risk scoring and specific mitigation controls",
+            "Architecture diagram clearly highlights authenticated vs unauthenticated zones",
+          ],
+          skills_practiced: ["Threat Modeling", "Security Architecture", "Linux"],
+          estimated_hours: isScaffolding ? 4 : 5,
+          difficulty: isScaffolding ? "beginner" : difficulty,
+          reason_for_assignment: "Initiating Milestone 0 of Cybersecurity track to establish threat assessment fundamentals.",
+          milestone_index: 0,
+        });
+      } else {
+        return JSON.stringify({
+          title: "Map System Trust Boundaries and Author Mitigation Controls",
+          business_context: "Following initial threat modeling, security engineering requires formalized trust boundary specifications and threat mitigation control policies.",
+          objective: "Author technical security specifications detailing trust boundaries, token scopes, and input sanitization policies for all microservices.",
+          instructions: [
+            "Define explicit trust boundaries between untrusted client browsers and internal API gateways.",
+            "Document input validation specifications for all external endpoints.",
+            "Create cryptographic token validation guidelines for inter-service communication.",
+          ],
+          deliverables: [
+            "security_specs/trust_boundaries.md formal boundary documentation",
+            "security_specs/input_validation_matrix.json validation rules",
+            "tests/security/test_boundary_assertions.py test suite",
+          ],
+          acceptance_criteria: [
+            "Boundary specification covers client-to-gateway and gateway-to-database communication paths",
+            "Validation matrix defines explicit regex and length bounds for all input parameters",
+            "Test suite verifies mock requests across trust boundaries enforce authentication",
+          ],
+          skills_practiced: ["Security Architecture", "Threat Modeling", "Security Testing"],
+          estimated_hours: 5,
+          difficulty,
+          reason_for_assignment: "Progressing Milestone 0 to complete trust boundary mapping and security policies.",
+          milestone_index: 0,
+        });
+      }
+    }
+
+    if (milestoneIndex === 1) {
+      return JSON.stringify({
+        title: "Identify and Remediate OWASP Top 10 Vulnerabilities",
+        business_context: "Security review identified critical vulnerabilities in legacy API endpoints, including SQL injection and stored cross-site scripting risks.",
+        objective: "Replicate reported OWASP vulnerabilities in an isolated sandbox environment, implement parameterized queries and output sanitization, and write regression security tests.",
+        instructions: [
+          "Write proof-of-concept exploit scripts demonstrating SQL injection on search endpoints.",
+          "Refactor database access layers to enforce parameterized SQL queries.",
+          "Implement contextual HTML/JavaScript output encoding preventing XSS.",
+          "Write automated security unit tests proving exploit attempts fail safely with HTTP 400/422.",
+        ],
+        deliverables: [
+          "src/security/sanitizer.py input validation and encoding module",
+          "tests/security/test_owasp_regressions.py automated exploit regression test suite",
+          "vulnerability_patch_report.md before/after remediation audit log",
+        ],
+        acceptance_criteria: [
+          "Exploit payload `1' OR '1'='1` fails safely without leaking database records",
+          "XSS payloads `<script>alert(1)</script>` are safely escaped on output render",
+          "Pytest security regression suite passes with 100% success rate across >= 6 exploit vectors",
+        ],
+        skills_practiced: ["OWASP Top 10", "Python", "Security Testing"],
+        estimated_hours: 6,
+        difficulty,
+        reason_for_assignment: "Transitioning to Milestone 1 to patch critical application security vulnerabilities.",
+        milestone_index: 1,
+      });
+    }
+
+    if (milestoneIndex === 2) {
+      return JSON.stringify({
+        title: "Build Automated SAST and DAST Security Scanning in CI Pipeline",
+        business_context: "Development teams need continuous automated security analysis to prevent vulnerable code dependencies and insecure API patterns from reaching main branch.",
+        objective: "Integrate Semgrep SAST rules and OWASP ZAP dynamic vulnerability scanning into GitHub Actions with automated pull request security gates.",
+        instructions: [
+          "Create `.github/workflows/security_scan.yml` running Semgrep SAST on every push.",
+          "Configure OWASP ZAP baseline scan targeting local ephemeral staging API container.",
+          "Define severity thresholds blocking merges on High/Critical findings.",
+        ],
+        deliverables: [
+          ".github/workflows/security_scan.yml GitHub Actions security workflow",
+          ".semgrep/rules.yml custom organization security scanning rules",
+          "ci_security_guidelines.md developer remediation guide",
+        ],
+        acceptance_criteria: [
+          "CI workflow executes Semgrep and OWASP ZAP automatically on pull request triggers",
+          "Insecure hardcoded secrets or raw SQL queries trigger immediate build failure",
+          "Security scan report artifact is generated and attached to workflow run",
+        ],
+        skills_practiced: ["Vulnerability Scanning", "CI/CD", "Security Testing"],
+        estimated_hours: 6,
+        difficulty,
+        reason_for_assignment: "Automating static and dynamic security analysis in Milestone 2 CI/CD pipelines.",
+        milestone_index: 2,
+      });
+    }
+
+    // Milestone 3 / Capstone
+    return JSON.stringify({
+      title: "Perform Security Penetration Test and Author Executive Audit Report",
+      business_context: "To complete the cybersecurity internship capstone, the student must conduct a comprehensive security audit of the platform and produce an executive-ready risk report.",
+      objective: "Execute automated and manual penetration testing against the staging environment, verify cryptographic token security, and author an executive remediation audit report.",
+      instructions: [
+        "Audit JWT token handling verifying strong asymmetric signature algorithms (RS256) and expiration validation.",
+        "Execute automated Burp Suite / OWASP ZAP authenticated scans.",
+        "Author a formal executive risk mitigation report summarizing CVSS scores, business impact, and completed patches.",
+      ],
+      deliverables: [
+        "audit/executive_security_report.pdf executive vulnerability audit report",
+        "audit/remediation_matrix.md comprehensive risk mitigation tracker",
+        "tests/security/test_cryptography.py cryptographic verification test suite",
+      ],
+      acceptance_criteria: [
+        "Audit report contains executive summary, CVSS scoring, and verified mitigation proofs",
+        "Cryptographic tests verify secure password hashing using Argon2id with work factors",
+        "Final vulnerability verification confirms zero High or Critical vulnerabilities remain",
+      ],
+      skills_practiced: ["Cryptography", "Security Auditing", "Incident Response"],
+      estimated_hours: 8,
+      difficulty: "advanced",
+      reason_for_assignment: "Final milestone capstone: delivering the verified security audit and risk mitigation report.",
+      milestone_index: 3,
+    });
+  }
+
+  // 3. UI/UX DESIGN TRACK
+  if (isDesign) {
+    if (milestoneIndex === 0) {
+      if (completedTaskCount === 0) {
+        return JSON.stringify({
+          title: "Conduct User Interviews and Synthesize Persona Journey Maps",
+          business_context: "NOVA is redesigning the student residency portal. We need qualitative user research to understand student pain points during task submission and mentor interactions.",
+          objective: "Synthesize user research data into primary student personas, empathy maps, and detailed end-to-end user journey maps in Figma.",
+          instructions: [
+            "Analyze qualitative student interview transcripts and extract recurring themes into an affinity diagram.",
+            "Create two distinct user personas ('Aspiring Engineer Alex' and 'Career Changer Maya').",
+            "Map complete user journey flows identifying emotional states, pain points, and design opportunities.",
+          ],
+          deliverables: [
+            "Figma file containing Affinity Diagram, User Personas, and Empathy Maps",
+            "user_journey_map.pdf high-resolution customer journey map",
+            "research_insights_summary.md key qualitative findings and design recommendations",
+          ],
+          acceptance_criteria: [
+            "Personas include clear goals, technical background, frustrations, and device usage",
+            "User journey map covers all phases from enrollment to task completion and feedback",
+            "Research synthesis highlights at least 5 actionable user experience opportunities",
+          ],
+          skills_practiced: ["User Research", "Information Architecture", "Figma"],
+          estimated_hours: isScaffolding ? 4 : 5,
+          difficulty: isScaffolding ? "beginner" : difficulty,
+          reason_for_assignment: "Starting Milestone 0 of UI/UX Design track to ground designs in validated user needs.",
+          milestone_index: 0,
+        });
+      } else {
+        return JSON.stringify({
+          title: "Design Interactive Affinity Map and User Empathy Board",
+          business_context: "Following preliminary research, design teams need a structured qualitative synthesis board in Figma to prioritize feature opportunities with product managers.",
+          objective: "Build an interactive affinity mapping board and empathy matrix in Figma categorizing user quotes, feature desires, and friction points.",
+          instructions: [
+            "Cluster interview observations into thematic groups (Onboarding, Feedback, Tasks, Mentor Chat).",
+            "Create empathy quadrant boards for primary learner personas.",
+            "Document prioritized 'How Might We' opportunity statements for upcoming wireframes.",
+          ],
+          deliverables: [
+            "Figma Affinity Synthesis and Empathy Board",
+            "how_might_we_statements.md prioritized design opportunities",
+            "stakeholder_presentation.pdf research summary deck",
+          ],
+          acceptance_criteria: [
+            "Affinity board categorizes at least 30 qualitative user data points into cohesive clusters",
+            "Empathy maps document Says, Thinks, Does, and Feels quadrants for both personas",
+            "HMW statements map directly to identified pain points with clear success metrics",
+          ],
+          skills_practiced: ["User Research", "Information Architecture", "Figma"],
+          estimated_hours: 5,
+          difficulty,
+          reason_for_assignment: "Progressing Milestone 0 to complete user research synthesis before wireframe creation.",
+          milestone_index: 0,
+        });
+      }
+    }
+
+    if (milestoneIndex === 1) {
+      return JSON.stringify({
+        title: "Design Responsive Low-Fidelity Wireframes in Figma",
+        business_context: "Before committing to high-fidelity visual design, we need structural wireframes to validate layout hierarchies and task completion paths with stakeholders.",
+        objective: "Design responsive low-fidelity wireframes for student dashboard, task workspace, and mentor conversation views across mobile and desktop breakpoints.",
+        instructions: [
+          "Define information architecture sitemap and core navigation patterns.",
+          "Design wireframes for desktop (1440px) and mobile (375px) viewports in Figma.",
+          "Wire key interactive transitions to allow low-fidelity stakeholder walkthroughs.",
+        ],
+        deliverables: [
+          "Figma wireframe board with mobile and desktop responsive layouts",
+          "information_architecture_sitemap.pdf hierarchy diagram",
+          "wireframe_walkthrough_notes.md design rationale documentation",
+        ],
+        acceptance_criteria: [
+          "Wireframes cover Dashboard, Active Task, Submission Modal, and Mentor Chat screens",
+          "Layouts adhere to 8pt spatial grid and standard responsive breakpoint constraints",
+          "Interactive prototype links allow end-to-end navigation across all wireframed screens",
+        ],
+        skills_practiced: ["Wireframing", "Information Architecture", "Figma"],
+        estimated_hours: 6,
+        difficulty,
+        reason_for_assignment: "Progressing to Milestone 1 to establish structural wireframes and information architecture.",
+        milestone_index: 1,
+      });
+    }
+
+    if (milestoneIndex === 2) {
+      return JSON.stringify({
+        title: "Build Scalable Atomic Design System in Figma with Tokens",
+        business_context: "To ensure visual consistency and seamless developer handoff, NOVA requires a centralized atomic design system library with design tokens and Auto Layout components.",
+        objective: "Create a complete design system in Figma featuring typography scales, accessible color palettes, spacing tokens, and component variants with Auto Layout.",
+        instructions: [
+          "Define color tokens with light/dark theme support adhering to WCAG 2.1 AA contrast ratios.",
+          "Create typographic scale using modular type ramps with responsive sizes.",
+          "Build reusable component variants (buttons, inputs, status badges, modal dialogs) using Figma Auto Layout and component properties.",
+        ],
+        deliverables: [
+          "Figma Design System component library file",
+          "design_tokens.json exported design tokens for front-end integration",
+          "component_guidelines.md documentation on component usage and states",
+        ],
+        acceptance_criteria: [
+          "All components are built using 100% Auto Layout with responsive resizing constraints",
+          "Button and input components support Default, Hover, Focused, Active, and Disabled states",
+          "Color contrast audit verifies >= 4.5:1 ratio for normal text across all color pairings",
+        ],
+        skills_practiced: ["Design Systems", "Figma", "Accessibility (WCAG)"],
+        estimated_hours: 6,
+        difficulty,
+        reason_for_assignment: "Building the standardized design system library in Milestone 2.",
+        milestone_index: 2,
+      });
+    }
+
+    // Milestone 3 / Capstone
+    return JSON.stringify({
+      title: "Develop High-Fidelity Prototype and Conduct Usability Audit",
+      business_context: "The final UI/UX design capstone requires delivering an interactive, production-ready prototype and validating it with real users through formal usability testing.",
+      objective: "Build an interactive high-fidelity clickable prototype in Figma with micro-interactions and conduct moderated usability testing sessions with WCAG compliance audit.",
+      instructions: [
+        "Assemble high-fidelity screens utilizing the design system component library.",
+        "Add micro-interactions, smart animations, and realistic component state transitions.",
+        "Conduct 5 moderated usability testing sessions, recording task completion times and error rates.",
+        "Perform comprehensive WCAG 2.1 AA accessibility audit and author synthesis report.",
+      ],
+      deliverables: [
+        "Figma High-Fidelity Interactive Clickable Prototype link",
+        "usability_test_report.pdf with task completion metrics, SUS scores, and user quotes",
+        "wcag_accessibility_audit.md formal compliance review",
+      ],
+      acceptance_criteria: [
+        "Interactive prototype allows seamless task submission and mentor interaction flows",
+        "Usability report calculates System Usability Scale (SUS) score and highlights prioritized improvements",
+        "Accessibility audit confirms keyboard navigation flow and screen reader aria-label recommendations",
+      ],
+      skills_practiced: ["Prototyping", "Usability Testing", "Accessibility (WCAG)"],
+      estimated_hours: 8,
+      difficulty: "advanced",
+      reason_for_assignment: "Final milestone capstone: delivering the tested, high-fidelity clickable prototype and usability report.",
+      milestone_index: 3,
+    });
+  }
+
+  // 4. CLOUD & DEVOPS TRACK
+  if (isCloud) {
+    if (milestoneIndex === 0) {
+      if (completedTaskCount === 0) {
+        return JSON.stringify({
+          title: "Containerize Microservice with Multi-Stage Dockerfile",
+          business_context: "NOVA Cloud Platform requires efficient, secure container builds for all internal backend services to ensure consistent developer environments and rapid deployment.",
+          objective: "Write an optimized multi-stage Dockerfile that packages a Python service into a lean, non-root Alpine container with automated healthchecks.",
+          instructions: [
+            "Create a multi-stage Dockerfile with a builder stage for dependency compilation and a minimal runtime stage.",
+            "Ensure the application executes as an unprivileged non-root user ('appuser').",
+            "Configure Docker HEALTHCHECK instruction verifying endpoint availability.",
+            "Write a docker-compose.yml file mounting configuration volumes and environment variables.",
+            "Validate container image size is under 150MB and runs cleanly."
+          ],
+          deliverables: [
+            "Dockerfile with multi-stage build stages",
+            "docker-compose.yml for local service orchestration",
+            ".dockerignore configured to exclude git, tests, and caches",
+            "README.md with build, run, and healthcheck verification commands"
+          ],
+          acceptance_criteria: [
+            "Dockerfile builds without error and produces an image under 150MB",
+            "Container runs with USER non-root directive enabled",
+            "docker compose up -d successfully starts the service on port 8080",
+            "curl http://localhost:8080/health returns status 200 within 5 seconds"
+          ],
+          skills_practiced: ["Docker", "Linux", "Container Security"],
+          estimated_hours: isScaffolding ? 3 : 5,
+          difficulty: isScaffolding ? "beginner" : difficulty,
+          reason_for_assignment: isScaffolding
+            ? "Targeted scaffolding: focusing strictly on Docker packaging fundamentals before progressing to distributed orchestration."
+            : "The student is initiating Milestone 0 of Cloud & DevOps track, establishing container foundations required for upcoming CI/CD pipelines.",
+          milestone_index: 0,
+        });
+      } else {
+        return JSON.stringify({
+          title: "Configure Multi-Container Local Environment with Docker Compose",
+          business_context: "Developers need a local orchestration setup running the API microservice alongside PostgreSQL database and Redis caching containers with persistent volume mounts.",
+          objective: "Develop a multi-service docker-compose configuration with private network bridges, health check dependencies, and database initialization scripts.",
+          instructions: [
+            "Define app, db (PostgreSQL), and redis services in `docker-compose.yml`.",
+            "Configure healthcheck conditions on database before starting the application service.",
+            "Set up named Docker volumes for persistent database storage.",
+            "Write verification test script testing multi-container communication.",
+          ],
+          deliverables: [
+            "docker-compose.yml multi-container orchestration configuration",
+            "scripts/init_db.sql database schema initialization script",
+            "README.md with setup and teardown verification steps",
+          ],
+          acceptance_criteria: [
+            "docker compose up starts all 3 services in correct dependency order",
+            "Application connects to database and cache over internal Docker network",
+            "Stopping and restarting containers preserves database state in named volume",
+          ],
+          skills_practiced: ["Docker", "Linux", "Networking"],
+          estimated_hours: 5,
+          difficulty,
+          reason_for_assignment: "Progressing Milestone 0 from single container packaging to multi-service local orchestration.",
+          milestone_index: 0,
+        });
+      }
+    }
+
+    if (milestoneIndex === 1) {
+      return JSON.stringify({
+        title: "Build Automated CI Pipeline with GitHub Actions and Linting",
+        business_context: "Engineering teams need automated validation on every pull request to catch syntax errors, failing tests, and container security vulnerabilities before merging to main.",
+        objective: "Create a GitHub Actions workflow that automatically runs linter checks, executes test suites, and scans Docker container images for CVE vulnerabilities.",
+        instructions: [
+          "Create `.github/workflows/ci.yml` triggered on push and pull requests to main.",
+          "Add a linting job that executes flake8/ruff and fails on format violations.",
+          "Add a test job that executes pytest with coverage reporting.",
+          "Add a security job running Trivy container vulnerability scanner.",
+          "Configure branch protection rules requiring all jobs to succeed before merge."
+        ],
+        deliverables: [
+          ".github/workflows/ci.yml GitHub Actions workflow file",
+          "Linter and test execution scripts",
+          "CI run logs demonstrating passing check on sample PR"
+        ],
+        acceptance_criteria: [
+          "Workflow triggers automatically on push and pull request events",
+          "Pipeline matrix executes linting, testing, and container scan in parallel",
+          "Build fails fast if any unit test fails or high-severity CVE is detected",
+          "Test coverage report is generated as a workflow artifact"
+        ],
+        skills_practiced: ["GitHub Actions", "CI/CD", "Security Scanning"],
+        estimated_hours: 6,
+        difficulty,
+        reason_for_assignment: "The student has successfully mastered container packaging in Milestone 0 and is now automating continuous validation in Milestone 1.",
+        milestone_index: 1,
+      });
+    }
+
+    if (milestoneIndex === 2) {
+      return JSON.stringify({
+        title: "Write Declarative Kubernetes Deployment and Ingress Manifests",
+        business_context: "The service is transitioning from local Docker Compose to scalable Kubernetes cluster deployment in staging environments.",
+        objective: "Author declarative Kubernetes YAML manifests for Deployment (with rolling updates), Service (ClusterIP), ConfigMap, Secrets, and NGINX Ingress rules.",
+        instructions: [
+          "Write `k8s/deployment.yaml` with resource requests/limits and liveness/readiness probes.",
+          "Write `k8s/service.yaml` exposing internal port 8080.",
+          "Write `k8s/ingress.yaml` routing incoming traffic based on hostnames.",
+          "Test deployment in local Minikube/Kind cluster verifying rolling update zero downtime.",
+        ],
+        deliverables: [
+          "k8s/deployment.yaml, k8s/service.yaml, k8s/ingress.yaml manifests",
+          "k8s/kustomization.yaml environment overlay",
+          "deployment_verification.md step-by-step Minikube verification guide",
+        ],
+        acceptance_criteria: [
+          "kubectl apply -k k8s/ deploys all pods into 'Running' status with healthy probes",
+          "Rolling update test verifies zero dropped requests during image tag update",
+          "Resource limits prevent pod from exceeding CPU/memory allocations",
+        ],
+        skills_practiced: ["Kubernetes", "Linux", "Cloud Architecture"],
+        estimated_hours: 6,
+        difficulty,
+        reason_for_assignment: "Advancing to Milestone 2 Kubernetes cluster deployment and manifest management.",
+        milestone_index: 2,
+      });
+    }
+
+    // Milestone 3 / Capstone
+    return JSON.stringify({
+      title: "Deploy Prometheus Monitoring and Author Disaster Recovery Playbook",
+      business_context: "Production systems require continuous metrics observability, alert routing, and documented operational runbooks for incident response.",
+      objective: "Configure Prometheus metrics scraping, create Grafana observability dashboards for HTTP traffic and error rates, and author a disaster recovery runbook.",
+      instructions: [
+        "Configure Prometheus ServiceMonitor scraping application `/metrics` endpoint.",
+        "Design Grafana dashboard visualizing request throughput, latency (p95/p99), and error rates.",
+        "Author a disaster recovery runbook with automated pod rollback procedures.",
+      ],
+      deliverables: [
+        "monitoring/prometheus-servicemonitor.yaml configuration",
+        "monitoring/grafana-dashboard.json exported dashboard definition",
+        "runbooks/disaster-recovery-playbook.md operational runbook",
+      ],
+      acceptance_criteria: [
+        "Prometheus successfully discovers and scrapes metrics with 15s interval",
+        "Grafana dashboard accurately charts real-time requests and error rate spikes",
+        "Runbook contains step-by-step rollback commands verified during simulated outage",
+      ],
+      skills_practiced: ["Kubernetes", "Prometheus", "Reliability", "Cloud Architecture"],
+      estimated_hours: 8,
+      difficulty: "advanced",
+      reason_for_assignment: "Final milestone capstone: delivering production observability and disaster recovery runbooks.",
+      milestone_index: 3,
+    });
+  }
+
+  // 5. FULL-STACK WEB DEVELOPMENT TRACK
+  if (isFullStack) {
+    if (milestoneIndex === 0) {
+      if (completedTaskCount === 0) {
+        return JSON.stringify({
+          title: "Build Responsive Student Progress Component Library",
+          business_context: "NOVA is enhancing the student dashboard to give learners real-time visibility into their weekly milestone progress, skill ratings, and assigned tasks.",
+          objective: "Develop a type-safe, responsive component library in React & TypeScript featuring progress rings, status badges, and empty/loading states.",
+          instructions: [
+            "Create a `ProgressCard` component displaying completion percentage, current milestone, and animated progress ring.",
+            "Create a `StatusBadge` component supporting 'active', 'completed', 'needs_revision', and 'blocked' variants.",
+            "Implement proper ARIA labels, focus states, and keyboard navigation support.",
+            "Write unit tests using React Testing Library verifying render behavior across state changes.",
+            "Document props and example usage in a Storybook/component catalog file."
+          ],
+          deliverables: [
+            "React component files (ProgressCard.tsx, StatusBadge.tsx, MetricGrid.tsx)",
+            "Unit test suite covering all variant and error states",
+            "TypeScript type definitions with strict interfaces"
+          ],
+          acceptance_criteria: [
+            "All components are strictly typed with TypeScript interfaces without 'any'",
+            "Components render responsively across mobile (375px) and desktop (1280px) viewports",
+            "React Testing Library test suite achieves >= 85% branch coverage with >= 6 tests",
+            "Accessibility audit confirms proper ARIA roles and contrast compliance"
+          ],
+          skills_practiced: ["React", "TypeScript", "Tailwind CSS"],
+          estimated_hours: isScaffolding ? 3 : 5,
+          difficulty: isScaffolding ? "beginner" : difficulty,
+          reason_for_assignment: isScaffolding
+            ? "Targeted scaffolding to reinforce React component prop structuring before moving on to full backend integration."
+            : "The student has demonstrated frontend fundamentals and is now creating the core UI building blocks for the student dashboard.",
+          milestone_index: 0,
+        });
+      } else {
+        return JSON.stringify({
+          title: "Implement Interactive Form State and Client-Side Validation",
+          business_context: "Students need a fluid submission form to submit task repositories, deployment links, and project notes with real-time feedback before submission.",
+          objective: "Build an interactive task submission form using React Hook Form, Zod schema validation, and optimistic state updates.",
+          instructions: [
+            "Create a TaskSubmissionForm component with GitHub URL and notes fields.",
+            "Implement client-side validation using Zod schema checking URL formatting.",
+            "Display field-level error messages and loading spinners during asynchronous submission.",
+            "Write React Testing Library unit tests verifying form validation errors and submit handlers.",
+          ],
+          deliverables: [
+            "components/TaskSubmissionForm.tsx and validation/taskSubmissionSchema.ts",
+            "tests/TaskSubmissionForm.test.tsx unit test suite",
+            "types/submission.ts TypeScript interfaces",
+          ],
+          acceptance_criteria: [
+            "Form prevents submission and renders inline error when GitHub URL is invalid",
+            "Valid submission triggers onSubmit handler with structured payload",
+            "Unit tests verify all validation error messages and loading state transitions",
+          ],
+          skills_practiced: ["React", "TypeScript", "Zod"],
+          estimated_hours: 5,
+          difficulty,
+          reason_for_assignment: "Progressing Milestone 0 to complete interactive form handling and client-side validation.",
+          milestone_index: 0,
+        });
+      }
+    }
+
+    if (milestoneIndex === 1) {
+      return JSON.stringify({
+        title: "Develop Secure Student Milestone REST API Endpoints",
+        business_context: "The student dashboard requires a robust backend service to fetch milestone status, record task completions, and handle pagination efficiently.",
+        objective: "Build RESTful API endpoints using Node.js/Express or Next.js API routes with PostgreSQL database queries, Zod validation, and error handlers.",
+        instructions: [
+          "Define normalized database schema for student milestones and task submissions.",
+          "Implement `GET /api/milestones` supporting status filtering and pagination.",
+          "Implement `POST /api/milestones/:id/submit` with strict Zod payload validation.",
+          "Handle edge cases: 404 for missing milestones, 422 for invalid payloads, 500 with sanitized error logs.",
+          "Write integration tests with Supertest or Vitest verifying status codes."
+        ],
+        deliverables: [
+          "API route handlers and controller modules",
+          "Zod validation schemas and TypeScript types",
+          "Integration test suite covering happy path and error cases",
+          "Postman/curl collection for testing"
+        ],
+        acceptance_criteria: [
+          "GET /api/milestones returns paginated JSON with 200 OK",
+          "POST endpoint validates input schema and returns 422 with structured error details on malformed payload",
+          "All database queries use parameterized statements preventing SQL injection",
+          "Integration tests pass with 100% success rate across all status codes"
+        ],
+        skills_practiced: ["Node.js", "REST APIs", "PostgreSQL", "Zod"],
+        estimated_hours: 6,
+        difficulty,
+        reason_for_assignment: "Student is progressing from frontend component creation to backend API development in Milestone 1.",
+        milestone_index: 1,
+      });
+    }
+
+    if (milestoneIndex === 2) {
+      return JSON.stringify({
+        title: "Implement JWT Authentication and Role-Based Access Control",
+        business_context: "The platform requires secure authentication separating student, mentor, and administrator routes with JWT session tokens and middleware protection.",
+        objective: "Develop a complete authentication flow with password hashing (bcrypt), JWT cookie issuing, and role-based access control middleware in Next.js/Node.",
+        instructions: [
+          "Implement `POST /api/auth/login` and `POST /api/auth/register` with bcrypt password hashing.",
+          "Issue HTTP-only, secure JWT session cookies with expiration timestamps.",
+          "Create authentication middleware protecting private student and admin routes.",
+          "Write unit and integration tests verifying unauthorized access returns HTTP 401/403.",
+        ],
+        deliverables: [
+          "src/auth/jwt.ts token creation and verification utilities",
+          "src/middleware/auth.ts route protection middleware",
+          "tests/auth/test_auth_routes.ts integration test suite",
+        ],
+        acceptance_criteria: [
+          "Unauthenticated requests to protected endpoints return 401 Unauthorized",
+          "Role-restricted endpoints verify user role and return 403 Forbidden on role mismatch",
+          "Passwords are never stored in plaintext and use bcrypt with work factor >= 10",
+        ],
+        skills_practiced: ["Authentication", "Security", "Node.js", "Integration"],
+        estimated_hours: 6,
+        difficulty,
+        reason_for_assignment: "Implementing secure authentication and role-based permissions in Milestone 2.",
+        milestone_index: 2,
+      });
+    }
+
+    // Milestone 3 / Capstone
+    return JSON.stringify({
+      title: "Deliver Production Full-Stack SaaS Portal with Playwright E2E Tests",
+      business_context: "To complete the Full-Stack internship capstone, the student portal must be fully integrated, verified with automated end-to-end browser tests, and containerized for deployment.",
+      objective: "Assemble full-stack web application with connected frontend and backend, write comprehensive Playwright E2E test suites, and package with Docker.",
+      instructions: [
+        "Connect React dashboard components to live backend REST API endpoints.",
+        "Write Playwright E2E test suite simulating student login, task navigation, and submission flow.",
+        "Create production Dockerfile and verify complete application build.",
+      ],
+      deliverables: [
+        "Full application repository with connected frontend and backend",
+        "tests/e2e/student_workflow.spec.ts Playwright end-to-end test suite",
+        "Dockerfile and docker-compose.prod.yml configuration",
+      ],
+      acceptance_criteria: [
+        "Playwright E2E test suite executes across Chromium and Firefox with 100% pass rate",
+        "Full student task submission journey completes end-to-end with live database persistence",
+        "Docker container builds cleanly and serves the production web application on port 3000",
+      ],
+      skills_practiced: ["Playwright", "Docker", "Full-Stack Architecture", "React", "Node.js"],
+      estimated_hours: 8,
+      difficulty: "advanced",
+      reason_for_assignment: "Final milestone capstone: delivering the verified full-stack portal with automated E2E tests.",
+      milestone_index: 3,
+    });
+  }
+
+  // 6. DEFAULT / AI/ML TRACK
+  if (milestoneIndex === 0) {
+    if (hasNanWeakness) {
+      return JSON.stringify({
+        title: "Targeted Data Quality Remediation: Robust Missing Value Imputation",
+        business_context: "Downstream ML models failed training during testing due to unexpected NaN propagation. We need a hardened data cleaning script with strict NaN quarantine logic.",
+        objective: "Write a bulletproof Pandas imputation module that detects, imputes, and asserts zero unhandled NaN values across all numeric and categorical features.",
+        instructions: [
+          "Inspect datasets for subtle NaN representations ('NaN', 'null', 'N/A', empty strings, -999).",
+          "Implement median imputation for skewed numeric fields and mode imputation for categorical fields.",
+          "Write strict Pytest assertions verifying `assert df.isna().sum().sum() == 0` on every output DataFrame.",
+          "Document imputation strategies and data constraints in `imputation_guide.md`.",
+        ],
+        deliverables: [
+          "`pipeline/imputer.py` containing robust NaN handling and type casting functions",
+          "`tests/test_imputer.py` Pytest suite testing all edge cases and null representations",
+          "`imputation_guide.md` detailing strategy and verification steps",
+        ],
+        acceptance_criteria: [
+          "Imputer processes all null representations and guarantees 0 remaining NaN values",
+          "Pytest suite tests edge cases (100% null columns, boundary values) with >= 5 test cases",
+          "Zero runtime exceptions raised when encountering mixed data types in numeric columns",
+        ],
+        skills_practiced: ["Python", "Pandas", "Data Cleaning"],
+        estimated_hours: 4,
+        difficulty: "beginner",
+        reason_for_assignment: "Targeted scaffolding and remediation: reinforcing missing value and NaN handling fundamentals before resuming model training.",
+        milestone_index: 0,
+      });
+    }
+
+    if (completedTaskCount === 0) {
+      return JSON.stringify({
+        title: "Build Data Cleaning and Feature Pipeline for Student Analytics",
+        business_context: "Educational platforms collect large volumes of noisy student engagement and assessment records. We need a reliable data preprocessing pipeline to clean, normalize, and extract features for downstream performance prediction.",
+        objective: "Write a modular Python preprocessing pipeline using Pandas and NumPy to handle missing values, encode categorical variables, and scale numeric features.",
+        instructions: [
+          "Load raw student assessment CSV data and inspect data distributions and null values.",
+          "Implement data cleaning functions handling missing values via domain-appropriate imputation.",
+          "Encode categorical fields (e.g. course track, difficulty) using One-Hot or Ordinal encoding.",
+          "Scale numeric features (scores, completion time) using StandardScaler or RobustScaler.",
+          "Write Pytest unit tests verifying that output DataFrames contain zero nulls and correct dimensions.",
+          "Export the processed dataset as clean Parquet/CSV files with data dictionary documentation."
+        ],
+        deliverables: [
+          "`pipeline.py` containing modular data preprocessing and feature transformation classes",
+          "`test_pipeline.py` Pytest suite verifying transformations and edge cases",
+          "`data_dictionary.md` describing transformed schema and imputation logic",
+          "Sample processed dataset output"
+        ],
+        acceptance_criteria: [
+          "`preprocess_dataset(df)` processes raw input data without throwing unhandled exceptions",
+          "Output dataset contains zero NaN/null values and matching row counts",
+          "Unit tests in `test_pipeline.py` pass with >= 5 distinct test cases",
+          "Transformation functions are idempotent and preserve data types"
+        ],
+        skills_practiced: ["Python", "Pandas", "Data Cleaning", "Pytest"],
+        estimated_hours: isScaffolding ? 3 : 5,
+        difficulty: isScaffolding ? "beginner" : difficulty,
+        reason_for_assignment: isScaffolding
+          ? "Targeted scaffolding: isolating Pandas data cleaning fundamentals before training machine learning models."
+          : "The student is starting Milestone 0 of the AI/ML Engineering track, building the foundational data pipeline that will feed subsequent ML models.",
+        milestone_index: 0,
+      });
+    } else {
+      return JSON.stringify({
+        title: "Engineer Feature Transformations and Automated Data Validation Suite",
+        business_context: "Raw student telemetry requires temporal feature extraction (rolling averages, completion velocity) and automated validation prior to feeding model training.",
+        objective: "Implement feature engineering classes in Python calculating rolling engagement metrics and build a Pytest validation suite verifying transformation mathematical correctness.",
+        instructions: [
+          "Extract velocity and score acceleration features from sequential milestone records.",
+          "Implement Scikit-learn compatible transformer classes (fit/transform).",
+          "Write comprehensive Pytest unit tests verifying feature scaling and numerical stability.",
+        ],
+        deliverables: [
+          "pipeline/features.py feature transformer module",
+          "tests/test_features.py unit test suite",
+          "feature_definitions.md feature catalog documentation",
+        ],
+        acceptance_criteria: [
+          "Custom transformers follow Scikit-learn BaseEstimator / TransformerMixin interface",
+          "Calculated rolling metrics handle boundary conditions (single record, zero elapsed time)",
+          "Unit tests verify zero NaN generation and mathematical correctness on sample records",
+        ],
+        skills_practiced: ["Python", "Pandas", "Feature Engineering", "Pytest"],
+        estimated_hours: 5,
+        difficulty,
+        reason_for_assignment: "Progressing Milestone 0 from initial data cleaning to advanced feature transformation.",
+        milestone_index: 0,
+      });
+    }
+  }
+
+  if (milestoneIndex === 1) {
+    return JSON.stringify({
+      title: "Train and Evaluate Student Performance Prediction Classifier",
+      business_context: "To provide proactive mentorship, the platform needs a predictive model that identifies students at risk of falling behind based on early milestone indicators.",
+      objective: "Train, tune, and rigorously evaluate classification models (Random Forest, Gradient Boosting) on preprocessed data using Scikit-learn with cross-validation.",
+      instructions: [
+        "Split data into stratified train/test sets (80/20) with a fixed random seed.",
+        "Train baseline Logistic Regression and advanced Gradient Boosting classifiers.",
+        "Perform 5-fold cross-validation and hyperparameter tuning with GridSearchCV.",
+        "Evaluate models using ROC-AUC, Precision, Recall, and Confusion Matrix.",
+        "Export the best-performing model as a serialized `.joblib` artifact.",
+        "Write a detailed evaluation report comparing baseline vs tuned model metrics."
+      ],
+      deliverables: [
+        "`train.py` model training and cross-validation pipeline",
+        "`evaluate.py` script generating classification report and confusion matrix charts",
+        "`model.joblib` serialized model artifact",
+        "`evaluation_report.md` summarizing metrics, key feature importances, and trade-offs"
+      ],
+      acceptance_criteria: [
+        "Trained model achieves ROC-AUC >= 0.78 on unseen test partition",
+        "Evaluation script outputs precision, recall, F1-score, and confusion matrix",
+        "Model serialization and loading cycle verifies identical predictions",
+        "Cross-validation confirms no data leakage between train and test splits"
+      ],
+      skills_practiced: ["Python", "Scikit-learn", "Machine Learning", "Model Evaluation"],
+      estimated_hours: isScalingUp ? 8 : 6,
+      difficulty: isScalingUp ? "advanced" : difficulty,
+      reason_for_assignment: isScalingUp
+        ? "The student mastered data preprocessing with distinction; scaling up to advanced hyperparameter tuning and model optimization."
+        : "Building on the clean data pipeline from Milestone 0, the student is now training the core predictive ML model in Milestone 1.",
+      milestone_index: 1,
+    });
+  }
+
+  if (milestoneIndex === 2) {
+    return JSON.stringify({
+      title: "Build REST API for Real-Time Model Inference with FastAPI",
+      business_context: "Downstream applications need a high-speed, reliable HTTP API to request student risk predictions and feature importance scores on demand.",
+      objective: "Develop a production-ready FastAPI service that loads the trained `.joblib` model artifact, validates incoming payloads via Pydantic, and returns predictions.",
+      instructions: [
+        "Initialize a FastAPI application with structured routers and lifespan event handler for model loading.",
+        "Create Pydantic schema `StudentPredictionRequest` with field validation (score ranges, non-empty IDs).",
+        "Implement `POST /predict` endpoint returning prediction class, probability, and risk level.",
+        "Implement `GET /health` endpoint reporting service health, model version, and uptime.",
+        "Write asynchronous integration tests with `httpx` and `pytest` testing 200, 422, and 400 responses."
+      ],
+      deliverables: [
+        "`main.py` and `routes/predict.py` FastAPI service files",
+        "`schemas.py` Pydantic request and response models",
+        "`tests/test_api.py` integration test suite",
+        "`README.md` with curl test commands and Swagger documentation links"
+      ],
+      acceptance_criteria: [
+        "POST /predict returns 200 OK with valid schema { prediction: number, probability: number, risk_level: string }",
+        "Invalid payloads return 422 Unprocessable Entity with descriptive field error messages",
+        "GET /health returns 200 OK with model status 'ready'",
+        "Pytest test suite achieves >= 85% code coverage across all routes"
+      ],
+      skills_practiced: ["Python", "FastAPI", "Pydantic", "REST APIs"],
+      estimated_hours: 6,
+      difficulty,
+      reason_for_assignment: "The student has successfully trained and evaluated the ML model in Milestone 1 and is now packaging it as an accessible web service in Milestone 2.",
+      milestone_index: 2,
+    });
+  }
+
+  // Milestone 3 / Final Capstone
+  return JSON.stringify({
+    title: "Containerize ML Inference Service and Deploy with Automated Tests",
+    business_context: "To complete the AI/ML internship capstone, the inference API must be packaged into a secure, reproducible Docker container ready for cloud deployment with continuous testing.",
+    objective: "Create a production Docker image for the FastAPI ML service, optimize image layer caching, and verify containerized execution with automated test suites.",
+    instructions: [
+      "Write a multi-stage Dockerfile packaging Python dependencies, model artifact, and FastAPI server.",
+      "Configure unprivileged non-root execution user and healthcheck instruction.",
+      "Write a `docker-compose.yml` to orchestrate the service locally.",
+      "Write end-to-end integration tests verifying containerized predictions under load.",
+      "Document deployment procedures and API usage in capstone documentation."
+    ],
+    deliverables: [
+      "Dockerfile and docker-compose.yml",
+      "End-to-end test suite testing live container",
+      "Capstone project summary report with architectural diagrams and curl examples"
+    ],
+    acceptance_criteria: [
+      "Docker container builds cleanly and runs as non-root user",
+      "Container responds to HTTP requests on port 8000 with < 100ms latency",
+      "Automated test suite validates end-to-end pipeline from data input to containerized prediction",
+      "README contains complete step-by-step reproduction guide"
+    ],
+    skills_practiced: ["Docker", "Python", "FastAPI", "Pytest", "Deployment"],
+    estimated_hours: 7,
+    difficulty: "advanced",
+    reason_for_assignment: "Final milestone capstone: integrating the data pipeline, trained model, and REST API into a deployed, containerized microservice.",
+    milestone_index: milestoneIndex,
+  });
 }
 
 function extractTopic(userPrompt: string): string {
@@ -141,9 +1318,9 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-// Real provider — only ever instantiated when a key is present. Never
+// Real providers — only ever instantiated when a key is present. Never
 // logs the key, the raw prompt, or the raw response.
-class AnthropicProvider implements AiProvider {
+export class AnthropicProvider implements AiProvider {
   readonly name = "anthropic";
 
   constructor(private readonly apiKey: string) {}
@@ -179,11 +1356,683 @@ class AnthropicProvider implements AiProvider {
   }
 }
 
+export class OpenAiProvider implements AiProvider {
+  readonly name = "openai";
+
+  constructor(private readonly apiKey: string) {}
+
+  async complete(request: AiCompletionRequest): Promise<string> {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: request.systemPrompt },
+          { role: "user", content: request.userPrompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`AI provider request failed with status ${response.status}`);
+    }
+
+    const data = (await response.json()) as { choices?: { message?: { content?: string } }[] };
+    const text = data.choices?.[0]?.message?.content;
+    if (!text) {
+      throw new Error("AI provider returned no text content");
+    }
+    return text;
+  }
+}
+
+export class GeminiProvider implements AiProvider {
+  readonly name = "gemini";
+
+  constructor(private readonly apiKey: string) {}
+
+  async complete(request: AiCompletionRequest): Promise<string> {
+    const model = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.apiKey}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: request.systemPrompt }] },
+        contents: [{ role: "user", parts: [{ text: request.userPrompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`AI provider request failed with status ${response.status}`);
+    }
+
+    const data = (await response.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) {
+      throw new Error("AI provider returned no text content");
+    }
+    return text;
+  }
+}
+
+export interface ProviderTelemetry {
+  provider: string;
+  model: string;
+  configured_model?: string;
+  actual_requested_model?: string;
+  model_fallback_triggered?: boolean;
+  timestamp: string;
+  latency_ms: number;
+  success: boolean;
+  status_code?: number;
+  error?: string;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
+}
+
+let lastProviderTelemetry: ProviderTelemetry | null = null;
+
+export function getLastProviderTelemetry(): ProviderTelemetry | null {
+  return lastProviderTelemetry;
+}
+
+export function sanitizeJsonOutput(raw: string): string {
+  if (!raw) return "";
+  let text = raw.trim();
+
+  // 1. If text contains markdown code block anywhere, extract inside the block
+  const jsonBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (jsonBlockMatch && jsonBlockMatch[1]) {
+    text = jsonBlockMatch[1].trim();
+  }
+
+  // 2. Extract outermost JSON object if preamble/postamble exists
+  const firstBrace = text.indexOf("{");
+  const lastBrace = text.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    return text.substring(firstBrace, lastBrace + 1);
+  }
+
+  return text;
+}
+
+export class OpenRouterProvider implements AiProvider {
+  readonly name = "openrouter";
+  readonly model: string;
+  private readonly baseUrl = "https://openrouter.ai/api/v1/chat/completions";
+  private readonly timeoutMs: number;
+  private readonly enableFallback: boolean;
+
+  constructor(
+    private readonly apiKey: string,
+    model?: string,
+    timeoutMs = 180000,
+    enableFallback = false
+  ) {
+    this.model = model || process.env.OPENROUTER_MODEL || "z-ai/glm-5.2:free";
+    this.timeoutMs = timeoutMs;
+    this.enableFallback = enableFallback;
+  }
+
+  async complete(request: AiCompletionRequest): Promise<string> {
+    const modelsToTry = [this.model];
+    if (this.enableFallback && this.model !== "openrouter/free") {
+      modelsToTry.push("openrouter/free");
+    }
+
+    let lastError: any = null;
+    const perModelTimeoutMs = Math.min(this.timeoutMs, 90000);
+
+    for (const currentModel of modelsToTry) {
+      const isFallback = currentModel !== this.model;
+      const maxRetries = 2;
+      let attempt = 0;
+
+      while (attempt < maxRetries) {
+        attempt++;
+        const startTime = Date.now();
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), perModelTimeoutMs);
+
+        try {
+          const response = await fetch(this.baseUrl, {
+            method: "POST",
+            signal: controller.signal,
+            headers: {
+              "content-type": "application/json",
+              authorization: `Bearer ${this.apiKey}`,
+              "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://nova.platform",
+              "X-Title": "NOVA AI Internship Mentor",
+            },
+            body: JSON.stringify({
+              model: currentModel,
+              messages: [
+                { role: "system", content: request.systemPrompt },
+                { role: "user", content: request.userPrompt },
+              ],
+              response_format: { type: "json_object" },
+            }),
+          });
+
+          const latencyMs = Date.now() - startTime;
+
+          if (response.status === 429 && attempt < maxRetries) {
+            clearTimeout(timer);
+            await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
+            continue;
+          }
+
+          if (response.status === 429) {
+            lastError = new Error(`OpenRouter API request failed with status 429 (Rate limit exceeded for ${currentModel})`);
+            clearTimeout(timer);
+            break;
+          }
+
+          if (!response.ok) {
+            let errorDetail = "";
+            try {
+              const errBody = (await response.json()) as { error?: { message?: string } };
+              if (errBody?.error?.message) {
+                errorDetail = `: ${errBody.error.message}`;
+              }
+            } catch {
+              // ignore json parse error on error response
+            }
+
+            lastProviderTelemetry = {
+              provider: this.name,
+              model: currentModel,
+              configured_model: this.model,
+              actual_requested_model: currentModel,
+              model_fallback_triggered: isFallback,
+              timestamp: new Date().toISOString(),
+              latency_ms: latencyMs,
+              success: false,
+              status_code: response.status,
+              error: `HTTP ${response.status}${errorDetail}`,
+            };
+
+            if (response.status === 401) {
+              throw new Error(`OpenRouter API request failed with status 401 (Unauthorized - invalid or expired API key)`);
+            }
+            throw new Error(`OpenRouter API request failed with status ${response.status}${errorDetail}`);
+          }
+
+          const data = (await response.json()) as {
+            choices?: { message?: { content?: string } }[];
+            usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+          };
+
+          const rawContent = data.choices?.[0]?.message?.content;
+          if (!rawContent || rawContent.trim().length === 0) {
+            lastProviderTelemetry = {
+              provider: this.name,
+              model: currentModel,
+              configured_model: this.model,
+              actual_requested_model: currentModel,
+              model_fallback_triggered: isFallback,
+              timestamp: new Date().toISOString(),
+              latency_ms: latencyMs,
+              success: false,
+              status_code: 200,
+              error: "Empty content received from model",
+            };
+            throw new Error("OpenRouter API returned no text content");
+          }
+
+          const sanitized = sanitizeJsonOutput(rawContent);
+
+          if (!sanitized.includes("{") && request.responseFormat !== ("raw" as any)) {
+            lastProviderTelemetry = {
+              provider: this.name,
+              model: currentModel,
+              configured_model: this.model,
+              actual_requested_model: currentModel,
+              model_fallback_triggered: isFallback,
+              timestamp: new Date().toISOString(),
+              latency_ms: latencyMs,
+              success: false,
+              status_code: 200,
+              error: `Non-JSON response received: ${rawContent.slice(0, 100)}`,
+            };
+            throw new Error(`OpenRouter API returned non-JSON response: ${rawContent.slice(0, 100)}`);
+          }
+
+          lastProviderTelemetry = {
+            provider: this.name,
+            model: currentModel,
+            configured_model: this.model,
+            actual_requested_model: currentModel,
+            model_fallback_triggered: isFallback,
+            timestamp: new Date().toISOString(),
+            latency_ms: latencyMs,
+            success: true,
+            status_code: 200,
+            usage: data.usage,
+          };
+
+          return sanitized;
+        } catch (err: any) {
+          lastError = err;
+          const isAbort = err.name === "AbortError" || String(err.message).toLowerCase().includes("abort") || String(err.message).toLowerCase().includes("timed out");
+          if (isAbort && attempt < maxRetries) {
+            await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+            continue;
+          }
+          if (attempt >= maxRetries) {
+            break;
+          }
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+    }
+
+    throw lastError || new Error(`OpenRouter API request failed for model ${this.model}`);
+  }
+}
+
 let cachedProvider: AiProvider | null = null;
 
 export function getAiProvider(): AiProvider {
   if (cachedProvider) return cachedProvider;
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  cachedProvider = apiKey ? new AnthropicProvider(apiKey) : new MockProvider();
+
+  if (process.env.OPENROUTER_API_KEY) {
+    cachedProvider = new OpenRouterProvider(
+      process.env.OPENROUTER_API_KEY,
+      process.env.OPENROUTER_MODEL,
+      180000,
+      true
+    );
+  } else if (process.env.ANTHROPIC_API_KEY) {
+    cachedProvider = new AnthropicProvider(process.env.ANTHROPIC_API_KEY);
+  } else if (process.env.OPENAI_API_KEY) {
+    cachedProvider = new OpenAiProvider(process.env.OPENAI_API_KEY);
+  } else if (process.env.GEMINI_API_KEY) {
+    cachedProvider = new GeminiProvider(process.env.GEMINI_API_KEY);
+  } else {
+    cachedProvider = new MockProvider();
+  }
   return cachedProvider;
 }
+
+export function setAiProvider(provider: AiProvider | null): void {
+  cachedProvider = provider;
+}
+
+export function resetAiProvider(): void {
+  cachedProvider = null;
+}
+
+function buildMockInternshipReview(prompt: string): string {
+  // 1. Simulation flags for testing edge cases
+  if (prompt.includes("SIMULATE_INVALID_JSON")) {
+    return "{ invalid json syntax";
+  }
+
+  // Extract real files mentioned in prompt
+  const realFileMatches = Array.from(prompt.matchAll(/(?:--- FILE:\s*([^\s-]+)\s*---|--- TEST FILE:\s*([^\s-]+)\s*---|--- CONFIG:\s*([^\s-]+)\s*---|-\s*([^\s()]+\.[a-z0-9]+)\s*\(file\))/gi));
+  const realFiles = realFileMatches
+    .map((m) => m[1] || m[2] || m[3] || m[4])
+    .filter(Boolean) as string[];
+
+  const defaultEvidencePath = realFiles[0] || "README.md";
+  const defaultTestPath = realFiles.find((f) => /test/i.test(f)) || realFiles[0] || "README.md";
+
+  if (prompt.includes("SIMULATE_FAKE_FILE_CITATION")) {
+    return JSON.stringify({
+      review_id: "rev_fake_file_test",
+      submission_id: "sub_test",
+      task_id: "task_test",
+      attempt_number: 1,
+      verdict: "passed",
+      score: 90,
+      summary: "Evaluated code structure against task specifications.",
+      criteria_results: [
+        {
+          criterion: "Implement secure API authentication",
+          status: "met",
+          evidence: ["src/security/nonexistent_hallucinated_auth_handler.ts"],
+          reason: "Found authentication implementation in cited file.",
+          critical: true,
+        },
+      ],
+      technical_quality: {
+        architecture_score: 90,
+        code_quality_score: 90,
+        testing_score: 90,
+        documentation_score: 90,
+        notes: "Clean architecture.",
+      },
+      deliverables_evaluated: [
+        {
+          deliverable: "Auth module",
+          status: "present",
+          evidence_path: "src/security/nonexistent_hallucinated_auth_handler.ts",
+        },
+      ],
+      strengths: ["Good modular layout."],
+      improvements: ["None."],
+      next_step: "Proceed to next task.",
+      review_engine_version: "1.0",
+      created_at: new Date().toISOString(),
+    });
+  }
+
+  if (prompt.includes("SIMULATE_FORBIDDEN_RUNTIME_CLAIM")) {
+    return JSON.stringify({
+      review_id: "rev_runtime_claim_test",
+      submission_id: "sub_test",
+      task_id: "task_test",
+      attempt_number: 1,
+      verdict: "passed",
+      score: 95,
+      summary: "Executed the test suite and all tests passed successfully at runtime with 100% pass rate.",
+      criteria_results: [
+        {
+          criterion: "Build test suite",
+          status: "met",
+          evidence: [defaultTestPath],
+          reason: "Ran the tests and they passed without errors.",
+          critical: false,
+        },
+      ],
+      technical_quality: {
+        architecture_score: 90,
+        code_quality_score: 90,
+        testing_score: 95,
+        documentation_score: 90,
+        notes: "Live execution verified.",
+      },
+      deliverables_evaluated: [
+        {
+          deliverable: "Test suite",
+          status: "present",
+          evidence_path: defaultTestPath,
+        },
+      ],
+      strengths: ["Passing runtime tests."],
+      improvements: [],
+      next_step: "Next milestone.",
+      review_engine_version: "1.0",
+      created_at: new Date().toISOString(),
+    });
+  }
+
+  if (prompt.includes("SIMULATE_CRITICAL_FAILURE")) {
+    return JSON.stringify({
+      review_id: "rev_critical_test",
+      submission_id: "sub_test",
+      task_id: "task_test",
+      attempt_number: 1,
+      verdict: "passed", // AI attempts to pass despite critical failure
+      score: 95,
+      summary: "Good overall structure but critical security requirement failed.",
+      criteria_results: [
+        {
+          criterion: "Enforce cryptographic password hashing with Argon2id",
+          status: "not_met",
+          evidence: [defaultEvidencePath],
+          reason: "Passwords are stored using weak SHA-256 instead of required Argon2id.",
+          critical: true,
+        },
+        {
+          criterion: "Build user registration REST endpoint",
+          status: "met",
+          evidence: [defaultEvidencePath],
+          reason: "Registration endpoint is implemented cleanly.",
+          critical: false,
+        },
+      ],
+      technical_quality: {
+        architecture_score: 90,
+        code_quality_score: 85,
+        testing_score: 80,
+        documentation_score: 85,
+        notes: "Architecture is clean except for critical security violation.",
+      },
+      deliverables_evaluated: [
+        {
+          deliverable: "Auth module",
+          status: "incomplete",
+          evidence_path: defaultEvidencePath,
+        },
+      ],
+      strengths: ["Clean endpoint structure."],
+      improvements: ["Fix cryptographic password hashing using Argon2id."],
+      next_step: "Upgrade password hashing to Argon2id and resubmit for evaluation.",
+      review_engine_version: "1.0",
+      created_at: new Date().toISOString(),
+    });
+  }
+
+  // Extract task title
+  const taskTitleMatch = prompt.match(/Task Title:\s*([^\n]+)/i);
+  const taskTitle = taskTitleMatch ? taskTitleMatch[1] : "Engineering Task";
+
+  // Extract acceptance criteria from prompt
+  const criteriaSectionMatch = prompt.match(/Acceptance Criteria:\s*\n([\s\S]*?)(?:\n\s*Target Difficulty:|\n\s*===)/i);
+  const rawCriteria = criteriaSectionMatch
+    ? criteriaSectionMatch[1]
+        .split("\n")
+        .map((l) => l.replace(/^\s*\d+\.\s*/, "").trim())
+        .filter(Boolean)
+    : [
+        "Code implements core functionality",
+        "Error handling handles invalid inputs safely",
+        "Test suite covers key edge cases",
+      ];
+
+  // Extract submission attempt number
+  const attemptMatch = prompt.match(/Submission Attempt:\s*(\d+)/i);
+  const attemptNumber = attemptMatch ? Number(attemptMatch[1]) : 1;
+
+  // Determine scenario
+  const isPartial =
+    prompt.includes("SIMULATE_PARTIAL_SUBMISSION") ||
+    prompt.includes("missing validation") ||
+    prompt.includes("incomplete error handling") ||
+    (attemptNumber === 1 && prompt.includes("SIMULATE_PROGRESSIVE_REVISION"));
+
+  const isAttempt2Progressive =
+    prompt.includes("SIMULATE_PROGRESSIVE_REVISION") &&
+    attemptNumber === 2;
+
+  const isAttempt3Progressive =
+    prompt.includes("SIMULATE_PROGRESSIVE_REVISION") &&
+    attemptNumber >= 3;
+
+  const isBadSubmission =
+    prompt.includes("SIMULATE_BAD_SUBMISSION") ||
+    prompt.includes("Empty repository tree") ||
+    realFiles.length === 0;
+
+  // Scenario 1: Bad Submission (Empty or no source files)
+  if (isBadSubmission) {
+    return JSON.stringify({
+      review_id: `rev_bad_${Date.now()}`,
+      submission_id: "sub_mock",
+      task_id: taskTitle.toLowerCase().replace(/[^a-z0-9]/g, "_"),
+      attempt_number: attemptNumber,
+      verdict: "needs_revision",
+      score: 42,
+      summary: "The submitted repository is missing core implementation and test files required by the task.",
+      criteria_results: rawCriteria.map((c, i) => ({
+        criterion: c,
+        status: "not_met" as const,
+        evidence: realFiles[0] ? [realFiles[0]] : ["README.md"],
+        reason: "Required implementation files were not found in repository evidence.",
+        critical: i === 0,
+      })),
+      technical_quality: {
+        architecture_score: 40,
+        code_quality_score: 40,
+        testing_score: 30,
+        documentation_score: 50,
+        notes: "Missing primary source and test files.",
+      },
+      deliverables_evaluated: [
+        { deliverable: "Source code", status: "missing", evidence_path: null },
+      ],
+      strengths: ["Repository initialized with README."],
+      improvements: [
+        "Commit complete source implementation files to the repository.",
+        "Include automated unit test suites.",
+      ],
+      next_step: "Implement the required source modules and test suites, push to GitHub, and resubmit.",
+      review_engine_version: "1.0",
+      created_at: new Date().toISOString(),
+    });
+  }
+
+  // Scenario 2: Attempt 1 with Partial / Missing Validation
+  if (isPartial) {
+    return JSON.stringify({
+      review_id: `rev_part1_${Date.now()}`,
+      submission_id: "sub_mock",
+      task_id: taskTitle.toLowerCase().replace(/[^a-z0-9]/g, "_"),
+      attempt_number: attemptNumber,
+      verdict: "needs_revision",
+      score: 64,
+      summary: "Core functional structure is implemented, but required input validation and error handling paths are missing.",
+      criteria_results: rawCriteria.map((c, idx) => {
+        const isValidation = /valid|error|null|nan|handling|boundary/i.test(c);
+        return {
+          criterion: c,
+          status: isValidation ? ("not_met" as const) : ("met" as const),
+          evidence: [defaultEvidencePath],
+          reason: isValidation
+            ? "Input validation logic does not guard against invalid payload formats or boundary conditions."
+            : `Implementation addressing this requirement was statically verified in ${defaultEvidencePath}.`,
+          critical: idx === 0 || isValidation,
+        };
+      }),
+      technical_quality: {
+        architecture_score: 75,
+        code_quality_score: 68,
+        testing_score: 60,
+        documentation_score: 80,
+        notes: "Main service structure is good, but input validation guardrails must be added.",
+      },
+      deliverables_evaluated: [
+        { deliverable: "Main implementation", status: "present", evidence_path: defaultEvidencePath },
+        { deliverable: "Validation module", status: "incomplete", evidence_path: defaultEvidencePath },
+      ],
+      strengths: [
+        "Clean project directory structure.",
+        "Main happy-path workflow is logically laid out.",
+      ],
+      improvements: [
+        "Add explicit input validation schemas preventing malformed or invalid inputs.",
+        "Implement dedicated error handling return codes for bad requests.",
+      ],
+      next_step: "Implement the missing input validation schemas and error response handlers, then resubmit for review.",
+      review_engine_version: "1.0",
+      created_at: new Date().toISOString(),
+    });
+  }
+
+  // Scenario 3: Attempt 2 where Validation was fixed but Tests are missing
+  if (isAttempt2Progressive) {
+    return JSON.stringify({
+      review_id: `rev_part2_${Date.now()}`,
+      submission_id: "sub_mock",
+      task_id: taskTitle.toLowerCase().replace(/[^a-z0-9]/g, "_"),
+      attempt_number: attemptNumber,
+      verdict: "needs_revision",
+      score: 72,
+      summary: "The input validation issue identified in your previous attempt has been successfully resolved. However, unit test coverage covering error boundary conditions is still incomplete.",
+      criteria_results: rawCriteria.map((c, idx) => {
+        const isTest = /test|coverage|assertion|pytest|jest/i.test(c);
+        return {
+          criterion: c,
+          status: isTest ? ("partially_met" as const) : ("met" as const),
+          evidence: isTest ? [defaultTestPath] : [defaultEvidencePath],
+          reason: isTest
+            ? "Test files exist but do not assert failure conditions for invalid payloads."
+            : `Verified in ${defaultEvidencePath}. Validation logic now handles edge cases.`,
+          critical: idx === 0,
+        };
+      }),
+      technical_quality: {
+        architecture_score: 82,
+        code_quality_score: 80,
+        testing_score: 60,
+        documentation_score: 85,
+        notes: "Validation is now solid. Unit tests need expanded coverage on invalid input rejection.",
+      },
+      deliverables_evaluated: [
+        { deliverable: "Main implementation", status: "present", evidence_path: defaultEvidencePath },
+        { deliverable: "Test suite", status: "incomplete", evidence_path: defaultTestPath },
+      ],
+      strengths: [
+        "Addressed previous feedback: input validation schemas are now properly configured.",
+        "Good separation between validation rules and business logic.",
+      ],
+      improvements: [
+        "Add automated unit test assertions specifically verifying that invalid payloads trigger error responses.",
+      ],
+      next_step: "Add automated unit tests verifying error status codes on invalid inputs, then resubmit for final verification.",
+      review_engine_version: "1.0",
+      created_at: new Date().toISOString(),
+    });
+  }
+
+  // Scenario 4: Passed Submission (Attempt 3 or standard high quality submission)
+  return JSON.stringify({
+    review_id: `rev_pass_${Date.now()}`,
+    submission_id: "sub_mock",
+    task_id: taskTitle.toLowerCase().replace(/[^a-z0-9]/g, "_"),
+    attempt_number: attemptNumber,
+    verdict: "passed",
+    score: isAttempt3Progressive ? 94 : 91,
+    summary: isAttempt3Progressive
+      ? "Outstanding progression! All previous feedback items regarding validation and test assertions have been fully resolved. The implementation and test suites meet all acceptance criteria."
+      : "Excellent engineering work! The submission demonstrates clean modular architecture, rigorous input validation, and complete test suites satisfying all acceptance criteria.",
+    criteria_results: rawCriteria.map((c, idx) => ({
+      criterion: c,
+      status: "met" as const,
+      evidence: /test/i.test(c) ? [defaultTestPath] : [defaultEvidencePath],
+      runtime_evidence: /test/i.test(c) ? "Verified 8/8 tests passed via isolated test runner." : null,
+      reason: `Statically verified in ${/test/i.test(c) ? defaultTestPath : defaultEvidencePath}. Code structure satisfies all stated requirements.`,
+      critical: idx === 0,
+    })),
+    technical_quality: {
+      architecture_score: 92,
+      code_quality_score: 90,
+      testing_score: 90,
+      documentation_score: 92,
+      notes: "Static analysis confirms clean modular design, robust error handling, and comprehensive test suite structure.",
+    },
+    deliverables_evaluated: [
+      { deliverable: "Main source module", status: "present", evidence_path: defaultEvidencePath },
+      { deliverable: "Automated test suite", status: "present", evidence_path: defaultTestPath },
+    ],
+    strengths: [
+      "Clean modular code structure adhering to industry best practices.",
+      "Comprehensive static test files covering both happy-path and boundary failure modes.",
+      "Informative documentation and clear separation of concerns.",
+    ],
+    improvements: [
+      "In future milestones, consider exploring additional integration caching optimizations.",
+    ],
+    next_step: "Congratulations on passing this task! Proceed to the next progressive task in your curriculum milestone.",
+    review_engine_version: "1.0",
+    created_at: new Date().toISOString(),
+  });
+}
+

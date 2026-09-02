@@ -19,6 +19,8 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
+.env.local
 .env*.local
 
 # vercel
@@ -30,3 +32,8 @@ next-env.d.ts
 
 supabase/.temp/
 supabase/.branches/
+
+# Playwright E2E
+/tests/e2e/.auth/
+/tests/e2e/.results/
+/playwright-report/

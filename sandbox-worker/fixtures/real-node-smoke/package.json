@@ -1,0 +1,11 @@
+{
+  "name": "real-node-smoke-fixture",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "jest --ci --runInBand"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

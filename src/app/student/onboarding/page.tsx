@@ -1,26 +1,25 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { createServerSideClient } from "@/lib/supabase";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { OnboardingForm } from "./onboarding-form";
 import { Sparkles } from "lucide-react";
 
 export const metadata: Metadata = { title: "Build Your NOVA Profile | Onboarding" };
 
 export default async function StudentOnboardingPage() {
-  const supabase = await createServerSideClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const auth = await getAuthenticatedUser();
 
-  if (!user) {
+  if (!auth) {
     redirect("/login");
   }
 
-  const { data: profile } = await supabase.from("profiles").select("onboarded").eq("id", user.id).single();
+  const { supabase, user } = auth;
+  const { data: profile } = await supabase.from("profiles").select("onboarded").eq("id", user.id).maybeSingle();
 
   if (profile?.onboarded) {
     redirect("/student/dashboard");
   }
+
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl mx-auto py-4 text-slate-800">

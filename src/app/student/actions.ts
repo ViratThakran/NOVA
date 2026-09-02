@@ -24,14 +24,12 @@ export async function completeOnboardingAction(
   _prevState: OnboardingActionState,
   formData: FormData
 ): Promise<OnboardingActionState> {
-  const supabase = await createServerSideClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  const auth = await getAuthenticatedUser();
+  if (!auth) {
     return { status: "error", message: "Your session has expired. Please log in again." };
   }
+  const { supabase, user } = auth;
+
 
   const school = formData.get("school");
   const degree = formData.get("degree");
@@ -302,11 +300,10 @@ export async function replaceResumeAction(
   _prevState: ProfileActionState,
   formData: FormData
 ): Promise<ProfileActionState> {
-  const supabase = await createServerSideClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { status: "error", message: "Your session has expired. Please log in again." };
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase, user } = auth;
+
 
   const resumeFile = formData.get("resume");
   if (!(resumeFile instanceof File) || resumeFile.size === 0) {
@@ -404,3 +401,301 @@ export async function cancelServiceRequestAction(
   revalidatePath("/student/services");
   return { status: "success", message: "Request cancelled." };
 }
+
+import { after } from "next/server";
+import {
+  getOrInitializeStudentJourney,
+  processSubmissionJobAsync,
+  getInternshipTaskById,
+  updateInternshipTaskStatus,
+  getNextAttemptNumber,
+  findExistingSubmissionForCommit,
+  insertInternshipSubmission,
+  insertExecutionJob,
+  getSubmissionWithJobAndReview,
+  getEnrollmentWithInternship,
+  getTasksForEnrollment,
+  getSubmissionsForTask,
+} from "@/lib/ai-engine/internship-mentor";
+
+export async function initStudentJourneyAction(enrollmentId: string): Promise<any> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { user, roles } = auth;
+
+  if (!roles.includes("student")) {
+    return { status: "error", message: "Only students can initialize an internship journey." };
+  }
+
+  try {
+    const journey = await getOrInitializeStudentJourney({
+      enrollmentId,
+      studentId: user.id,
+      disableAiFallback: true,
+    });
+
+    revalidatePath("/student/learning");
+    revalidatePath("/student/dashboard");
+    return { status: "success", journey };
+  } catch (err: any) {
+    console.error("initStudentJourneyAction error:", err);
+    return { status: "error", message: err?.message || "Failed to initialize internship journey." };
+  }
+}
+
+export async function submitInternshipTaskAction(
+  _prevState: any,
+  formData: FormData
+): Promise<any> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase, user, roles } = auth;
+
+  if (!roles.includes("student")) {
+    return { status: "error", message: "Only students can submit task reviews." };
+  }
+
+  const taskId = formData.get("task_id")?.toString() || "";
+  const githubUrl = formData.get("github_url")?.toString() || "";
+  const branch = formData.get("branch")?.toString() || "main";
+  const commitSha = formData.get("commit_sha")?.toString() || "";
+  const studentExplanation = formData.get("student_explanation")?.toString() || "";
+
+  if (!taskId) {
+    return { status: "error", message: "Task identifier is required." };
+  }
+  if (!githubUrl.startsWith("https://github.com/")) {
+    return { status: "error", message: "Please provide a valid public GitHub repository URL (e.g. https://github.com/owner/repo)." };
+  }
+  if (!commitSha || commitSha.trim().length < 7) {
+    return { status: "error", message: "Please provide a valid pinned Git commit SHA (at least 7 characters)." };
+  }
+  if (studentExplanation.trim().length < 10) {
+    return { status: "error", message: "Please provide an explanation of your implementation (at least 10 characters)." };
+  }
+
+  try {
+    // 1. Authorize: Verify task exists and belongs to student's active enrollment
+    const task = await getInternshipTaskById(supabase, taskId);
+    if (!task) {
+      return { status: "error", message: "Task not found." };
+    }
+    if (task.student_id && task.student_id !== user.id) {
+      return { status: "error", message: "Unauthorized: You do not own this internship task." };
+    }
+
+    const enrollment = await getEnrollmentWithInternship(supabase, task.enrollment_id, user.id);
+    if (!enrollment || enrollment.student_id !== user.id) {
+      return { status: "error", message: "Unauthorized: You do not own this internship task." };
+    }
+    if (enrollment.status !== "active") {
+      return { status: "error", message: "Your internship enrollment is not currently active." };
+    }
+
+    // 2. Derive attempt number server-side (never trusted from browser)
+    const attemptNumber = await getNextAttemptNumber(supabase, taskId);
+
+    // 3. Idempotency Check: Don't recreate if exact commit submission is already in progress
+    const existingSubmission = await findExistingSubmissionForCommit(supabase, taskId, commitSha);
+    if (existingSubmission && ["submitted", "collecting_evidence", "running_verification", "in_review"].includes(existingSubmission.status)) {
+      return {
+        status: "success",
+        message: "Submission is already processing.",
+        submissionId: existingSubmission.id,
+        attemptNumber: existingSubmission.attempt_number,
+        jobStatus: existingSubmission.status,
+      };
+    }
+
+    // 4. Create immutable submission attempt with concurrency protection
+    let submission: any;
+    let job: any;
+
+    try {
+      submission = await insertInternshipSubmission(supabase, {
+        task_id: taskId,
+        student_id: user.id,
+        enrollment_id: task.enrollment_id,
+        submission_type: "github",
+        github_url: githubUrl,
+        branch,
+        commit_sha: commitSha,
+        student_explanation: studentExplanation,
+        attempt_number: attemptNumber,
+        status: "submitted",
+      });
+
+      // 5. Detect execution profile & create execution job
+      const isPython = task.skills_practiced?.some((s: string) => s.toLowerCase().includes("python") || s.toLowerCase().includes("pandas"));
+      const profile = isPython ? "python" : "node_typescript";
+
+      job = await insertExecutionJob(supabase, {
+        submission_id: submission.id,
+        repository: githubUrl.replace("https://github.com/", ""),
+        commit_sha: commitSha,
+        execution_profile: profile,
+        timeout_seconds: 60,
+      });
+
+      // Update task status to submitted
+      await updateInternshipTaskStatus(supabase, taskId, "submitted");
+
+      // 6. Asynchronously dispatch background worker (Non-blocking HTTP response)
+      after(async () => {
+        try {
+          await processSubmissionJobAsync(submission.id, job.id, { disableAiFallback: true });
+        } catch (workerErr) {
+          console.error("Background submission worker failed:", workerErr);
+        }
+      });
+    } catch (insertErr: any) {
+      // If concurrent request already inserted this attempt or commit, return the existing in-flight submission
+      const inFlight = await findExistingSubmissionForCommit(supabase, taskId, commitSha);
+      if (inFlight) {
+        return {
+          status: "success",
+          message: "Submission is already processing.",
+          submissionId: inFlight.id,
+          attemptNumber: inFlight.attempt_number,
+          jobStatus: inFlight.status,
+        };
+      }
+      throw insertErr;
+    }
+
+    revalidatePath("/student/learning");
+    revalidatePath("/student/dashboard");
+
+    return {
+      status: "success",
+      message: "Your submission has been queued for verification and AI review.",
+      submissionId: submission.id,
+      jobId: job.id,
+      attemptNumber,
+      jobStatus: "queued",
+    };
+  } catch (err: any) {
+    console.error("submitInternshipTaskAction error:", err);
+    return { status: "error", message: err?.message || "Failed to queue task submission." };
+  }
+}
+
+export async function getSubmissionStatusAction(submissionId: string): Promise<any> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase, user } = auth;
+
+  try {
+    const data = await getSubmissionWithJobAndReview(supabase, submissionId);
+    if (!data.submission) {
+      return { status: "error", message: "Submission not found." };
+    }
+
+    // Authorization check: Student can only view their own submission
+    if (data.submission.student_id !== user.id) {
+      return { status: "error", message: "Unauthorized." };
+    }
+
+    let nextTaskId: string | null = null;
+    let nextTaskTitle: string | null = null;
+
+    if (data.review?.verdict === "passed") {
+      const task = await getInternshipTaskById(supabase, data.submission.task_id);
+      if (task) {
+        const nextTasks = await getTasksForEnrollment(supabase, task.enrollment_id, task.milestone_index + 1);
+        if (nextTasks.length > 0) {
+          nextTaskId = nextTasks[0].id;
+          nextTaskTitle = nextTasks[0].title;
+        }
+      }
+    }
+
+    return {
+      status: "success",
+      submission: {
+        id: data.submission.id,
+        taskId: data.submission.task_id,
+        status: data.submission.status,
+        attemptNumber: data.submission.attempt_number,
+        commitSha: data.submission.commit_sha,
+        githubUrl: data.submission.github_url,
+        branch: data.submission.branch,
+        studentExplanation: data.submission.student_explanation,
+        submittedAt: data.submission.submitted_at,
+      },
+      job: data.job
+        ? {
+            id: data.job.id,
+            status: data.job.status,
+            exitCode: data.job.exit_code,
+            durationMs: data.job.duration_ms,
+            startedAt: data.job.started_at,
+            completedAt: data.job.completed_at,
+            errorMessage: (data.job as any).error_message || null,
+          }
+        : null,
+      review: data.review
+        ? {
+            id: data.review.id,
+            verdict: data.review.verdict,
+            score: data.review.score,
+            summary: data.review.summary,
+            strengths: data.review.strengths,
+            improvements: data.review.improvements,
+            criteriaResults: data.review.criteria_results,
+            technicalQuality: data.review.technical_quality,
+            deliverablesEvaluated: data.review.deliverables_evaluated,
+            nextStep: data.review.next_step,
+            createdAt: data.review.created_at,
+          }
+        : null,
+      evidence: data.evidence
+        ? {
+            exitCode: data.evidence.exit_code,
+            durationMs: data.evidence.duration_ms,
+            testsSummary: data.evidence.tests_summary,
+            buildSummary: data.evidence.build_summary,
+            lintSummary: data.evidence.lint_summary,
+          }
+        : null,
+      nextTaskId,
+      nextTaskTitle,
+    };
+  } catch (err: any) {
+    console.error("getSubmissionStatusAction error:", err);
+    return { status: "error", message: err?.message || "Failed to fetch submission status." };
+  }
+}
+
+export async function getLatestTaskSubmissionAction(taskId: string): Promise<any> {
+  const auth = await getAuthenticatedUser();
+  if (!auth) return { status: "error", message: "Your session has expired. Please log in again." };
+  const { supabase, user } = auth;
+
+  try {
+    const task = await getInternshipTaskById(supabase, taskId);
+    if (!task) {
+      return { status: "error", message: "Task not found." };
+    }
+    if (task.student_id !== user.id) {
+      return { status: "error", message: "Unauthorized." };
+    }
+
+    const submissions = await getSubmissionsForTask(supabase, taskId);
+    if (submissions.length === 0) {
+      return { status: "success", submission: null };
+    }
+
+    const latest = submissions[submissions.length - 1];
+    return getSubmissionStatusAction(latest.id);
+  } catch (err: any) {
+    console.error("getLatestTaskSubmissionAction error:", err);
+    return { status: "error", message: err?.message || "Failed to fetch latest submission." };
+  }
+}
+
+// Backwards-compatible alias for existing client forms
+export const submitInternshipTaskReviewAction = submitInternshipTaskAction;
+
+
+

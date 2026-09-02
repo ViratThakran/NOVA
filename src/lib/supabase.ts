@@ -1,4 +1,5 @@
 import { createBrowserClient, createServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -32,3 +33,31 @@ export async function createServerSideClient() {
     },
   });
 }
+
+// Server-side admin client using service-role or anon JWT for background worker / system tasks
+export function createAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || supabaseUrl;
+  
+  let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // If service role key is not a JWT (starts with eyJ), use the valid anon JWT
+  if (!serviceKey || !serviceKey.startsWith("eyJ")) {
+    serviceKey =
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.SUPABASE_SECRET_KEY ||
+      supabaseKey;
+  }
+
+  if (!url) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL is required for admin client operations");
+  }
+  if (!serviceKey) {
+    throw new Error("Supabase key is required for admin client operations");
+  }
+
+  return createSupabaseClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+
+

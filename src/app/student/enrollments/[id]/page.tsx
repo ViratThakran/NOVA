@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { z } from "zod";
-import { ArrowLeft, Building2, Calendar, FileText, Briefcase, AlertCircle } from "lucide-react";
+import { ArrowLeft, Building2, Calendar, FileText, Briefcase, AlertCircle, Sparkles } from "lucide-react";
 import { createServerSideClient } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { getEnrollmentStatusMeta } from "@/lib/enrollment-view-state";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Residency Details | NOVA" };
 
@@ -56,14 +57,11 @@ export default async function StudentEnrollmentDetailPage({
     return notFoundState;
   }
 
-  const supabase = await createServerSideClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  const auth = await getAuthenticatedUser();
+  if (!auth) {
     return notFoundState;
   }
+  const { supabase, user } = auth;
 
   const { data: enrollment, error } = await supabase
     .from("enrollments")
@@ -149,8 +147,27 @@ export default async function StudentEnrollmentDetailPage({
           </div>
         </div>
 
-        {/* RIGHT COLUMN: LINKED APPLICATION INFORMATION */}
+        {/* RIGHT COLUMN: LINKED APPLICATION & WORKSPACE */}
         <div className="lg:col-span-5 flex flex-col gap-6">
+          {/* AI Mentor Learning Workspace Entry */}
+          {record.status === "active" && (
+            <div className="p-6 sm:p-7 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-card to-card border border-emerald-500/20 shadow-xs flex flex-col gap-4">
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                <Sparkles className="h-5 w-5" />
+                <h3 className="text-xs font-bold uppercase tracking-wider">AI Internship Workspace</h3>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Your AI mentor has configured your practical engineering tasks and milestone roadmap for this residency.
+              </p>
+              <Link
+                href="/student/learning"
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-all self-start"
+              >
+                Open Learning Workspace →
+              </Link>
+            </div>
+          )}
+
           <div className="p-6 sm:p-7 rounded-2xl bg-white border border-slate-100 shadow-xs flex flex-col gap-4">
             <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
               Linked Application Record

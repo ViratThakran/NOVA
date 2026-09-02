@@ -10,8 +10,8 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-    // Unit tests only — integration tests require a running Supabase instance
-    include: ["tests/unit/**/*.test.ts"],
+    // Unit tests, sandbox worker tests, & AI quality evaluation tests
+    include: ["tests/unit/**/*.test.ts", "sandbox-worker/tests/**/*.test.ts", "tests/ai-evaluation/**/*.test.ts"],
     exclude: ["tests/integration/**"],
   },
 });

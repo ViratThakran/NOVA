@@ -28,3 +28,12 @@ export interface ProfileActionState {
 }
 
 export const initialProfileActionState: ProfileActionState = { status: "idle" };
+
+export interface TaskReviewActionState {
+  status: "idle" | "error" | "success";
+  message?: string;
+  evaluationResult?: any;
+}
+
+export const initialTaskReviewActionState: TaskReviewActionState = { status: "idle" };
+

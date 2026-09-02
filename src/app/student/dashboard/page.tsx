@@ -3,539 +3,645 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowRight,
-  BookOpen,
-  Calendar as CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  MapPin,
-  MoreVertical,
-  User as UserIcon,
-  Briefcase,
-  Layers,
   Sparkles,
-  ClipboardList,
+  Briefcase,
   CheckCircle2,
-  AlertCircle,
-  FolderClosed,
-  GraduationCap,
-  Building2,
+  Clock,
+  RotateCcw,
+  Award,
+  Layers,
+  FileCode2,
+  Check,
+  ChevronRight,
   ExternalLink,
+  Flame,
+  Loader2,
+  AlertTriangle,
+  Send,
+  MessageSquare,
+  ShieldCheck,
+  BookOpen,
 } from "lucide-react";
-import { createServerSideClient } from "@/lib/supabase";
-import { ApplicationStatusBadge } from "@/components/app/application-status-badge";
+import { requireRole } from "@/lib/auth";
+import { getStudentDashboardState } from "@/lib/ai-engine/internship-mentor";
 
-export const metadata: Metadata = { title: "Student Portal | NOVA" };
+export const metadata: Metadata = {
+  title: "Internship Command Center | NOVA",
+  description: "Track your active engineering internship, real-world milestones, AI mentor feedback, and next tasks.",
+};
 
-interface TrackCardData {
-  id: string;
-  code: string;
-  title: string;
-  lead: string;
-  schedule: string;
-  time: string;
-  location: string;
-  bgColor: string;
-  borderColor: string;
-  textColor: string;
-  dividerColor: string;
-  shadowColor: string;
-}
-
-const NOVA_PROGRAM_TRACKS: TrackCardData[] = [
-  {
-    id: "t1",
-    code: "ART101",
-    title: "Graphic Fundamentals",
-    lead: "Prof. Smith",
-    schedule: "Monday & Wednesday",
-    time: "9:00 AM - 10:30 AM",
-    location: "Design Studio A",
-    bgColor: "bg-[#E5DEFF]/80",
-    borderColor: "border-white/80",
-    textColor: "text-[#2E1065]",
-    dividerColor: "border-[#D4C8FF]/70",
-    shadowColor: "hover:shadow-[0_12px_30px_rgba(147,51,234,0.15)]",
-  },
-  {
-    id: "t2",
-    code: "ITD001",
-    title: "Advanced Web Design",
-    lead: "Dr. Johnson",
-    schedule: "Tuesday & Thursday",
-    time: "1:30 PM - 3:00 PM",
-    location: "Computer Lab 3",
-    bgColor: "bg-[#FFF0C2]/80",
-    borderColor: "border-white/80",
-    textColor: "text-[#78350F]",
-    dividerColor: "border-[#FFE28A]/70",
-    shadowColor: "hover:shadow-[0_12px_30px_rgba(234,179,8,0.15)]",
-  },
-  {
-    id: "t3",
-    code: "UXD301",
-    title: "User Experience Research",
-    lead: "Prof. Davis",
-    schedule: "Monday & Saturday",
-    time: "9:00 AM - 12:00 AM",
-    location: "Design Lab 2",
-    bgColor: "bg-[#C6F1FE]/80",
-    borderColor: "border-white/80",
-    textColor: "text-[#0C4A6E]",
-    dividerColor: "border-[#93E3FD]/70",
-    shadowColor: "hover:shadow-[0_12px_30px_rgba(14,165,233,0.15)]",
-  },
-  {
-    id: "t4",
-    code: "ANI501",
-    title: "3D Animation Techniques",
-    lead: "Dr. Martinez",
-    schedule: "Wednesday",
-    time: "3:00 PM - 5:00 PM",
-    location: "Animation Studio",
-    bgColor: "bg-[#D7F9DE]/80",
-    borderColor: "border-white/80",
-    textColor: "text-[#14532D]",
-    dividerColor: "border-[#A7F3B9]/70",
-    shadowColor: "hover:shadow-[0_12px_30px_rgba(34,197,94,0.15)]",
-  },
-];
-
-interface MilestoneItem {
-  id: string;
-  name: string;
-  course: string;
-  date: string;
-  time: string;
-  location: string;
-  status: "Completed" | "Upcoming";
-}
-
-const EXAM_ITEMS: MilestoneItem[] = [
-  {
-    id: "e1",
-    name: "Mid-Term Review",
-    course: "Graphic Fundamentals",
-    date: "20 Jan 2024",
-    time: "10:00 AM - 12:00 PM",
-    location: "Studio 4B",
-    status: "Completed",
-  },
-  {
-    id: "e2",
-    name: "Frontend Practical",
-    course: "Advanced Web Design",
-    date: "22 Jan 2024",
-    time: "02:00 PM - 04:00 PM",
-    location: "Lab 3",
-    status: "Completed",
-  },
-  {
-    id: "e3",
-    name: "Heuristic Evaluation",
-    course: "UX Research",
-    date: "25 Jan 2024",
-    time: "11:00 AM - 01:00 PM",
-    location: "Online (Meet)",
-    status: "Upcoming",
-  },
-  {
-    id: "e4",
-    name: "Final Render Defense",
-    course: "3D Animation",
-    date: "28 Jan 2024",
-    time: "09:30 AM - 11:30 AM",
-    location: "Animation Hall",
-    status: "Upcoming",
-  },
-];
-
-interface HomeworkItem {
-  id: string;
-  course: string;
-  assignment: string;
-  dueDate: string;
-  status: "Submitted" | "In Progress" | "Pending";
-  statusBadge: string;
-  accentBarColor: string;
-  cardBorder: string;
-}
-
-const HOMEWORKS_LIST: HomeworkItem[] = [
-  {
-    id: "h1",
-    course: "Graphic Fundamentals",
-    assignment: "Brand Identity Vector Kit",
-    dueDate: "21 Jan 2024",
-    status: "In Progress",
-    statusBadge: "bg-[#FFF7ED] text-[#EA580C] border border-[#FDBA74]",
-    accentBarColor: "bg-[#F97316]",
-    cardBorder: "border-[#FED7AA]/60",
-  },
-  {
-    id: "h2",
-    course: "Advanced Web Design",
-    assignment: "Next.js SSR Dashboard Layout",
-    dueDate: "23 Jan 2024",
-    status: "Submitted",
-    statusBadge: "bg-[#F0FDF4] text-[#16A34A] border border-[#86EFAC]",
-    accentBarColor: "bg-[#22C55E]",
-    cardBorder: "border-[#BBF7D0]/60",
-  },
-  {
-    id: "h3",
-    course: "UX Research",
-    assignment: "Usability Testing Report",
-    dueDate: "26 Jan 2024",
-    status: "Pending",
-    statusBadge: "bg-[#FAF5FF] text-[#9333EA] border border-[#D8B4FE]",
-    accentBarColor: "bg-[#A855F7]",
-    cardBorder: "border-[#E9D5FF]/60",
-  },
-  {
-    id: "h4",
-    course: "3D Animation Techniques",
-    assignment: "Character Rigging Scene",
-    dueDate: "29 Jan 2024",
-    status: "In Progress",
-    statusBadge: "bg-[#FFF1F2] text-[#E11D48] border border-[#FDA4AF]",
-    accentBarColor: "bg-[#F43F5E]",
-    cardBorder: "border-[#FECDD3]/60",
-  },
-  {
-    id: "h5",
-    course: "Systems Architecture",
-    assignment: "Distributed State Diagram",
-    dueDate: "31 Jan 2024",
-    status: "Pending",
-    statusBadge: "bg-[#FEFCE8] text-[#CA8A04] border border-[#FDE047]",
-    accentBarColor: "bg-[#EAB308]",
-    cardBorder: "border-[#FEF08A]/60",
-  },
-];
-
-const CALENDAR_DAYS = [
-  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
-  22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
-];
+export const dynamic = "force-dynamic";
 
 export default async function StudentDashboardPage() {
-  const supabase = await createServerSideClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, supabase } = await requireRole("student");
 
-  if (!user) {
-    redirect("/login");
-  }
+  // Fetch aggregated, authoritative real database state
+  const dashboard = await getStudentDashboardState(supabase, user.id);
 
-  // Parallel server-side fetching of student profile data
-  const [{ data: profile }] = await Promise.all([
-    supabase.from("profiles").select("first_name, last_name, email, onboarded").eq("id", user.id).single(),
-  ]);
-
-  if (!profile?.onboarded) {
+  if (!dashboard.profile.onboarded) {
     redirect("/student/onboarding");
   }
 
-  const studentName = profile.first_name || profile.email.split("@")[0];
+  const studentName = dashboard.profile.first_name || dashboard.profile.email.split("@")[0];
+
+  // 1. EMPTY STATE: NO ACTIVE INTERNSHIP
+  if (dashboard.status === "no_enrollment" || !dashboard.enrollment) {
+    const apps = dashboard.applications || [];
+    return (
+      <div className="flex flex-col gap-8 pb-16">
+        {/* Header Greeting */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              Welcome, {studentName} 👋
+            </h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+              Your engineering internship dashboard and adaptive learning workspace.
+            </p>
+          </div>
+        </div>
+
+        {/* Dynamic Status / Next Action Hero */}
+        <div className="relative overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-br from-card via-card to-primary/5 p-6 md:p-8 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
+                    dashboard.nextAction.badgeVariant === "success"
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      : dashboard.nextAction.badgeVariant === "warning"
+                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                      : "bg-primary/10 text-primary"
+                  }`}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {dashboard.nextAction.badgeText}
+                </span>
+              </div>
+              <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">
+                {dashboard.nextAction.title}
+              </h2>
+              <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
+                {dashboard.nextAction.description}
+              </p>
+            </div>
+
+            <div className="shrink-0">
+              <Link
+                href={dashboard.nextAction.ctaHref}
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all shadow-sm"
+              >
+                {dashboard.nextAction.ctaLabel}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Applications List if Submitted */}
+        {apps.length > 0 ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <FileCode2 className="h-4 w-4 text-primary" />
+                Submitted Applications ({apps.length})
+              </h3>
+              <Link
+                href="/student/applications"
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                View Tracker →
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {apps.map((app) => (
+                <div
+                  key={app.id}
+                  className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-3 flex flex-col justify-between"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-muted-foreground truncate max-w-[200px]">
+                        {app.companyName}
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                          app.status === "accepted"
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : app.status === "under_review"
+                            ? "bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                            : app.status === "rejected"
+                            ? "bg-muted text-muted-foreground"
+                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                        }`}
+                      >
+                        {app.status === "under_review" ? "Under Review" : app.status}
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-foreground text-sm line-clamp-1">{app.internshipTitle}</h4>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-border/50 text-xs">
+                    <span className="text-muted-foreground">
+                      Applied {new Date(app.createdAt).toLocaleDateString()}
+                    </span>
+                    <Link
+                      href={`/student/applications/${app.id}`}
+                      className="font-semibold text-primary hover:underline"
+                    >
+                      Details →
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-3xl border border-border bg-card p-8 md:p-12 text-center shadow-sm max-w-3xl mx-auto space-y-6">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <Briefcase className="h-8 w-8" />
+            </div>
+
+            <div className="space-y-2">
+              <h2 className="text-xl font-bold text-foreground">No Active Applications or Tracks</h2>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+                Explore available industry residencies to submit your application and get assigned your first milestone task.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+              <Link
+                href="/student/internships"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all shadow-sm"
+              >
+                <Sparkles className="h-4 w-4" />
+                Browse Opportunities
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const {
+    enrollment,
+    milestones,
+    currentMilestoneIndex,
+    currentMilestone,
+    currentTask,
+    nextAvailableTask,
+    latestSubmission,
+    latestJob,
+    latestReview,
+    recentMentorFeedback,
+    performanceMetrics,
+    nextAction,
+  } = dashboard;
+
+  const isPassed = latestReview?.verdict === "passed" || currentTask?.status === "completed";
+  const isNeedsRevision = latestReview?.verdict === "needs_revision";
+  const isProcessing =
+    latestSubmission &&
+    ["submitted", "collecting_evidence", "running_verification", "in_review"].includes(
+      latestSubmission.status
+    );
 
   return (
-    <div className="flex flex-col gap-6 text-slate-800">
-      {/* ── TOP GREETING & DATE BAR ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">👋</span>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-            Welcome, {studentName}!
+    <div className="flex flex-col gap-8 pb-16">
+      {/* ── 1. TOP HEADER & GREETING ── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-primary mb-1">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
+            <span>ACTIVE RESIDENCY</span>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+            Welcome back, {studentName} 👋
           </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+            {enrollment.internshipTitle} • <span className="font-medium text-foreground">{enrollment.companyName}</span> ({enrollment.durationWeeks} Weeks Track)
+          </p>
         </div>
-        <span className="text-xs font-semibold text-slate-500 font-sans">
-          18 Jan 2024, Friday
-        </span>
+
+        <div className="flex items-center gap-3">
+          <Link
+            href="/student/learning"
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-all shadow-sm"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Open Learning Workspace
+          </Link>
+        </div>
       </div>
 
-      {/* ── MAIN 2-COLUMN GRID (MAIN STAGE + RIGHT SIDEBAR) ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-        {/* ═════════════════════════════════════════════════════════════════════ */}
-        {/* LEFT / CENTER CONTENT AREA (Col 8/9)                                  */}
-        {/* ═════════════════════════════════════════════════════════════════════ */}
-        <div className="xl:col-span-8 2xl:col-span-9 flex flex-col gap-6">
-          {/* 1. HERO BANNER WITH GLASSMORPHISM */}
-          <div className="relative rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-[0_12px_35px_rgb(0,0,0,0.06)] transition-all duration-300">
-            <div className="flex flex-col gap-2.5 max-w-xl z-10">
-              <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-                Get Involved – Join a Club Today!
+      {/* ── 2. DASHBOARD HERO: INTERNSHIP COMMAND CENTER ── */}
+      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/5 p-6 md:p-8 shadow-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          {/* Left Hero Details (8 cols) */}
+          <div className="lg:col-span-8 space-y-4">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                <Layers className="h-3.5 w-3.5" />
+                Milestone {currentMilestoneIndex + 1} of {performanceMetrics.totalMilestones}
+              </span>
+              <span className="text-xs font-medium text-muted-foreground">
+                {currentMilestone?.title || "Active Milestone"}
+              </span>
+            </div>
+
+            <div>
+              <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider">
+                Current Focus
+              </span>
+              <h2 className="text-xl md:text-2xl font-bold text-foreground mt-0.5">
+                {currentTask ? currentTask.title : "Initializing Task Specification..."}
               </h2>
-              <p className="text-xs sm:text-[13px] text-slate-600 leading-relaxed font-normal">
-                Explore your interests and meet like-minded students by joining one of our many clubs. Whether you&apos;re into sports, arts, or academics, there&apos;s a club for you. Find your community!
+              <p className="text-xs md:text-sm text-muted-foreground mt-1 max-w-2xl line-clamp-2">
+                {currentTask?.objective || enrollment.description}
               </p>
-              <div className="pt-2">
+            </div>
+
+            {/* Progress Bar */}
+            <div className="space-y-1.5 max-w-xl">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground font-medium">Internship Curriculum Progress</span>
+                <span className="font-bold text-primary font-mono">{performanceMetrics.progressPercentage}%</span>
+              </div>
+              <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-500"
+                  style={{ width: `${performanceMetrics.progressPercentage}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Right Action Trigger (4 cols) */}
+          <div className="lg:col-span-4 flex flex-col justify-center rounded-2xl bg-card/80 p-5 border border-border/70 backdrop-blur-md shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                  nextAction.badgeVariant === "success"
+                    ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                    : nextAction.badgeVariant === "warning"
+                    ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                    : nextAction.badgeVariant === "info"
+                    ? "bg-sky-500/10 text-sky-500 border border-sky-500/20"
+                    : "bg-primary/10 text-primary border border-primary/20"
+                }`}
+              >
+                {isProcessing ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : isPassed ? (
+                  <CheckCircle2 className="h-3 w-3" />
+                ) : isNeedsRevision ? (
+                  <RotateCcw className="h-3 w-3" />
+                ) : (
+                  <Flame className="h-3 w-3" />
+                )}
+                {nextAction.badgeText}
+              </span>
+
+              {latestReview?.score !== undefined && (
+                <span className="text-xs font-bold text-foreground">
+                  Score: <span className="text-primary font-mono">{latestReview.score}/100</span>
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="font-bold text-sm text-foreground">{nextAction.title}</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {nextAction.description}
+              </p>
+              {nextAction.currentStageLabel && (
+                <div className="mt-2 rounded-lg bg-muted/50 p-2 text-[11px] font-mono text-primary flex items-center gap-1.5">
+                  <span className="flex h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                  {nextAction.currentStageLabel}
+                </div>
+              )}
+            </div>
+
+            <Link
+              href={nextAction.ctaHref}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-all shadow-sm"
+            >
+              <span>{nextAction.ctaLabel}</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 3. PERFORMANCE SUMMARY METRICS ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-xs space-y-1">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Tasks Completed
+          </span>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl font-bold text-foreground">{performanceMetrics.tasksCompleted}</span>
+            <span className="text-xs text-muted-foreground">/ {performanceMetrics.totalMilestones} Milestones</span>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-xs space-y-1">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Average Score
+          </span>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl font-bold text-foreground">
+              {performanceMetrics.averageScore > 0 ? `${performanceMetrics.averageScore}%` : "—"}
+            </span>
+            <span className="text-xs text-muted-foreground font-medium">Evaluation Avg</span>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-xs space-y-1">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Target Velocity
+          </span>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl font-bold text-foreground">{performanceMetrics.currentDifficulty}</span>
+            <span className="text-xs text-muted-foreground">Adaptive</span>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-xs space-y-1">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Revisions Logged
+          </span>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl font-bold text-foreground">{performanceMetrics.totalRevisions}</span>
+            <span className="text-xs text-muted-foreground">Iterations</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 4. TWO-COLUMN MAIN SECTION: CURRENT TASK + ROADMAP & FEEDBACK ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* LEFT COLUMN: CURRENT TASK & RECENT FEEDBACK (8 cols) */}
+        <div className="lg:col-span-8 flex flex-col gap-6">
+          {/* A. CURRENT TASK SPECIFICATION CARD */}
+          {currentTask && (
+            <div className="rounded-3xl border border-border bg-card p-6 md:p-7 shadow-sm space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-primary uppercase tracking-wider">
+                      Active Milestone Task
+                    </span>
+                    <span className="text-xs text-muted-foreground">• Milestone {currentMilestoneIndex + 1}</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-foreground">{currentTask.title}</h3>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="bg-muted px-2.5 py-0.5 rounded-md font-medium text-foreground capitalize">
+                    {currentTask.difficulty || "Intermediate"}
+                  </span>
+                  <span>~{currentTask.estimated_hours || 4} hrs</span>
+                </div>
+              </div>
+
+              {/* Task Objective */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">Objective</h4>
+                <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed">
+                  {currentTask.objective}
+                </p>
+              </div>
+
+              {/* Deliverables Snippet */}
+              {currentTask.deliverables && currentTask.deliverables.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                    Expected Repository Deliverables
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {currentTask.deliverables.map((del: string, dIdx: number) => (
+                      <span
+                        key={dIdx}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-muted/40 px-2.5 py-1 text-xs font-mono text-foreground font-medium"
+                      >
+                        <FileCode2 className="h-3.5 w-3.5 text-primary" />
+                        {del}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Latest Submission State Banner */}
+              <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                    <span>Submission Status:</span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md uppercase font-bold text-[11px] ${
+                        isPassed
+                          ? "bg-emerald-500/10 text-emerald-500"
+                          : isNeedsRevision
+                          ? "bg-amber-500/10 text-amber-500"
+                          : isProcessing
+                          ? "bg-sky-500/10 text-sky-500"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {latestSubmission ? latestSubmission.status : "Not Submitted"}
+                    </span>
+                  </div>
+                  {latestSubmission && (
+                    <p className="text-[11px] font-mono text-muted-foreground">
+                      Commit: {latestSubmission.commit_sha.slice(0, 7)} (Attempt #{latestSubmission.attempt_number})
+                    </p>
+                  )}
+                </div>
+
                 <Link
-                  href="/student/internships"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-colors"
+                  href={`/student/learning?taskId=${currentTask.id}`}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-all shadow-xs shrink-0"
                 >
-                  <span>Learn More</span>
+                  <span>
+                    {isProcessing
+                      ? "View Submission"
+                      : isNeedsRevision
+                      ? "Revise Submission"
+                      : isPassed
+                      ? nextAvailableTask
+                        ? "Continue to Next Task"
+                        : "View In Workspace"
+                      : "Start Task"}
+                  </span>
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
             </div>
+          )}
 
-            {/* Vector Collaborative Illustration */}
-            <div className="relative w-48 h-36 sm:w-64 sm:h-44 shrink-0 flex items-center justify-center">
-              <svg viewBox="0 0 260 170" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                <circle cx="130" cy="85" r="55" fill="#FEF3C7" opacity="0.65" />
-                <circle cx="185" cy="55" r="28" fill="#E0F2FE" opacity="0.85" />
-                <circle cx="75" cy="115" r="32" fill="#EDE9FE" opacity="0.85" />
-                
-                {/* Chat Bubbles */}
-                <rect x="90" y="25" width="52" height="26" rx="13" fill="#F97316" />
-                <path d="M106 50L100 58L114 50Z" fill="#F97316" />
-                <circle cx="104" cy="38" r="2.2" fill="white" />
-                <circle cx="114" cy="38" r="2.2" fill="white" />
-                <circle cx="124" cy="38" r="2.2" fill="white" />
-
-                <rect x="152" y="36" width="46" height="22" rx="11" fill="#3B82F6" />
-                <circle cx="165" cy="47" r="1.8" fill="white" />
-                <circle cx="174" cy="47" r="1.8" fill="white" />
-                <circle cx="183" cy="47" r="1.8" fill="white" />
-
-                {/* Left Student Character */}
-                <circle cx="95" cy="86" r="17" fill="#FCD34D" />
-                <path d="M82 86C82 78.82 87.82 73 95 73C102.18 73 108 78.82 108 86H82Z" fill="#7C2D12" />
-                <path d="M74 150C74 125.7 93.7 106 118 106H118C118 106 118 150 118 150H74Z" fill="#FDBA74" />
-                <path d="M74 150C74 122 90 108 107 108V150H74Z" fill="#FB923C" />
-
-                {/* Center Gear / Sync Graphic */}
-                <circle cx="130" cy="92" r="14" fill="#E2E8F0" />
-                <circle cx="130" cy="92" r="7" fill="#FFFFFF" />
-
-                {/* Right Student Character */}
-                <circle cx="165" cy="84" r="17" fill="#FCD34D" />
-                <path d="M152 84C152 76.82 157.82 71 165 71C172.18 71 178 76.82 178 84H152Z" fill="#1E293B" />
-                <path d="M142 150C142 122.5 158.5 106 184 106H184C184 106 184 150 184 150H142Z" fill="#991B1B" />
-                <path d="M142 150C142 119 158 104 180 104V150H142Z" fill="#DC2626" />
-              </svg>
-            </div>
-          </div>
-
-          {/* 2. ENROLLED COURSES SECTION (4 VIBRANT GLASSMORPHIC CARDS) */}
-          <div className="flex flex-col gap-4">
+          {/* B. RECENT MENTOR FEEDBACK */}
+          <div className="rounded-3xl border border-border bg-card p-6 md:p-7 shadow-sm space-y-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-slate-800" />
-                <h2 className="text-sm font-bold text-slate-900">Enrolled Courses</h2>
+                <MessageSquare className="h-4 w-4 text-primary" />
+                <h3 className="text-base font-bold text-foreground">Recent AI Mentor Feedback</h3>
               </div>
               <Link
-                href="/student/enrollments"
-                className="text-xs font-semibold text-sky-600 hover:text-sky-700 flex items-center gap-1"
+                href="/student/learning"
+                className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
               >
-                <span>View all</span>
-                <ChevronRight className="h-3 w-3" />
+                <span>Full Review History</span>
+                <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             </div>
 
-            {/* 4 Glassmorphic Pastel Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4">
-              {NOVA_PROGRAM_TRACKS.map((course) => (
-                <div
-                  key={course.id}
-                  className={`rounded-2xl p-5 border backdrop-blur-xl flex flex-col justify-between gap-4 transition-all duration-300 hover:-translate-y-0.5 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.03)] ${course.shadowColor} ${course.bgColor} ${course.borderColor}`}
-                >
-                  {/* Top: Course Title & Code with clean divider */}
-                  <div className={`flex flex-col gap-1 pb-3 border-b ${course.dividerColor}`}>
-                    <h3 className={`text-[13.5px] font-bold leading-tight ${course.textColor}`}>
-                      {course.title} - <span className="font-mono text-xs opacity-90">{course.code}</span>
-                    </h3>
-                  </div>
-
-                  {/* Details (Instructor, Schedule, Time, Location) */}
-                  <div className="flex flex-col gap-2.5 text-xs text-slate-800">
-                    <div className="flex items-center gap-2">
-                      <UserIcon className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                      <span className="font-semibold">{course.lead}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CalendarIcon className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                      <span>{course.schedule}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                      <span>{course.time}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                      <span>{course.location}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 3. EXAM BOARD SECTION (GLASSMORPHIC TABLE CONTAINER) */}
-          <div className="rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 p-6 sm:p-7 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ClipboardList className="h-4 w-4 text-slate-800" />
-                <h2 className="text-sm font-bold text-slate-900">Exam Board</h2>
+            {recentMentorFeedback.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border/80 p-8 text-center space-y-2">
+                <ShieldCheck className="h-8 w-8 text-muted-foreground mx-auto" />
+                <h4 className="text-xs font-semibold text-foreground">No Feedback Logged Yet</h4>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  Submit your code for your active milestone task to receive automated container testing and actionable AI mentor reviews.
+                </p>
               </div>
-              <Link
-                href="/student/programs"
-                className="text-xs font-semibold text-sky-600 hover:text-sky-700 flex items-center gap-1"
-              >
-                <span>View all</span>
-                <ChevronRight className="h-3 w-3" />
-              </Link>
-            </div>
+            ) : (
+              <div className="space-y-4">
+                {recentMentorFeedback.map((feedback) => (
+                  <div
+                    key={feedback.id}
+                    className={`rounded-2xl border p-4 sm:p-5 space-y-3 transition-all ${
+                      feedback.verdict === "passed"
+                        ? "border-emerald-500/30 bg-emerald-500/[0.02]"
+                        : feedback.verdict === "needs_revision"
+                        ? "border-amber-500/30 bg-amber-500/[0.02]"
+                        : "border-border bg-card"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 pb-2.5">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-semibold text-xs sm:text-sm text-foreground">{feedback.taskTitle}</h4>
+                          <span
+                            className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                              feedback.verdict === "passed"
+                                ? "bg-emerald-500/10 text-emerald-500"
+                                : "bg-amber-500/10 text-amber-500"
+                            }`}
+                          >
+                            {feedback.verdict}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground">
+                          Attempt #{feedback.attemptNumber} • {new Date(feedback.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
 
-            {/* Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 font-medium">
-                    <th className="py-3 px-3">Exam Name ⇅</th>
-                    <th className="py-3 px-3">Course ⇅</th>
-                    <th className="py-3 px-3">Date ⇅</th>
-                    <th className="py-3 px-3">Time ⇅</th>
-                    <th className="py-3 px-3">Location ⇅</th>
-                    <th className="py-3 px-3">Status ⇅</th>
-                    <th className="py-3 px-2 text-right"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700 font-normal">
-                  {EXAM_ITEMS.map((item, idx) => (
-                    <tr
-                      key={item.id}
-                      className={idx % 2 === 0 ? "bg-slate-50/40 hover:bg-white/80" : "bg-transparent hover:bg-white/80"}
-                    >
-                      <td className="py-3.5 px-3 font-semibold text-slate-900">{item.name}</td>
-                      <td className="py-3.5 px-3 font-mono text-slate-600">{item.course}</td>
-                      <td className="py-3.5 px-3">{item.date}</td>
-                      <td className="py-3.5 px-3">{item.time}</td>
-                      <td className="py-3.5 px-3">{item.location}</td>
-                      <td className="py-3.5 px-3">
-                        {item.status === "Completed" ? (
-                          <span className="inline-flex items-center px-3 py-0.5 rounded-full text-[11px] font-semibold bg-[#DCFCE7] text-[#15803D] border border-[#86EFAC]/70 shadow-2xs">
-                            Completed
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-3 py-0.5 rounded-full text-[11px] font-semibold bg-[#E0F2FE] text-[#0369A1] border border-[#7DD3FC]/70 shadow-2xs">
-                            Upcoming
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-2 text-right">
-                        <button type="button" className="p-1 rounded hover:bg-slate-200/60 text-slate-400">
-                          <MoreVertical className="h-3.5 w-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      <span className="text-xs font-bold text-foreground">
+                        Score: <strong className={feedback.score >= 75 ? "text-emerald-500" : "text-amber-500"}>{feedback.score}/100</strong>
+                      </span>
+                    </div>
+
+                    <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed">
+                      {feedback.summary}
+                    </p>
+
+                    {feedback.improvements?.length > 0 && (
+                      <div className="rounded-xl bg-muted/40 p-3 text-xs text-foreground/80 border border-border/40">
+                        <strong className="text-foreground block font-medium mb-1">Mentor Improvement Focus:</strong>
+                        <p>{feedback.improvements[0]}</p>
+                      </div>
+                    )}
+
+                    <div className="pt-1 flex justify-end">
+                      <Link
+                        href={`/student/learning?taskId=${feedback.taskId}`}
+                        className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                      >
+                        <span>View in Learning Workspace</span>
+                        <ArrowRight className="h-3 w-3" />
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* ═════════════════════════════════════════════════════════════════════ */}
-        {/* RIGHT SIDEBAR (Col 4/3): SEMESTER, CALENDAR & HOMEWORKS               */}
-        {/* ═════════════════════════════════════════════════════════════════════ */}
-        <div className="xl:col-span-4 2xl:col-span-3 flex flex-col gap-6">
-          {/* SEMESTER PROGRESS BAR (GLASSMORPHIC) */}
-          <div className="rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 p-5 sm:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-2">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-              <span>Semester 3 of 4</span>
-              <span className="text-slate-400 font-mono">75%</span>
-            </div>
-            <div className="h-1.5 w-full bg-slate-100/90 rounded-full overflow-hidden">
-              <div className="h-full bg-[#0F172A] rounded-full w-3/4" />
-            </div>
-          </div>
-
-          {/* CALENDAR WIDGET (GLASSMORPHIC) */}
-          <div className="rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 p-5 sm:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <button type="button" className="p-1 rounded hover:bg-slate-100 text-slate-400">
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="text-xs font-bold text-slate-800">January 2024</span>
-              <button type="button" className="p-1 rounded hover:bg-slate-100 text-slate-400">
-                <ChevronRight className="h-4 w-4" />
-              </button>
+        {/* RIGHT COLUMN: CURRICULUM ROADMAP (4 cols) */}
+        <div className="lg:col-span-4 flex flex-col gap-6">
+          <div className="rounded-3xl border border-border bg-card p-6 shadow-sm space-y-5">
+            <div>
+              <h3 className="text-base font-bold text-foreground">Curriculum Roadmap</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Adaptive milestones generated for your {enrollment.durationWeeks}-week residency.
+              </p>
             </div>
 
-            <div className="grid grid-cols-7 text-center text-[11px] font-semibold text-slate-400">
-              <span>MO</span>
-              <span>TU</span>
-              <span>WE</span>
-              <span>TH</span>
-              <span>FR</span>
-              <span>SA</span>
-              <span>SU</span>
-            </div>
+            <div className="space-y-3">
+              {milestones.map((m, idx) => {
+                const isCurrent = m.milestone_index === currentMilestoneIndex;
+                const isCompleted = m.status === "completed" || m.milestone_index < currentMilestoneIndex;
 
-            <div className="grid grid-cols-7 gap-1 text-center text-xs">
-              {CALENDAR_DAYS.map((day) => {
-                const isSelected = day === 18;
                 return (
                   <div
-                    key={day}
-                    className={`h-7 w-7 mx-auto flex items-center justify-center rounded-full text-xs font-medium cursor-pointer transition-colors ${
-                      isSelected
-                        ? "bg-[#0F172A] text-white font-bold shadow-xs"
-                        : "text-slate-700 hover:bg-slate-100"
+                    key={m.id || idx}
+                    className={`flex items-start gap-3.5 p-3.5 rounded-2xl border transition-all ${
+                      isCurrent
+                        ? "border-primary bg-primary/[0.03] shadow-xs"
+                        : isCompleted
+                        ? "border-emerald-500/30 bg-emerald-500/[0.02]"
+                        : "border-border/60 bg-muted/20 opacity-70"
                     }`}
                   >
-                    {day}
+                    <span
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${
+                        isCompleted
+                          ? "bg-emerald-500 text-white"
+                          : isCurrent
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {isCompleted ? <Check className="h-3.5 w-3.5" /> : idx + 1}
+                    </span>
+
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-xs text-foreground">{m.title}</h4>
+                        <span
+                          className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full ${
+                            isCompleted
+                              ? "bg-emerald-500/10 text-emerald-500"
+                              : isCurrent
+                              ? "bg-primary/10 text-primary"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {isCompleted ? "Passed" : isCurrent ? "Active" : "Upcoming"}
+                        </span>
+                      </div>
+                      {isCurrent && currentTask && (
+                        <p className="text-[11px] text-muted-foreground line-clamp-1">
+                          Task: {currentTask.title}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 );
               })}
             </div>
-          </div>
 
-          {/* HOMEWORKS SECTION (5 COLORFUL GLASSMORPHIC CARDS) */}
-          <div className="rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/90 p-5 sm:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Briefcase className="h-4 w-4 text-slate-800" />
-                <h2 className="text-sm font-bold text-slate-900">Homeworks</h2>
-              </div>
+            <div className="pt-2 border-t border-border/60">
               <Link
-                href="/student/projects"
-                className="text-xs font-semibold text-sky-600 hover:text-sky-700 flex items-center gap-1"
+                href="/student/learning"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-2.5 text-xs font-semibold text-foreground hover:bg-muted transition-all"
               >
-                <span>View all</span>
-                <ChevronRight className="h-3 w-3" />
+                <span>Open Full Curriculum</span>
+                <ChevronRight className="h-3.5 w-3.5" />
               </Link>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              {HOMEWORKS_LIST.map((hw) => (
-                <div
-                  key={hw.id}
-                  className={`relative rounded-2xl border p-4 flex flex-col gap-2 bg-white/70 backdrop-blur-md overflow-hidden transition-all duration-200 hover:bg-white/90 hover:shadow-sm ${hw.cardBorder}`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-xs font-bold text-slate-900 leading-snug">{hw.course}</h3>
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${hw.statusBadge}`}
-                    >
-                      {hw.status}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col text-[11px] text-slate-600">
-                    <span>Assignment: {hw.assignment}</span>
-                    <span className="text-slate-400">Due Date: {hw.dueDate}</span>
-                  </div>
-
-                  {/* Colored Bottom Accent Bar */}
-                  <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-1">
-                    <div className={`h-full ${hw.accentBarColor} rounded-full w-4/5`} />
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
         </div>

@@ -4,6 +4,7 @@ import { Briefcase, Building2, Calendar, ChevronRight, FileText } from "lucide-r
 import { createServerSideClient } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { getEnrollmentStatusMeta } from "@/lib/enrollment-view-state";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "My Residencies | NOVA" };
 
@@ -15,18 +16,17 @@ interface EnrollmentListRow {
 }
 
 export default async function StudentEnrollmentsPage() {
-  const supabase = await createServerSideClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const auth = await getAuthenticatedUser();
 
-  if (!user) {
+  if (!auth) {
     return (
       <div className="p-8 rounded-3xl bg-white/80 backdrop-blur-xl border border-red-200 text-center shadow-xs">
         <p className="text-sm font-semibold text-red-600">Your session has expired. Please log in again.</p>
       </div>
     );
   }
+
+  const { supabase, user } = auth;
 
   const { data: rawEnrollments, error } = await supabase
     .from("enrollments")
@@ -137,13 +137,23 @@ export default async function StudentEnrollmentsPage() {
                       </td>
 
                       <td className="py-4 px-5 text-right">
-                        <Link
-                          href={`/student/enrollments/${enrollment.id}`}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700"
-                        >
-                          Residency Workspace
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        </Link>
+                        <div className="flex items-center justify-end gap-3">
+                          {enrollment.status === "active" && (
+                            <Link
+                              href="/student/learning"
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700"
+                            >
+                              Learning Workspace
+                            </Link>
+                          )}
+                          <Link
+                            href={`/student/enrollments/${enrollment.id}`}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800"
+                          >
+                            Details
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   );

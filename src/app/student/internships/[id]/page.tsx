@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { z } from "zod";
 import { ArrowLeft, Building2, Calendar, CheckCircle2, FileText, AlertCircle, Sparkles } from "lucide-react";
-import { createServerSideClient } from "@/lib/supabase";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { ApplicationStatusBadge } from "@/components/app/application-status-badge";
 import { ApplicationForm } from "./application-form";
 
@@ -49,14 +49,12 @@ export default async function StudentInternshipDetailPage({
     return notFoundState;
   }
 
-  const supabase = await createServerSideClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  const auth = await getAuthenticatedUser();
+  if (!auth) {
     return notFoundState;
   }
+  const { supabase, user } = auth;
+
 
   // Parallel server fetching
   const [

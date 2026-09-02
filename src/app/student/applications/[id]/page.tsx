@@ -3,6 +3,7 @@ import Link from "next/link";
 import { z } from "zod";
 import { ArrowLeft, Building2, Calendar, FileText, CheckCircle2, AlertCircle, ChevronRight } from "lucide-react";
 import { createServerSideClient } from "@/lib/supabase";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { ApplicationStatusBadge } from "@/components/app/application-status-badge";
 
 export const metadata: Metadata = { title: "Application Details | NOVA" };
@@ -54,14 +55,12 @@ export default async function StudentApplicationDetailPage({
     return notFoundState;
   }
 
-  const supabase = await createServerSideClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  const auth = await getAuthenticatedUser();
+  if (!auth) {
     return notFoundState;
   }
+  const { supabase, user } = auth;
+
 
   // Explicit student_id scoping on top of RLS
   const { data: application, error } = await supabase
