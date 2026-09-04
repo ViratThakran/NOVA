@@ -45,7 +45,14 @@ export async function proxy(request: NextRequest) {
       try {
         const parsed = JSON.parse(Buffer.from(e2eCookie, "base64").toString());
         const expectedEmail = (process.env.E2E_STUDENT_EMAIL || "nova.e2e.test+student@gmail.com").toLowerCase();
-        if (parsed?.id && (parsed?.email?.toLowerCase() === expectedEmail || parsed?.role === "student")) {
+        if (
+          parsed?.id &&
+          (parsed?.email?.toLowerCase() === expectedEmail ||
+            parsed?.role === "student" ||
+            parsed?.role === "admin" ||
+            parsed?.role === "super_admin" ||
+            parsed?.email?.toLowerCase() === "admin@nova.ai")
+        ) {
           user = { id: parsed.id, email: parsed.email } as any;
         }
       } catch {

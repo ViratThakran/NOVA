@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Search, FileText, ChevronRight, User, Building2, Calendar, CheckCircle2 } from "lucide-react";
-import { createServerSideClient } from "@/lib/supabase";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { ApplicationStatusBadge } from "@/components/app/application-status-badge";
 import {
   normalizeApplicationStatusFilter,
@@ -45,7 +45,15 @@ export default async function AdminApplicationsPage({
   const statusFilter = normalizeApplicationStatusFilter(rawStatus);
   const searchQuery = rawQuery ? rawQuery.trim().toLowerCase() : "";
 
-  const supabase = await createServerSideClient();
+  const auth = await getAuthenticatedUser();
+  if (!auth) {
+    return (
+      <div className="p-8 rounded-3xl bg-white/80 backdrop-blur-xl border border-red-200 text-center shadow-xs">
+        <p className="text-sm font-semibold text-red-600">Your session has expired. Please log in again.</p>
+      </div>
+    );
+  }
+  const { supabase } = auth;
 
   let query = supabase
     .from("applications")
