@@ -454,9 +454,9 @@ export default async function StudentDashboardPage() {
                       {latestSubmission ? latestSubmission.status : "Not Submitted"}
                     </span>
                   </div>
-                  {latestSubmission && (
+                  {latestSubmission && latestSubmission.commit_sha && (
                     <p className="text-[11px] font-mono text-muted-foreground">
-                      Commit: {latestSubmission.commit_sha.slice(0, 7)} (Attempt #{latestSubmission.attempt_number})
+                      Commit: {(latestSubmission.commit_sha || "").slice(0, 7)} (Attempt #{latestSubmission.attempt_number})
                     </p>
                   )}
                 </div>

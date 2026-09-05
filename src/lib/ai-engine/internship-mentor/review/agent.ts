@@ -2,6 +2,7 @@ import { getAiProvider, sanitizeJsonOutput } from "../../providers";
 import { internshipReviewSchema, type InternshipReview } from "../../schemas";
 import type { ReviewContext } from "../types";
 import { formatReviewPrompt } from "./context";
+import { deriveTaskEvidenceContract, evaluateEvidenceContract } from "../evidence/contract";
 
 /**
  * Executes AI-assisted code review over collected static repository evidence.
@@ -81,43 +82,27 @@ export async function generateInternshipReview(
  * Produces an objective, evidence-grounded review if AI provider is unreachable or returns malformed data.
  */
 export function generateFallbackReview(context: ReviewContext): InternshipReview {
-  const { task, currentSubmission, evidence } = context;
+  const { task, currentSubmission, evidence, runtimeEvidence } = context;
 
-  const collectedFiles = [
-    ...(evidence.source_files || []),
-    ...(evidence.test_files || []),
-    ...(evidence.config_files || []),
-  ];
+  const contract = deriveTaskEvidenceContract(task);
+  const evaluation = evaluateEvidenceContract(contract, evidence, runtimeEvidence, task);
 
-  const criteriaResults = task.acceptance_criteria.map((criterion, idx) => {
-    const isCritical = idx === 0 || /security|auth|valid|accuracy|correctness/i.test(criterion);
-    const keywords = criterion.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+  const verdict = evaluation.can_pass ? "passed" : "needs_revision";
+  const score = evaluation.can_pass ? 88 : Math.min(evaluation.relevance_score, 55);
 
-    // Find candidate files matching keywords
-    const matchingFiles = collectedFiles
-      .filter((f) => {
-        const pLower = f.path.toLowerCase();
-        return keywords.some((kw) => pLower.includes(kw) || f.content.toLowerCase().includes(kw));
-      })
-      .map((f) => f.path)
-      .slice(0, 2);
+  const summary =
+    verdict === "passed"
+      ? "The submitted repository contains clean, well-structured code fulfilling all core deliverables and acceptance criteria."
+      : evaluation.block_reasons.length > 0
+      ? `Task requirements incomplete: ${evaluation.block_reasons.join(" ")}`
+      : "The core project structure is established, but some required criteria or edge cases require additional implementation and testing.";
 
-    const hasMatch = matchingFiles.length > 0;
-
-    return {
-      criterion,
-      status: hasMatch ? ("met" as const) : ("partially_met" as const),
-      evidence: hasMatch ? matchingFiles : [collectedFiles[0]?.path || "README.md"],
-      reason: hasMatch
-        ? `Implementation addressing this criterion was statically identified in ${matchingFiles.join(", ")}.`
-        : "Partial static evidence found in repository. Ensure all edge cases and assertions are fully implemented.",
-      critical: isCritical,
-    };
-  });
-
-  const allCriteriaMet = criteriaResults.every((c) => c.status === "met");
-  const verdict = allCriteriaMet && evidence.collection_status === "success" ? "passed" : "needs_revision";
-  const score = verdict === "passed" ? 88 : 68;
+  const nextStep =
+    verdict === "passed"
+      ? "Great work! Proceed to the next progressive task in your curriculum milestone."
+      : evaluation.actionable_feedback.length > 0
+      ? evaluation.actionable_feedback.join(" ")
+      : "Refactor the flagged criteria, ensure all required files are committed to GitHub, and resubmit for review.";
 
   return internshipReviewSchema.parse({
     review_id: `rev_fallback_${Date.now()}`,
@@ -126,41 +111,33 @@ export function generateFallbackReview(context: ReviewContext): InternshipReview
     attempt_number: currentSubmission.attempt_number,
     verdict,
     score,
-    summary:
-      verdict === "passed"
-        ? "The submitted repository contains clean, well-structured code fulfilling all core deliverables and acceptance criteria."
-        : "The core project structure is established, but some required criteria or edge cases require additional implementation and testing.",
-    criteria_results: criteriaResults,
+    summary,
+    criteria_results: evaluation.criterion_evaluations,
     technical_quality: {
-      architecture_score: verdict === "passed" ? 88 : 70,
-      code_quality_score: verdict === "passed" ? 85 : 70,
-      testing_score: (evidence.test_files || []).length > 0 ? 80 : 50,
-      documentation_score: evidence.readme ? 85 : 60,
-      notes: "Static structural inspection completed. Code shows good modular design and clean file separation.",
+      architecture_score: verdict === "passed" ? 88 : 45,
+      code_quality_score: verdict === "passed" ? 85 : 45,
+      testing_score: (evidence.test_files || []).length > 0 ? (evaluation.test_verification.tests_match_task ? 80 : 35) : 20,
+      documentation_score: evidence.readme ? 75 : 30,
+      notes: evaluation.block_reasons.length > 0 ? evaluation.block_reasons.join(" ") : "Static structural inspection completed.",
     },
-    deliverables_evaluated: task.deliverables.map((deliv) => {
-      const match = collectedFiles.find((f) => deliv.toLowerCase().includes(f.path.toLowerCase()));
-      return {
-        deliverable: deliv,
-        status: match ? "present" : "present",
-        evidence_path: match ? match.path : collectedFiles[0]?.path || "README.md",
-      };
-    }),
-    strengths: [
-      "Modular file architecture adhering to domain standard conventions.",
-      "Clear separation of concerns across configuration, implementation, and test files.",
-    ],
+    deliverables_evaluated: evaluation.deliverables_evaluated,
+    strengths:
+      verdict === "passed"
+        ? [
+            "Modular file architecture adhering to domain standard conventions.",
+            "Clear separation of concerns across configuration, implementation, and test files.",
+          ]
+        : ["Repository is publicly accessible with valid Git commit."],
     improvements:
       verdict === "passed"
         ? ["Consider adding expanded integration test coverage across additional edge cases."]
+        : evaluation.block_reasons.length > 0
+        ? evaluation.block_reasons
         : [
             "Ensure all acceptance criteria have corresponding unit test assertions.",
             "Verify documentation outlines local verification and setup instructions clearly.",
           ],
-    next_step:
-      verdict === "passed"
-        ? "Great work! Proceed to the next progressive task in your curriculum milestone."
-        : "Refactor the flagged criteria, ensure all required files are committed to GitHub, and resubmit for review.",
+    next_step: nextStep,
     review_engine_version: "1.0",
     created_at: new Date().toISOString(),
   });

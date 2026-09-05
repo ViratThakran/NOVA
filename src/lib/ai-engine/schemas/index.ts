@@ -309,6 +309,29 @@ export const evidenceCollectionStatusSchema = z.enum([
 ]);
 export type EvidenceCollectionStatus = z.infer<typeof evidenceCollectionStatusSchema>;
 
+export const commitChangedFileSchema = z.object({
+  path: z.string(),
+  status: z.enum(["added", "modified", "deleted", "renamed", "unchanged"]).default("modified"),
+  additions: z.number().default(0),
+  deletions: z.number().default(0),
+  patch: z.string().optional(),
+});
+export type CommitChangedFile = z.infer<typeof commitChangedFileSchema>;
+
+export const commitMetadataSchema = z.object({
+  commit_sha: z.string().optional(),
+  author_name: z.string().optional(),
+  author_email: z.string().optional(),
+  committer_name: z.string().optional(),
+  committer_email: z.string().optional(),
+  committed_at: z.string().optional(),
+  message: z.string().optional(),
+  parent_shas: z.array(z.string()).default([]),
+  changed_files: z.array(commitChangedFileSchema).default([]),
+  provenance_verified: z.boolean().default(false),
+});
+export type CommitMetadata = z.infer<typeof commitMetadataSchema>;
+
 export const repositoryEvidenceSchema = z.object({
   repository: z.object({
     owner: z.string().min(1),
@@ -316,8 +339,8 @@ export const repositoryEvidenceSchema = z.object({
     default_branch: z.string().default("main"),
     commit_sha: z.string().default("HEAD").optional(),
     description: z.string().nullable().optional(),
-    topics: z.array(z.string()).default([]),
-    languages: z.array(z.string()).default([]),
+    topics: z.array(z.string()).default([]).optional(),
+    languages: z.array(z.string()).default([]).optional(),
     is_private: z.boolean().default(false),
   }),
   readme: z.string().nullable().optional(),
@@ -327,7 +350,7 @@ export const repositoryEvidenceSchema = z.object({
       type: z.enum(["file", "dir"]),
       size: z.number().nonnegative().optional(),
     })
-  ).default([]),
+  ).default([]).optional(),
   source_files: z.array(
     z.object({
       path: z.string().min(1),
@@ -335,20 +358,34 @@ export const repositoryEvidenceSchema = z.object({
       language: z.string().optional(),
       line_count: z.number().nonnegative().default(0),
     })
-  ).default([]),
+  ).default([]).optional(),
   test_files: z.array(
     z.object({
       path: z.string().min(1),
       content: z.string(),
       framework: z.string().optional(),
     })
-  ).default([]),
+  ).default([]).optional(),
   config_files: z.array(
     z.object({
       path: z.string().min(1),
       content: z.string(),
     })
-  ).default([]),
+  ).default([]).optional(),
+  data_files: z.array(
+    z.object({
+      path: z.string().min(1),
+      size: z.number().nonnegative().optional(),
+      preview: z.string().optional(),
+    })
+  ).default([]).optional(),
+  doc_files: z.array(
+    z.object({
+      path: z.string().min(1),
+      content: z.string(),
+    })
+  ).default([]).optional(),
+  commit_metadata: commitMetadataSchema.optional(),
   collected_at: z.string().default(() => new Date().toISOString()),
   collection_status: evidenceCollectionStatusSchema.default("success"),
   error_message: z.string().nullable().optional(),
@@ -430,6 +467,15 @@ export type RuntimeEvidence = z.infer<typeof runtimeEvidenceSchema>;
 export const criterionStatusSchema = z.enum(["met", "partially_met", "not_met", "unable_to_verify"]);
 export type CriterionStatus = z.infer<typeof criterionStatusSchema>;
 
+export const criterionVerificationMethodSchema = z.enum([
+  "static_analysis",
+  "runtime_test",
+  "commit_diff",
+  "manual",
+  "none",
+]);
+export type CriterionVerificationMethod = z.infer<typeof criterionVerificationMethodSchema>;
+
 export const criterionResultSchema = z.object({
   criterion: z.string().min(1),
   status: criterionStatusSchema,
@@ -437,6 +483,8 @@ export const criterionResultSchema = z.object({
   runtime_evidence: z.string().nullable().optional(), // Factual runner verification citation
   reason: z.string().min(5).max(2000),
   critical: z.boolean().default(false),
+  verification_method: criterionVerificationMethodSchema.default("static_analysis").optional(),
+  source: z.string().optional(),
 });
 export type CriterionResult = z.infer<typeof criterionResultSchema>;
 

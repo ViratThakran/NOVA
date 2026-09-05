@@ -183,6 +183,83 @@ export async function processSubmissionJobAsync(
       };
     }
 
+    // STAGE 2.5: TASK_RELEVANCE_GATE (Deterministic Pre-Review Check)
+    logs.push(`[Worker] Stage 2.5: Evaluating deterministic task relevance gate for commit ${submission.commit_sha}...`);
+    const { runTaskRelevanceGate } = await import("./evidence/gate");
+    const gateResult = runTaskRelevanceGate(task, staticEvidence, submission);
+
+    if (gateResult.status === "rejected") {
+      logs.push(`[Worker] Relevance Gate REJECTED submission: ${gateResult.reason}`);
+      const rejectionReview = gateResult.rejectionReview!;
+
+      // Persist review to public.internship_reviews
+      await insertInternshipReview(supabase, {
+        submission_id: submissionId,
+        task_id: task.id,
+        attempt_number: submission.attempt_number,
+        verdict: "needs_revision",
+        score: rejectionReview.score,
+        summary: rejectionReview.summary,
+        criteria_results: rejectionReview.criteria_results,
+        technical_quality: rejectionReview.technical_quality,
+        deliverables_evaluated: rejectionReview.deliverables_evaluated,
+        strengths: rejectionReview.strengths,
+        improvements: rejectionReview.improvements,
+        next_step: rejectionReview.next_step,
+      });
+
+      // Complete execution job with exit code 1
+      await updateExecutionJobStatus(supabase, jobId, {
+        status: "completed",
+        exit_code: 1,
+        completed_at: new Date().toISOString(),
+      });
+
+      await updateSubmissionStatus(supabase, submissionId, "needs_revision");
+      await updateInternshipTaskStatus(supabase, task.id, "needs_revision");
+
+      // Update student learning state
+      const currentLearningState = await getStudentLearningState(supabase, submission.enrollment_id);
+      const prevTotal = currentLearningState?.total_submissions || 0;
+      const prevPassed = currentLearningState?.passed_submissions || 0;
+      const prevAvg = currentLearningState?.average_score || 0;
+
+      const newTotal = prevTotal + 1;
+      const newAvg = Math.round(((prevAvg * prevTotal) + rejectionReview.score) / newTotal);
+
+      await upsertStudentLearningState(supabase, {
+        enrollment_id: submission.enrollment_id,
+        student_id: submission.student_id,
+        internship_id: enrollment.internship_id,
+        total_submissions: newTotal,
+        passed_submissions: prevPassed,
+        average_score: newAvg,
+        learning_velocity: 0.9,
+        difficulty_recommendation: "SCAFFOLD",
+        completed_milestones: currentLearningState?.completed_milestones || [],
+        capstone_progress_percentage: currentLearningState?.capstone_progress_percentage || 0,
+        observed_strengths: rejectionReview.strengths,
+        observed_weaknesses: rejectionReview.improvements,
+        active_task_id: task.id,
+        last_evaluated_at: new Date().toISOString(),
+      });
+
+      await supabase.from("notifications").insert({
+        user_id: submission.student_id,
+        title: "Task Revision Required",
+        message: rejectionReview.summary,
+      });
+
+      return {
+        success: true,
+        submissionId,
+        jobId,
+        verdict: "needs_revision",
+        score: rejectionReview.score,
+        logs,
+      };
+    }
+
     // STAGE 3: SANDBOX_EXECUTION
     logs.push(`[Worker] Stage 3: Executing Modal microVM runtime tests for commit ${submission.commit_sha}...`);
     await updateSubmissionStatus(supabase, submissionId, "running_verification");

@@ -585,17 +585,19 @@ export function StudentLearningWorkspace({
                           <GitBranch className="h-3.5 w-3.5" />
                           <span>{sub.branch}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 font-mono">
-                          <GitCommit className="h-3.5 w-3.5" />
-                          <a
-                            href={`${sub.githubUrl}/commit/${sub.commitSha}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="hover:underline text-primary"
-                          >
-                            {sub.commitSha.slice(0, 7)}
-                          </a>
-                        </div>
+                        {sub.commitSha && (
+                          <div className="flex items-center gap-1.5 font-mono">
+                            <GitCommit className="h-3.5 w-3.5" />
+                            <a
+                              href={`${sub.githubUrl}/commit/${sub.commitSha}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="hover:underline text-primary"
+                            >
+                              {(sub.commitSha || "").slice(0, 7)}
+                            </a>
+                          </div>
+                        )}
                       </div>
 
                       {/* Review Summary */}

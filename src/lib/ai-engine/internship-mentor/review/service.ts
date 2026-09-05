@@ -156,6 +156,64 @@ export async function evaluateSubmission(
     };
   }
 
+  // 1.5. Evaluate Task Relevance Gate (Deterministic Pre-Review Check)
+  const { runTaskRelevanceGate } = await import("../evidence/gate");
+  const gateResult = runTaskRelevanceGate(task, evidence, submission);
+
+  if (gateResult.status === "rejected") {
+    logs.push(`Relevance Gate REJECTED submission: ${gateResult.reason}`);
+    const rejectionReview = gateResult.rejectionReview!;
+    const valResult = validateReview(rejectionReview, {
+      task,
+      internship,
+      currentMilestone,
+      studentContext,
+      currentSubmission: submission,
+      evidence,
+      previousSubmissions,
+      previousReviews,
+    });
+
+    const updatedSubmission: InternshipSubmission = {
+      ...submission,
+      status: "needs_revision",
+    };
+
+    const newPerformanceRecord: StudentPerformanceRecord = {
+      task_id: task.title.toLowerCase().replace(/[^a-z0-9]/g, "_"),
+      task_title: task.title,
+      milestone_index: currentMilestone.milestone_index,
+      score: rejectionReview.score,
+      verdict: "needs_revision",
+      strengths: rejectionReview.strengths,
+      weaknesses: rejectionReview.improvements,
+      skills_tested: task.skills_practiced,
+      completed_at: new Date().toISOString(),
+    };
+
+    const updatedStudentContext = buildStudentContext({
+      student: studentContext.student,
+      internship,
+      performanceRecords: [...studentContext.performance.recent_records, newPerformanceRecord],
+      progress: {
+        current_milestone_index: currentMilestone.milestone_index,
+        completed_task_count: studentContext.progress.completed_task_count,
+        active_task_id: task.title.toLowerCase().replace(/[^a-z0-9]/g, "_"),
+      },
+    });
+
+    return {
+      submission: updatedSubmission,
+      evidence,
+      runtimeEvidence: null,
+      review: rejectionReview,
+      validation: valResult,
+      updatedStudentContext,
+      notificationEvent: "REVISION_REQUIRED",
+      logs,
+    };
+  }
+
   // 2. Execute Sandbox Runtime Verification
   const queue = options.sandboxQueue ?? new SandboxExecutionQueue();
   logs.push(`Executing runtime verification in isolated sandbox for commit ${submission.commit_sha}...`);

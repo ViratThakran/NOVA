@@ -430,7 +430,7 @@ describe("PHASE 2: Submission, Evidence Collection & AI Review Foundation", () =
   });
 
   describe("6. Critical Acceptance Criteria Policy", () => {
-    it("forces verdict to 'needs_revision' and caps score at <= 65 if a critical criterion is not met", () => {
+    it("forces verdict to 'needs_revision' and caps score at <= 55 if a critical criterion is not met", () => {
       const task: InternshipTask = {
         title: "Auth Service",
         business_context: "Security context",
@@ -522,7 +522,7 @@ describe("PHASE 2: Submission, Evidence Collection & AI Review Foundation", () =
       const val = validateReview(criticalFailReview, context);
       expect(val.valid).toBe(true);
       expect(val.adjusted_verdict).toBe("needs_revision");
-      expect(val.adjusted_score).toBeLessThanOrEqual(65);
+      expect(val.adjusted_score).toBeLessThanOrEqual(55);
     });
   });
 

@@ -563,10 +563,15 @@ describe("PHASE 2 REAL-WORLD VALIDATION SUITE", () => {
       // 2. Evidence Collection Timing
       const repoUrl = "https://github.com/perf-user/perf-repo";
       registerMockRepository(repoUrl, {
-        readme: "# Perf Repo",
-        file_tree: [{ path: "src/main.py", type: "file" }, { path: "tests/test_main.py", type: "file" }],
-        source_files: [{ path: "src/main.py", content: "def main(): pass", line_count: 1 }],
-        test_files: [{ path: "tests/test_main.py", content: "def test_main(): pass" }],
+        readme: "# Perf Repo\nData pipeline implementation for performance benchmarking.",
+        file_tree: [
+          { path: "pipeline.py", type: "file" },
+          { path: "test_pipeline.py", type: "file" },
+          { path: "data_dictionary.md", type: "file" },
+        ],
+        source_files: [{ path: "pipeline.py", content: "import pandas as pd\ndef preprocess_dataset(df):\n    return df.fillna(0)\n", line_count: 3 }],
+        test_files: [{ path: "test_pipeline.py", content: "def test_pipeline():\n    assert True\n" }],
+        doc_files: [{ path: "data_dictionary.md", content: "# Data Dictionary\nSchema info" }],
         config_files: [],
         collection_status: "success",
       });

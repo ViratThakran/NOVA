@@ -68,7 +68,7 @@ export function formatReviewPrompt(context: ReviewContext, validationFeedback?: 
       : "  No configuration files found.";
 
   const fileTreeSummary =
-    (evidence.file_tree || []).length > 0
+    (evidence.file_tree && evidence.file_tree.length > 0)
       ? evidence.file_tree.map((f) => `  - ${f.path} (${f.type})`).join("\n")
       : "  Empty repository tree";
 
